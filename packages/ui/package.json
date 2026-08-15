@@ -1,0 +1,19 @@
+{
+  "name": "@lms/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Дизайн-система: кнопки, поля, иконки, словарь интерфейса и globals.css. Общая на клиентское приложение и админку.",
+  "exports": {
+    ".": "./components.tsx",
+    "./icons": "./icons.tsx",
+    "./i18n": "./i18n.ts",
+    "./useOrigin": "./useOrigin.ts",
+    "./globals.css": "./globals.css",
+    "./admin.css": "./admin.css"
+  },
+  "peerDependencies": {
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@lms/admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Админка: заявки, выдача доступа, проверка работ, редакторы курсов, отчёты. Отдельный домен, закрывается сетевым периметром.",
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lms/prototype": "*",
+    "@lms/ui": "*",
+    "next": "15.1.11",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  }
+}

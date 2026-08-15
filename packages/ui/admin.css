@@ -1,0 +1,133 @@
+/* ---------- Админка ---------- */
+
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.admin-side {
+  width: 244px;
+  flex-shrink: 0;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  padding: 16px 12px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+}
+@media (min-width: 1024px) {
+  .admin-side {
+    display: flex;
+  }
+}
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.admin-nav-group {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 14px 12px 6px;
+}
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: background 0.14s, color 0.14s;
+}
+.admin-nav-item:hover {
+  background: #f1f5f9;
+  color: var(--text);
+}
+.admin-nav-item[data-active="true"] {
+  background: var(--primary-bg);
+  color: var(--primary-pressed);
+  font-weight: 700;
+}
+.admin-nav-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-page {
+  padding: 20px 16px 48px;
+  max-width: 1440px;
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .admin-page {
+    padding: 24px 24px 64px;
+  }
+}
+
+.kpi {
+  padding: 16px;
+  border-radius: var(--r-card);
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kpi-value {
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 160px;
+}
+.bars-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.bars-pair {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 130px;
+  width: 100%;
+  justify-content: center;
+}
+.bar {
+  width: 12px;
+  border-radius: 4px 4px 0 0;
+  background: var(--primary);
+  transition: height 0.4s;
+}
+.bar.b2 {
+  background: #a5b4fc;
+}
+
