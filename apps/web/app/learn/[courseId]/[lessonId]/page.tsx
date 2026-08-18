@@ -1,27 +1,40 @@
 "use client";
 
 /**
- * Плеер урока «/learn/:courseId/:lessonId» — раздел 5.7 брифа, главный экран продукта.
- * Десктоп: контент ~70% + липкая программа справа. Мобильный: видео сверху,
- * программа — в шторке по кнопке.
+ * Экран урока «/learn/:courseId/:lessonId» — раздел 5.7 брифа, главный экран
+ * продукта. Десктоп: контент ~70% + липкая программа справа. Мобильный: видео
+ * сверху, программа — в шторке по кнопке.
+ *
+ * Данные — два параллельных запроса: `GET /lessons/{id}` (заголовок, содержимое,
+ * материалы, отметка о прохождении) и `GET /courses/{id}/program` (сквозной
+ * номер «Урок N из M», соседи «предыдущий/следующий» и сайдбар). Оба требуют
+ * входа и действующего доступа к курсу, поэтому отказов четыре и все разные:
+ * 401 — на `/login`, 403 — «доступ к курсу закрыт», 404/422 — «урок не найден»
+ * (как на странице курса), сеть — «Повторить».
+ *
+ * Ссылку на видео экран не запрашивает: за ней ходит сам плеер
+ * (`GET /lessons/{id}/playback`) — доступ проверяется на каждый её выпуск.
+ *
+ * Вопросы под уроком остаются на прототипе: их API появится своей сессией.
  */
 
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
-  allLessons,
-  getCourse,
-  getLesson,
-  lessonMaterials,
-  lessonThreads,
-  moduleOfLesson,
-  type LessonThread,
-  type ThreadReply,
-} from "@lms/prototype/data";
+  api,
+  isApiError,
+  useLoad,
+  type FileLink,
+  type Lesson,
+  type LessonComplete,
+  type LessonFile,
+  type Program,
+  type ProgramStatusItem,
+} from "@lms/api";
+import { lessonThreads, type LessonThread, type ThreadReply } from "@lms/prototype/data";
 import { useStore } from "@lms/prototype";
 import { BackHeader, TabBar } from "@/components/layout/Shell";
-import { Program, lessonHref } from "@/components/course/Program";
+import { continueHref, CourseProgram } from "@/components/course/CourseProgram";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import {
   Avatar,
@@ -30,11 +43,13 @@ import {
   Button,
   Empty,
   FileRow,
+  fileType,
   LinkButton,
-  Note,
   Progress,
   Sheet,
+  Skeleton,
 } from "@lms/ui";
+import { fileSize } from "@lms/ui/i18n";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -46,80 +61,234 @@ import {
   IconMessage,
 } from "@lms/ui/icons";
 
+/**
+ * Содержимое урока. `body` — JSON как он лежит в базе, и до сессии 7 (редактор
+ * урока) это `{ html }` из нашей же админки — поэтому вставляем как HTML.
+ * Форма не финальная: когда она изменится, править нужно только это место.
+ */
+function LessonBody({ body }: { body: Lesson["body"] }) {
+  const html = typeof body?.html === "string" ? body.html : null;
+  if (!html) return null;
+  return (
+    <article className="lesson-text stack g16" dangerouslySetInnerHTML={{ __html: html }} />
+  );
+}
+
+/** Экран без содержимого: не найдено, доступ закрыт, ошибка сети. */
+function LessonState({
+  courseId,
+  title,
+  text,
+  action,
+}: {
+  courseId: string;
+  title: string;
+  text: string;
+  action: React.ReactNode;
+}) {
+  const { t } = useStore();
+  return (
+    <>
+      <BackHeader href={`/courses/${courseId}`} title={t.lesson} />
+      <main className="page section has-tabbar">
+        <div className="card">
+          <Empty title={title} text={text} action={action} />
+        </div>
+      </main>
+      <TabBar />
+    </>
+  );
+}
+
+function LessonSkeleton({ courseId, title }: { courseId: string; title: string }) {
+  return (
+    <>
+      <BackHeader href={`/courses/${courseId}`} title={title} />
+      <main className="page section has-tabbar stack g20" style={{ paddingTop: 16 }}>
+        <Skeleton h={200} r={14} />
+        <Skeleton w="70%" h={28} />
+        <Skeleton w="40%" h={16} />
+        <Skeleton h={120} r={14} />
+      </main>
+      <TabBar />
+    </>
+  );
+}
+
 export default function LessonPage() {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
   const router = useRouter();
-  const {
-    t,
-    completed,
-    completeLesson,
-    toast,
-    initials,
-    fullName,
-    isEnrolled,
-    isStrict,
-    addReply,
-    repliesFor,
-  } = useStore();
+  const pathname = usePathname();
+  const { t, toast, initials, fullName, addReply, repliesFor } = useStore();
 
-  const [watched, setWatched] = useState(0);
   const [programOpen, setProgramOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [asked, setAsked] = useState<{ id: string; text: string }[]>([]);
-  /** Состояния плеера, которые иначе не поймать руками */
-  const [playerState, setPlayerState] = useState<"ok" | "stalled" | "error">("ok");
+  /** Ответ `POST /lessons/{id}/complete` — прогресс на экране без перезапроса */
+  const [marked, setMarked] = useState<LessonComplete | null>(null);
+  const [marking, setMarking] = useState(false);
+  /** id файла, за ссылкой на который сейчас идём */
+  const [downloading, setDownloading] = useState<number | null>(null);
 
-  const course = getCourse(courseId);
-  const lesson = course ? getLesson(course, lessonId) : undefined;
+  /* id в маршруте — серверные. Нечисловой отдаётся тем же «не найдено»,
+     что и несуществующий: сервер отвечает 404 или 422, разбирать на клиенте
+     нечего (так же ведёт себя страница курса). */
+  const lesson = useLoad(
+    () => api<Lesson>(`/lessons/${encodeURIComponent(lessonId)}`),
+    [lessonId],
+  );
+  const program = useLoad(
+    () => api<Program>(`/courses/${encodeURIComponent(courseId)}/program`),
+    [courseId],
+  );
 
-  if (!course || !lesson) {
+  /* Открыли соседний урок — прогресс из прошлого ответа больше не про него */
+  useEffect(() => setMarked(null), [lessonId]);
+
+  const fail = lesson.error ?? program.error;
+
+  useEffect(() => {
+    if (fail?.code === "unauthorized") {
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    }
+  }, [fail, pathname, router]);
+
+  const retry = () => {
+    lesson.reload();
+    program.reload();
+  };
+
+  if (fail?.code === "unauthorized") {
+    return <LessonSkeleton courseId={courseId} title={t.lesson} />;
+  }
+
+  /* Ошибку показываем, только когда показывать больше нечего: перезапрос
+     программы после отметки не должен сносить открытый урок */
+  if (fail && (!lesson.data || !program.data)) {
+    if (fail.code === "forbidden") {
+      return (
+        <LessonState
+          courseId={courseId}
+          title={t.accessClosedTitle}
+          text={t.accessClosedText}
+          action={
+            <LinkButton href={`/courses/${courseId}`} variant="secondary">
+              {t.toCourse}
+            </LinkButton>
+          }
+        />
+      );
+    }
+    if (fail.status === 404 || fail.status === 422) {
+      return (
+        <LessonState
+          courseId={courseId}
+          title={t.lessonNotFound}
+          text={t.lessonNotFoundText}
+          action={
+            <LinkButton href={`/courses/${courseId}`} variant="secondary">
+              {t.toCourse}
+            </LinkButton>
+          }
+        />
+      );
+    }
     return (
-      <>
-        <BackHeader href={`/courses/${courseId}`} title="Урок" />
-        <main className="page section has-tabbar">
-          <div className="card">
-            <Empty
-              title="Урок не найден"
-              text="Возможно, урок удалён или ссылка устарела."
-              action={
-                <LinkButton href={`/courses/${courseId}`} variant="secondary">
-                  К программе курса
-                </LinkButton>
-              }
-            />
-          </div>
-        </main>
-        <TabBar />
-      </>
+      <LessonState
+        courseId={courseId}
+        title={t.loadError}
+        text={t.loadErrorText}
+        action={
+          <Button variant="secondary" onClick={retry}>
+            {t.retry}
+          </Button>
+        }
+      />
     );
   }
 
-  const lessons = allLessons(course);
-  const done = completed[course.id] ?? [];
-  const isDone = done.includes(lesson.id);
-  const mod = moduleOfLesson(course, lesson.id);
-  const idx = lessons.findIndex((l) => l.id === lesson.id);
-  const prev = idx > 0 ? lessons[idx - 1] : undefined;
-  const next = idx < lessons.length - 1 ? lessons[idx + 1] : undefined;
-  const strict = isStrict(course.id);
-  const nextLocked = !!next && !isDone && strict;
-  const enrolled = isEnrolled(course.id);
+  if (!lesson.data || !program.data) {
+    return <LessonSkeleton courseId={courseId} title={t.lesson} />;
+  }
 
-  const markDone = () => {
-    completeLesson(course.id, lesson.id);
-    toast("Урок отмечен как пройденный", "success");
+  const l = lesson.data;
+  const modules = program.data.program;
+  /* Сквозной порядок: модули по порядку, внутри модуля — элементы по порядку.
+     «Урок N из M» и соседи считаются по всем элементам, как и прогресс курса
+     на сервере, — иначе два экрана одного курса покажут разные числа. */
+  const items = modules.flatMap((m) => m.items);
+  const idx = items.findIndex(
+    (i) => (i.kind === "video" || i.kind === "text") && i.id === l.id,
+  );
+  const number = idx >= 0 ? idx + 1 : null;
+  const prev = idx > 0 ? items[idx - 1] : undefined;
+  const next = idx >= 0 && idx < items.length - 1 ? items[idx + 1] : undefined;
+  const mod = modules.find((m) => m.id === l.module_id);
+  const lessonLabel = number ? t.lessonOf(number, items.length) : t.lesson;
+
+  const isDone = marked?.is_completed ?? l.is_completed;
+  const doneCount = marked?.done_count ?? items.filter((i) => i.status === "done").length;
+  const totalCount = marked?.total_count ?? items.length;
+  const percent =
+    marked?.progress_percent ??
+    (totalCount ? Math.round((doneCount / totalCount) * 100) : 0);
+
+  const markDone = async () => {
+    if (marking || isDone) return;
+    setMarking(true);
+    try {
+      const res = await api<LessonComplete>(
+        `/lessons/${encodeURIComponent(lessonId)}/complete`,
+        { method: "POST" },
+      );
+      setMarked(res);
+      toast(t.lessonMarkedDone, "success");
+      /* Программу перезапрашиваем всегда: статусы элементов (галочка этого
+         урока, снятые замки строгого порядка) считает сервер, а тянуть ради
+         `strict_order` ещё и `GET /courses/{id}` — это лишний запрос на каждый
+         вход в урок против одного на клик. Экран его не ждёт: «N из M»
+         и процент уже перерисованы ответом POST. */
+      program.reload();
+    } catch (e) {
+      if (isApiError(e, "unauthorized")) {
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      } else if (isApiError(e) && e.status > 0) {
+        /* 403 и 404 объясняет текст сервера */
+        toast(e.message, "error");
+      } else {
+        toast(t.markDoneError, "error");
+      }
+    } finally {
+      setMarking(false);
+    }
   };
 
+  /* Ссылка на файл подписана и живёт 15 минут — открываем её, скачивает браузер */
+  const download = async (f: LessonFile) => {
+    if (downloading !== null) return;
+    setDownloading(f.id);
+    try {
+      const link = await api<FileLink>(`/files/${f.id}`);
+      const opened = window.open(link.url, "_blank", "noopener");
+      /* Ссылку просим после await — блокировщик мог не пустить новое окно */
+      if (!opened) window.location.href = link.url;
+    } catch (e) {
+      toast(isApiError(e) && e.status > 0 ? e.message : t.fileLinkError, "error");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  /* Сосед — тест или задание: их экраны на прототипе до сессии 5, ведём
+     к программе курса, и подпись кнопки говорит об этом честно */
+  const isLesson = (i?: ProgramStatusItem) => i?.kind === "video" || i?.kind === "text";
+
   const goNext = () => {
-    if (!next) {
-      router.push(`/courses/${course.id}`);
+    if (next?.status === "locked") {
+      toast(t.lockedNext);
       return;
     }
-    if (nextLocked) {
-      toast("Завершите текущий урок, чтобы открыть следующий");
-      return;
-    }
-    router.push(lessonHref(course.id, next));
+    router.push(continueHref(courseId, next));
   };
 
   const submitQuestion = () => {
@@ -142,14 +311,12 @@ export default function LessonPage() {
     toast("Ответ добавлен — его увидят все, кто откроет этот урок", "success");
   };
 
-  const progressPct = Math.round((done.length / lessons.length) * 100);
-
   return (
     <>
       <BackHeader
-        href={`/courses/${course.id}`}
-        title={lesson.title}
-        subtitle={`${t.lessonOf(lesson.n, lessons.length)} · ${mod?.title ?? ""}`}
+        href={`/courses/${courseId}`}
+        title={l.title}
+        subtitle={mod ? `${lessonLabel} · ${mod.title}` : lessonLabel}
         right={
           <button
             className="btn btn-secondary btn-sm program-btn"
@@ -163,22 +330,10 @@ export default function LessonPage() {
 
       <main className="has-tabbar">
         {/* Видео — на мобильном во всю ширину, без полей */}
-        {lesson.kind === "video" && (
+        {l.kind === "video" && (
           <div className="player-wrap">
             <div className="player-inner">
-              <VideoPlayer
-                title={lesson.title}
-                lessonLabel={t.lessonOf(lesson.n, lessons.length)}
-                durationLabel={lesson.duration}
-                resumeAt={isDone ? 0 : 272}
-                onProgress={setWatched}
-                stalled={playerState === "stalled"}
-                error={playerState === "error"}
-                onRetry={() => {
-                  setPlayerState("ok");
-                  toast("Ссылка обновлена — продолжаем с того же места", "success");
-                }}
-              />
+              <VideoPlayer lessonId={l.id} title={l.title} />
             </div>
           </div>
         )}
@@ -190,105 +345,59 @@ export default function LessonPage() {
               <header className="stack g10">
                 <Breadcrumbs
                   items={[
-                    { label: course.title, href: `/courses/${course.id}` },
+                    { label: t.secProgram, href: `/courses/${courseId}` },
                     { label: mod?.title ?? "" },
                   ]}
                 />
                 <div className="row between wrap g12">
-                  <h1 className="h1 pretty">{lesson.title}</h1>
+                  <h1 className="h1 pretty">{l.title}</h1>
                   {isDone ? (
                     <Badge kind="done" icon={<IconCheck size={13} />}>
                       {t.lessonDone}
                     </Badge>
                   ) : (
-                    <Badge kind="neutral">{t.lessonOf(lesson.n, lessons.length)}</Badge>
+                    <Badge kind="neutral">{lessonLabel}</Badge>
                   )}
                 </div>
               </header>
 
-              {!enrolled && (
-                <Note kind="warning">
-                  Доступ к курсу ещё не открыт — прогресс не сохранится.{" "}
-                  <Link href={`/courses/${course.id}`} style={{ fontWeight: 700 }}>
-                    Оставить заявку
-                  </Link>
-                </Note>
-              )}
-
-              {/* Прототипные переключатели состояний плеера */}
-              {lesson.kind === "video" && (
-                <div className="row wrap g8 caption muted-3">
-                  <span>Состояния плеера для проверки:</span>
-                  <button
-                    className="chip"
-                    data-active={playerState === "stalled" || undefined}
-                    onClick={() => setPlayerState(playerState === "stalled" ? "ok" : "stalled")}
-                  >
-                    Не удалось продолжить
-                  </button>
-                  <button
-                    className="chip"
-                    data-active={playerState === "error" || undefined}
-                    onClick={() => setPlayerState(playerState === "error" ? "ok" : "error")}
-                  >
-                    Видео недоступно
-                  </button>
-                </div>
-              )}
-
               {/* Текст урока */}
-              <article className="lesson-text stack g16">
-                <p>
-                  Google Формы позволяют собрать проверочный тест за несколько минут.
-                  В этом уроке создадим тест из пяти вопросов с автоматической проверкой
-                  и посмотрим, как ученики видят его на телефоне.
-                </p>
-
-                <h2 className="h2">Ключевые шаги</h2>
-                <ol className="stack g8" style={{ paddingLeft: 22 }}>
-                  <li>Создать форму и включить режим теста</li>
-                  <li>Добавить вопросы и отметить правильные ответы</li>
-                  <li>Назначить баллы за каждый вопрос</li>
-                  <li>Отправить ссылку в Google Класс</li>
-                </ol>
-
-                <blockquote className="note note-info" style={{ fontSize: 15 }}>
-                  <div>
-                    <strong>Совет:</strong> делайте первый вопрос простым — это снижает
-                    тревожность и настраивает класс на работу.
-                  </div>
-                </blockquote>
-
-                <p>
-                  Если ученики заходят без Google-аккаунта, в настройках формы нужно
-                  отключить «Требовать вход в аккаунт». Иначе часть класса не сможет
-                  открыть тест с домашнего устройства.
-                </p>
-              </article>
+              <LessonBody body={l.body} />
 
               {/* Материалы */}
               <section className="stack g12">
                 <h2 className="h2">{t.secMaterials}</h2>
-                <div className="stack g8">
-                  {lessonMaterials.map((f) => (
-                    <FileRow
-                      key={f.name}
-                      type={f.type}
-                      name={f.name}
-                      size={f.size}
-                      action={
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<IconDownload size={16} />}
-                          onClick={() => toast(`Файл «${f.name}» скачивается`, "success")}
-                        >
-                          <span className="download-label">{t.download}</span>
-                        </Button>
-                      }
+                {l.files.length === 0 ? (
+                  <div className="card">
+                    <Empty
+                      icon={<IconDownload size={34} />}
+                      title={t.materialsEmptyTitle}
+                      text={t.materialsEmptyText}
                     />
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="stack g8">
+                    {l.files.map((f) => (
+                      <FileRow
+                        key={f.id}
+                        type={fileType(f.mime)}
+                        name={f.name}
+                        size={fileSize(f.size_bytes)}
+                        action={
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            loading={downloading === f.id}
+                            icon={<IconDownload size={16} />}
+                            onClick={() => download(f)}
+                          >
+                            <span className="download-label">{t.download}</span>
+                          </Button>
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
 
               {/* Кнопка зачёта */}
@@ -303,19 +412,15 @@ export default function LessonPage() {
                 ) : (
                   /* Урок отмечает пройденным сам учитель. Автоотметки по просмотру нет:
                      это самая частая запись во всей системе ради подписи на кнопке */
-                  <div className="stack g8">
-                    <Button block size="lg" onClick={markDone} icon={<IconCheck size={18} />}>
-                      {t.markDone}
-                    </Button>
-                    {lesson.kind === "video" && watched > 0 && (
-                      <div className="row g10">
-                        <Progress value={watched * 100} />
-                        <span className="caption muted-3 nowrap">
-                          просмотрено {Math.round(watched * 100)}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  <Button
+                    block
+                    size="lg"
+                    loading={marking}
+                    onClick={markDone}
+                    icon={<IconCheck size={18} />}
+                  >
+                    {t.markDone}
+                  </Button>
                 )}
 
                 <div className="row g10 nav-row">
@@ -323,10 +428,10 @@ export default function LessonPage() {
                     variant="secondary"
                     block
                     disabled={!prev}
-                    onClick={() => prev && router.push(lessonHref(course.id, prev))}
+                    onClick={() => prev && router.push(continueHref(courseId, prev))}
                     icon={<IconArrowLeft size={17} />}
                   >
-                    Предыдущий урок
+                    {prev && !isLesson(prev) ? t.toProgram : t.prevLesson}
                   </Button>
                   <Button
                     variant={isDone ? "primary" : "secondary"}
@@ -334,13 +439,13 @@ export default function LessonPage() {
                     onClick={goNext}
                     iconRight={<IconArrowRight size={17} />}
                   >
-                    {next ? "Следующий урок" : "К программе курса"}
+                    {isLesson(next) ? t.nextLesson : t.toProgram}
                   </Button>
                 </div>
-                {nextLocked && (
+                {next?.status === "locked" && (
                   <span className="caption muted-3 row g6">
                     <IconLock size={14} />
-                    Завершите текущий урок, чтобы открыть следующий
+                    {t.lockedNext}
                   </span>
                 )}
               </section>
@@ -409,14 +514,12 @@ export default function LessonPage() {
                 <div className="card card-pad stack g8">
                   <div className="row between">
                     <strong className="small">{t.secProgram}</strong>
-                    <span className="caption muted">
-                      {done.length} из {lessons.length}
-                    </span>
+                    <span className="caption muted">{t.ofTotal(doneCount, totalCount)}</span>
                   </div>
-                  <Progress value={progressPct} />
+                  <Progress value={percent} />
                 </div>
                 <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
-                  <Program course={course} activeLessonId={lesson.id} strict={strict} compact />
+                  <CourseProgram program={modules} courseId={courseId} activeItemId={l.id} />
                 </div>
               </div>
             </aside>
@@ -428,17 +531,14 @@ export default function LessonPage() {
       <Sheet open={programOpen} onClose={() => setProgramOpen(false)} title={t.secProgram}>
         <div className="stack g12">
           <div className="row between">
-            <span className="small muted">Пройдено уроков</span>
-            <strong className="small">
-              {done.length} из {lessons.length}
-            </strong>
+            <span className="small muted">{t.progressDone}</span>
+            <strong className="small">{t.ofTotal(doneCount, totalCount)}</strong>
           </div>
-          <Progress value={progressPct} />
-          <Program
-            course={course}
-            activeLessonId={lesson.id}
-            strict={strict}
-            compact
+          <Progress value={percent} />
+          <CourseProgram
+            program={modules}
+            courseId={courseId}
+            activeItemId={l.id}
             onNavigate={() => setProgramOpen(false)}
           />
         </div>

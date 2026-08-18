@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
+import { fullName, useMe, userInitials } from "@lms/api";
 import { useStore } from "@lms/prototype";
 import { adminContacts, notifications, type NotifType } from "@lms/prototype/data";
+import { phoneFmt } from "@lms/ui/i18n";
+import { admin } from "@/lib/urls";
 import { Avatar, Badge } from "@lms/ui";
 import {
   IconBell,
@@ -218,7 +221,8 @@ function NavLinks({ items, label }: { items: NavItem[]; label: string }) {
 /* ============ Публичная шапка (лендинг, каталог, проверка) ============ */
 
 export function PublicHeader() {
-  const { t, authed } = useStore();
+  const { t } = useStore();
+  const authed = Boolean(useMe().me);
   const [menu, setMenu] = useState(false);
 
   const links: NavItem[] = [
@@ -386,7 +390,8 @@ export function TeacherHeader({ title }: { title?: string }) {
 /* ============ Меню пользователя ============ */
 
 function UserMenu() {
-  const { t, initials, fullName, profile, lang, setLang, set } = useStore();
+  const { t, lang, setLang } = useStore();
+  const { me, logout } = useMe();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -411,6 +416,12 @@ function UserMenu() {
     { href: "/notifications", label: t.navNotifications, icon: IconBell },
   ];
 
+  /* Пока /me не ответил, меню не рисуем — шапка не «мигает» заглушкой */
+  if (!me) return null;
+
+  const name = fullName(me);
+  const initials = userInitials(me);
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
@@ -421,7 +432,7 @@ function UserMenu() {
         aria-label="Меню пользователя"
       >
         <Avatar initials={initials} size={32} />
-        <span className="user-btn-name desktop-only">{profile.firstName || "Профиль"}</span>
+        <span className="user-btn-name desktop-only">{me.first_name || "Профиль"}</span>
         <IconChevronDown size={16} className="user-btn-chevron desktop-only" data-open={open} />
       </button>
 
@@ -430,8 +441,8 @@ function UserMenu() {
           <div className="row g10" style={{ padding: "14px 14px 12px" }}>
             <Avatar initials={initials} size={40} />
             <div className="stack grow" style={{ minWidth: 0, lineHeight: 1.3 }}>
-              <strong className="small clamp-2">{fullName || "Заполните профиль"}</strong>
-              <span className="caption muted-3">{profile.phone}</span>
+              <strong className="small clamp-2">{name || "Заполните профиль"}</strong>
+              <span className="caption muted-3">{phoneFmt(me.phone)}</span>
             </div>
           </div>
           <hr className="divider" />
@@ -470,23 +481,21 @@ function UserMenu() {
 
           <hr className="divider" />
           <div style={{ padding: 6 }}>
-            <Link
-              href="/admin"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="usermenu-item"
-            >
-              <IconSettings size={18} />
-              <span className="grow">Админка</span>
-              <IconChevronRight size={15} className="muted-3" />
-            </Link>
+            {/* Отдельного входа в админку нет — пункт виден только админам */}
+            {me.is_admin && (
+              <a href={admin()} role="menuitem" className="usermenu-item">
+                <IconSettings size={18} />
+                <span className="grow">Админка</span>
+                <IconChevronRight size={15} className="muted-3" />
+              </a>
+            )}
             <button
               role="menuitem"
               className="usermenu-item"
               style={{ color: "var(--danger)", width: "100%", border: "none", background: "none", cursor: "pointer" }}
-              onClick={() => {
+              onClick={async () => {
                 setOpen(false);
-                set({ authed: false });
+                await logout();
                 router.push("/");
               }}
             >

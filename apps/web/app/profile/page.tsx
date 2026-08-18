@@ -3,15 +3,32 @@
 /**
  * Профиль «/profile» — раздел 5.13 брифа.
  * Кнопка «Сохранить» появляется только при изменениях.
+ *
+ * Данные — `GET /me`, сохранение — `PATCH /me` (только изменённые поля).
+ * Устройства — `GET /me/sessions`: города нет (геолокации по IP не делаем),
+ * вместо «где» показываем «когда»; устройство и браузер выводим из user_agent.
  */
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { regions, sessions } from "@lms/prototype/data";
+import { useEffect, useMemo, useState } from "react";
+import {
+  api,
+  fullName,
+  isApiError,
+  useDictionaries,
+  useLoad,
+  useMe,
+  userInitials,
+  type Session,
+  type SessionList,
+  type User,
+} from "@lms/api";
 import { useStore } from "@lms/prototype";
+import { dayTime, phoneFmt } from "@lms/ui/i18n";
+import { buildPatch, formFromUser } from "@/lib/userForm";
 import { admin } from "@/lib/urls";
 import { TeacherShell } from "@/components/layout/Shell";
-import { Avatar, Badge, Button, LinkButton, Note, Sheet } from "@lms/ui";
+import { Avatar, Badge, Button, LinkButton, Note, Sheet, Skeleton } from "@lms/ui";
 import {
   IconCamera,
   IconChevronRight,
@@ -21,38 +38,124 @@ import {
   IconSettings,
 } from "@lms/ui/icons";
 
+/** «Mozilla/5.0 (iPhone; …) … Safari/…» → «iPhone · Safari» */
+function deviceLabel(ua: string): string {
+  const device = /iPhone/i.test(ua)
+    ? "iPhone"
+    : /iPad/i.test(ua)
+      ? "iPad"
+      : /Android/i.test(ua)
+        ? "Android"
+        : /Macintosh/i.test(ua)
+          ? "Mac"
+          : /Windows/i.test(ua)
+            ? "Windows"
+            : "Устройство";
+  const browser = /Edg\//i.test(ua)
+    ? "Edge"
+    : /OPR\/|Opera/i.test(ua)
+      ? "Opera"
+      : /Chrome\//i.test(ua)
+        ? "Chrome"
+        : /Firefox\//i.test(ua)
+          ? "Firefox"
+          : /Safari\//i.test(ua)
+            ? "Safari"
+            : "браузер";
+  return `${device} · ${browser}`;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
-  const {
-    t,
-    profile,
-    set,
-    setLang,
-    lang,
-    initials,
-    fullName,
-    resetDemo,
-    toast,
-    revokedSessions,
-    revokeSession,
-    revokeOtherSessions,
-  } = useStore();
+  const { me, status } = useMe();
 
-  const [form, setForm] = useState(profile);
+  useEffect(() => {
+    if (status === "guest") router.replace("/login");
+  }, [status, router]);
+
+  if (!me) {
+    return (
+      <TeacherShell>
+        <div className="page section stack g20" style={{ paddingTop: 20 }}>
+          <Skeleton w={180} h={30} />
+          <div className="card card-pad stack g12">
+            <Skeleton w="60%" h={18} />
+            <Skeleton w="40%" h={14} />
+            <Skeleton h={44} r={10} />
+            <Skeleton h={44} r={10} />
+          </div>
+        </div>
+      </TeacherShell>
+    );
+  }
+  return <ProfileScreen user={me} />;
+}
+
+function ProfileScreen({ user }: { user: User }) {
+  const router = useRouter();
+  const { setMe, logout: apiLogout } = useMe();
+  const { t, setLang, lang, resetDemo, toast } = useStore();
+  const dictionaries = useDictionaries();
+
+  const [form, setForm] = useState(() => formFromUser(user));
+  const [saving, setSaving] = useState(false);
   const [logout, setLogout] = useState(false);
   const [reset, setReset] = useState(false);
 
-  const dirty = useMemo(
-    () => JSON.stringify(form) !== JSON.stringify(profile),
-    [form, profile],
-  );
+  const sessions = useLoad(() => api<SessionList>("/me/sessions"), []);
+
+  const patch = useMemo(() => buildPatch(user, form), [user, form]);
+  const dirty = Object.keys(patch).length > 0;
 
   const upd = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const save = () => {
-    set({ profile: form });
-    toast("Изменения сохранены", "success");
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const updated = await api<User>("/me", { method: "PATCH", json: patch });
+      setMe(updated);
+      setForm(formFromUser(updated));
+      toast("Изменения сохранены", "success");
+    } catch (e) {
+      toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const revokeSession = async (s: Session) => {
+    try {
+      await api<undefined>(`/me/sessions/${s.id}`, { method: "DELETE" });
+      toast("Выход выполнен на этом устройстве", "success");
+    } catch (e) {
+      toast(isApiError(e) ? e.message : "Не получилось — попробуйте ещё раз", "error");
+    }
+    sessions.reload();
+  };
+
+  const revokeOthers = async () => {
+    try {
+      const { revoked_count } = await api<{ revoked_count: number }>(
+        "/auth/logout_others",
+        { method: "POST" },
+      );
+      toast(
+        revoked_count > 0
+          ? `Вышли на других устройствах: ${revoked_count}`
+          : "Других устройств нет",
+        "success",
+      );
+    } catch (e) {
+      toast(isApiError(e) ? e.message : "Не получилось — попробуйте ещё раз", "error");
+    }
+    sessions.reload();
+  };
+
+  const name = fullName(user);
+  const regions = dictionaries.data?.regions ?? [];
+  const sessionItems = sessions.data?.items ?? [];
+  const onlyCurrent = sessionItems.filter((s) => !s.is_current).length === 0;
 
   return (
     <TeacherShell>
@@ -61,13 +164,13 @@ export default function ProfilePage() {
 
         {/* Шапка профиля */}
         <div className="card card-pad row g16 wrap">
-          <Avatar initials={initials} size={72} />
+          <Avatar initials={userInitials(user)} size={72} />
           <div className="grow stack g6" style={{ minWidth: 200 }}>
             <strong style={{ fontSize: 18, letterSpacing: "-0.01em" }} className="pretty">
-              {fullName || "Заполните ФИО"}
+              {name || "Заполните ФИО"}
             </strong>
             <span className="small muted pretty">
-              {[profile.school, profile.region, profile.subject].filter(Boolean).join(" · ") ||
+              {[user.school, user.region, user.subject].filter(Boolean).join(" · ") ||
                 "Школа и предмет не указаны"}
             </span>
             <Button
@@ -95,8 +198,8 @@ export default function ProfilePage() {
                 <input
                   id="ln"
                   className="input"
-                  value={form.lastName}
-                  onChange={(e) => upd("lastName", e.target.value)}
+                  value={form.last_name}
+                  onChange={(e) => upd("last_name", e.target.value)}
                 />
               </div>
               <div className="field">
@@ -106,8 +209,8 @@ export default function ProfilePage() {
                 <input
                   id="fn"
                   className="input"
-                  value={form.firstName}
-                  onChange={(e) => upd("firstName", e.target.value)}
+                  value={form.first_name}
+                  onChange={(e) => upd("first_name", e.target.value)}
                 />
               </div>
             </div>
@@ -119,8 +222,8 @@ export default function ProfilePage() {
               <input
                 id="mn"
                 className="input"
-                value={form.middleName}
-                onChange={(e) => upd("middleName", e.target.value)}
+                value={form.middle_name}
+                onChange={(e) => upd("middle_name", e.target.value)}
               />
             </div>
 
@@ -186,6 +289,10 @@ export default function ProfilePage() {
                   onChange={(e) => upd("region", e.target.value)}
                 >
                   <option value="">Не выбрано</option>
+                  {/* Регион мог прийти из старых данных и не совпасть со справочником */}
+                  {form.region && !regions.includes(form.region) && (
+                    <option value={form.region}>{form.region}</option>
+                  )}
                   {regions.map((r) => (
                     <option key={r}>{r}</option>
                   ))}
@@ -262,7 +369,7 @@ export default function ProfilePage() {
                     <IconPhone size={20} />
                   </span>
                   <div className="stack">
-                    <strong className="small">{profile.phone}</strong>
+                    <strong className="small">{phoneFmt(user.phone)}</strong>
                     <span className="caption muted-3">вход по SMS</span>
                   </div>
                 </div>
@@ -274,48 +381,50 @@ export default function ProfilePage() {
                   чтобы человек сам увидел лишнее и закрыл доступ */}
               <div className="stack g10">
                 <strong className="small">{t.secDevices}</strong>
-                {sessions.map((s) => {
-                  const revoked = revokedSessions.includes(s.id);
-                  return (
-                    <div key={s.id} className="row g10" style={{ alignItems: "flex-start" }}>
-                      <span style={{ color: revoked ? "var(--text-3)" : "var(--text-2)", marginTop: 2 }}>
-                        <IconDevice size={20} />
+
+                {sessions.loading && (
+                  <div className="stack g8">
+                    <Skeleton h={40} r={10} />
+                    <Skeleton h={40} r={10} />
+                  </div>
+                )}
+                {sessions.error && (
+                  <div className="row between g10">
+                    <span className="small muted">{t.loadError}</span>
+                    <Button variant="ghost" size="sm" onClick={sessions.reload}>
+                      {t.retry}
+                    </Button>
+                  </div>
+                )}
+
+                {sessionItems.map((s) => (
+                  <div key={s.id} className="row g10" style={{ alignItems: "flex-start" }}>
+                    <span style={{ color: "var(--text-2)", marginTop: 2 }}>
+                      <IconDevice size={20} />
+                    </span>
+                    <div className="grow stack g2" style={{ minWidth: 0 }}>
+                      <span className="small" style={{ fontWeight: 600 }}>
+                        {deviceLabel(s.user_agent)}
                       </span>
-                      <div className="grow stack g2" style={{ minWidth: 0 }}>
-                        <span className="small" style={{ fontWeight: 600 }}>
-                          {s.device} · {s.browser}
-                        </span>
-                        <span className="caption muted-3">
-                          {revoked ? "выход выполнен" : `${s.where} · ${s.when}`}
-                        </span>
-                      </div>
-                      {s.current ? (
-                        <Badge kind="done">Это устройство</Badge>
-                      ) : revoked ? (
-                        <Badge kind="locked">Отключено</Badge>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            revokeSession(s.id);
-                            toast("Выход выполнен на этом устройстве", "success");
-                          }}
-                        >
-                          Выйти
-                        </Button>
-                      )}
+                      <span className="caption muted-3">
+                        {s.is_current ? "сейчас" : dayTime(s.last_seen_at, lang)}
+                      </span>
                     </div>
-                  );
-                })}
+                    {s.is_current ? (
+                      <Badge kind="done">Это устройство</Badge>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={() => revokeSession(s)}>
+                        Выйти
+                      </Button>
+                    )}
+                  </div>
+                ))}
+
                 <Button
                   variant="secondary"
                   block
-                  disabled={sessions.filter((s) => !s.current).every((s) => revokedSessions.includes(s.id))}
-                  onClick={() => {
-                    revokeOtherSessions();
-                    toast("Вышли на всех других устройствах", "success");
-                  }}
+                  disabled={sessions.loading || onlyCurrent}
+                  onClick={revokeOthers}
                 >
                   Выйти на других устройствах
                 </Button>
@@ -331,7 +440,8 @@ export default function ProfilePage() {
               </button>
             </section>
 
-            {/* Служебный блок прототипа */}
+            {/* Служебный блок прототипа — для непереведённых на API разделов
+                (уроки, сертификаты, уведомления) */}
             <section className="card card-pad stack g12" style={{ background: "#fbfcff" }}>
               <div className="row g10">
                 <span style={{ color: "var(--text-2)" }}>
@@ -340,17 +450,20 @@ export default function ProfilePage() {
                 <h2 className="h3">Управление прототипом</h2>
               </div>
               <p className="small muted pretty">
-                Сбрасывает демо-данные: записи на курсы, прогресс, результаты тестов
-                и сертификаты. Нужно для проверки пустых состояний.
+                Сбрасывает демо-данные прототипных разделов: прогресс уроков,
+                результаты тестов и сертификаты. Профиль и заявки живут в API
+                и сбросом не затрагиваются.
               </p>
               <div className="stack g8">
                 <Button variant="secondary" block onClick={() => setReset(true)}>
                   Сбросить прототип
                 </Button>
-                <LinkButton href={admin()} variant="ghost" block>
-                  Открыть админку
-                  <IconChevronRight size={16} />
-                </LinkButton>
+                {user.is_admin && (
+                  <LinkButton href={admin()} variant="ghost" block>
+                    Открыть админку
+                    <IconChevronRight size={16} />
+                  </LinkButton>
+                )}
               </div>
             </section>
           </div>
@@ -360,10 +473,10 @@ export default function ProfilePage() {
         {dirty && (
           <div className="desktop-only" style={{ position: "sticky", bottom: 24 }}>
             <div className="row g10">
-              <Button size="lg" onClick={save}>
+              <Button size="lg" loading={saving} onClick={save}>
                 {t.save}
               </Button>
-              <Button size="lg" variant="secondary" onClick={() => setForm(profile)}>
+              <Button size="lg" variant="secondary" onClick={() => setForm(formFromUser(user))}>
                 Отменить
               </Button>
             </div>
@@ -374,10 +487,10 @@ export default function ProfilePage() {
       {dirty && (
         <div className="sticky-cta mobile-only">
           <div className="sticky-cta-inner row g8">
-            <Button variant="secondary" onClick={() => setForm(profile)}>
+            <Button variant="secondary" onClick={() => setForm(formFromUser(user))}>
               Отменить
             </Button>
-            <Button block size="lg" onClick={save}>
+            <Button block size="lg" loading={saving} onClick={save}>
               {t.save}
             </Button>
           </div>
@@ -394,8 +507,8 @@ export default function ProfilePage() {
               variant="danger"
               block
               size="lg"
-              onClick={() => {
-                set({ authed: false });
+              onClick={async () => {
+                await apiLogout();
                 router.push("/");
               }}
             >
@@ -437,19 +550,19 @@ export default function ProfilePage() {
                 router.push("/");
               }}
             >
-              Состояние нового пользователя
+              Пустое состояние
             </Button>
           </div>
         }
       >
         <div className="stack g10">
           <p className="small muted pretty">
-            <strong>Демо-состояние</strong> — учитель в середине курса: 12 из 18 уроков,
-            одно задание зачтено, одно на доработку, есть сертификат.
+            <strong>Демо-состояние</strong> — прототипные разделы с данными: прогресс
+            уроков, задания, сертификат.
           </p>
           <p className="small muted pretty">
-            <strong>Новый пользователь</strong> — пустые экраны: нет курсов, сертификатов
-            и профиля. Выход из аккаунта, старт с лендинга.
+            <strong>Пустое состояние</strong> — прототипные разделы без данных, для
+            проверки пустых экранов. На вход и профиль не влияет.
           </p>
         </div>
       </Sheet>

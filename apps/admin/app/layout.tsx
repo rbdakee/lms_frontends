@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import "@lms/ui/globals.css";
 import "@lms/ui/admin.css";
+import { MeProvider } from "@lms/api";
 import { StoreProvider } from "@lms/prototype";
 import { ToastHost } from "@lms/prototype/ToastHost";
 
@@ -35,10 +36,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru" className={manrope.variable}>
       <body>
-        <StoreProvider>
-          {children}
-          <ToastHost />
-        </StoreProvider>
+        <MeProvider>
+          <StoreProvider>
+            {children}
+            <ToastHost />
+          </StoreProvider>
+        </MeProvider>
       </body>
     </html>
   );

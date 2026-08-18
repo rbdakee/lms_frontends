@@ -1,52 +1,95 @@
 "use client";
 
-/** Главная учителя «/my» — раздел 5.6 брифа. Одно главное действие: продолжить курс. */
+/**
+ * Главная учителя «/my» — раздел 5.6 брифа. Одно главное действие: продолжить курс.
+ *
+ * Данные — `GET /me/courses`: карточки с готовыми `done_count`/`total_count`/
+ * `progress_percent`/`next_lesson` (клиентского расчёта прогресса больше нет)
+ * и блок «Ожидают подтверждения» из `leads`. «Новые курсы» — из `GET /courses`.
+ *
+ * Блоки «Требует внимания» (задания, ответы) и «Сертификаты» вернутся
+ * с сессиями 5–6 — их данные ещё живут только в прототипе уроков.
+ */
 
 import Link from "next/link";
-import { useState } from "react";
-import { allLessons, catalogCourses, getCourse, type Course } from "@lms/prototype/data";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  api,
+  categoryTitle,
+  useDictionaries,
+  useLoad,
+  useMe,
+  type CatalogOut,
+  type MyCourse,
+  type MyCourses,
+} from "@lms/api";
 import { useStore } from "@lms/prototype";
 import { TeacherShell } from "@/components/layout/Shell";
 import {
   CourseRow,
   MyCourseCard,
   PendingCourseCard,
-  useCourseProgress,
+  pickVersion,
 } from "@/components/course/CourseCard";
-import { currentLesson, lessonHref } from "@/components/course/Program";
+import { continueHref } from "@/components/course/CourseProgram";
 import {
   Cover,
   CourseCardSkeleton,
+  Button,
   Empty,
   LinkButton,
   Progress,
   RowSkeleton,
   Skeleton,
 } from "@lms/ui";
-import {
-  IconAlert,
-  IconArrowRight,
-  IconCatalog,
-  IconChevronRight,
-  IconMail,
-  IconPlay,
-} from "@lms/ui/icons";
+import { useState } from "react";
+import { IconArrowRight, IconCatalog } from "@lms/ui/icons";
+
+function isFinished(c: MyCourse): boolean {
+  return c.completed_at !== null || (c.total_count > 0 && c.done_count >= c.total_count);
+}
 
 export default function MyPage() {
-  const { t, ready, enrolled, requests, completed, tasks, profile, certs } = useStore();
+  const router = useRouter();
+  const { t, lang } = useStore();
+  const { me, status } = useMe();
   const [tab, setTab] = useState<"progress" | "done">("progress");
 
-  const myCourses = enrolled.map((id) => getCourse(id)).filter(Boolean) as Course[];
+  useEffect(() => {
+    if (status === "guest") router.replace("/login");
+  }, [status, router]);
 
-  /** Курсы с отправленной заявкой — доступа ещё нет */
-  const pending = Object.entries(requests)
-    .map(([id, days]) => ({ course: getCourse(id), days }))
-    .filter((p): p is { course: Course; days: number } => Boolean(p.course));
+  const mine = useLoad<MyCourses | null>(
+    () => (me ? api<MyCourses>("/me/courses") : Promise.resolve(null)),
+    [me?.id],
+  );
+  const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
 
-  const isFinished = (c: Course) => {
-    const total = allLessons(c).length || c.lessons;
-    return total > 0 && (completed[c.id] ?? []).length >= total;
-  };
+  if (!me || mine.loading) return <LoadingSkeleton />;
+
+  if (mine.error) {
+    return (
+      <TeacherShell>
+        <div className="page section" style={{ paddingTop: 20 }}>
+          <div className="card">
+            <Empty
+              title={t.loadError}
+              text={t.loadErrorText}
+              action={
+                <Button variant="secondary" onClick={mine.reload}>
+                  {t.retry}
+                </Button>
+              }
+            />
+          </div>
+        </div>
+      </TeacherShell>
+    );
+  }
+
+  const myCourses = mine.data?.items ?? [];
+  const pending = mine.data?.leads ?? [];
 
   const inProgress = myCourses.filter((c) => !isFinished(c));
   const finished = myCourses.filter(isFinished);
@@ -54,41 +97,25 @@ export default function MyPage() {
   /** Курс для блока «Продолжить обучение» — самый продвинутый незавершённый. */
   const primary = inProgress
     .slice()
-    .sort((a, b) => (completed[b.id]?.length ?? 0) - (completed[a.id]?.length ?? 0))[0];
+    .sort((a, b) => b.progress_percent - a.progress_percent)[0];
 
-  const attention = [
-    ...Object.entries(tasks)
-      .filter(([, s]) => s === "rework")
-      .map(([id]) => ({
-        kind: "rework" as const,
-        id,
-        title: "Задание «План цифрового урока» — на доработку",
-        text: "Посмотрите комментарий администратора",
-        href: `/learn/digital-literacy/task/${id}`,
-      })),
-    {
-      kind: "answer" as const,
-      id: "answer",
-      title: "Ответ на ваш вопрос",
-      text: "Урок 6 · Создание теста за 10 минут",
-      href: "/learn/digital-literacy/l6",
-    },
-  ];
-
-  /** Свежие курсы каталога без доступа — никаких рекомендательных алгоритмов */
-  const fresh = catalogCourses
-    .filter((c) => !enrolled.includes(c.id) && !(c.id in requests) && c.status !== "closed")
-    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+  /** Свежие курсы каталога без доступа и заявки — никаких рекомендаций */
+  const knownIds = new Set([
+    ...myCourses.map((c) => c.id),
+    ...pending.map((l) => l.course.id),
+  ]);
+  const fresh = (catalog.data?.items ?? [])
+    .filter((g) => !g.versions.some((v) => knownIds.has(v.id)))
+    .map((g) => pickVersion(g, lang))
+    .filter((v) => v.status !== "closed")
     .slice(0, 3);
 
   const nothingYet = myCourses.length === 0 && pending.length === 0;
 
-  if (!ready) return <LoadingSkeleton />;
-
   return (
     <TeacherShell>
       <div className="page section stack g32" style={{ paddingTop: 20 }}>
-        <h1 className="h1">{t.greeting(profile.firstName || "учитель")}</h1>
+        <h1 className="h1">{t.greeting(me.first_name || "учитель")}</h1>
 
         {/* ===== Продолжить обучение ===== */}
         {primary ? (
@@ -168,41 +195,8 @@ export default function MyPage() {
           <section className="stack g12">
             <h2 className="h2">{t.secPending}</h2>
             <div className="stack g12 pending-list">
-              {pending.map((p) => (
-                <PendingCourseCard key={p.course.id} course={p.course} days={p.days} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ===== Требует внимания ===== */}
-        {myCourses.length > 0 && attention.length > 0 && (
-          <section className="stack g12">
-            <h2 className="h2">{t.secAttention}</h2>
-            <div className="stack g10">
-              {attention.map((a) => (
-                <Link key={a.id} href={a.href} className="card card-link card-pad row g12">
-                  <span
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 12,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                      background: a.kind === "rework" ? "var(--danger-bg)" : "var(--primary-bg)",
-                      color: a.kind === "rework" ? "var(--danger)" : "var(--primary)",
-                    }}
-                  >
-                    {a.kind === "rework" ? <IconAlert size={20} /> : <IconMail size={20} />}
-                  </span>
-                  <span className="grow stack g4" style={{ minWidth: 0 }}>
-                    <strong className="small pretty">{a.title}</strong>
-                    <span className="caption muted-3">{a.text}</span>
-                  </span>
-                  <IconChevronRight size={18} className="muted-3" />
-                </Link>
+              {pending.map((l) => (
+                <PendingCourseCard key={l.id} lead={l} />
               ))}
             </div>
           </section>
@@ -225,20 +219,6 @@ export default function MyPage() {
             </div>
           </section>
         )}
-
-        {/* ===== Сертификаты ===== */}
-        {certs.length > 0 && (
-          <Link href="/certificates" className="card card-link card-pad row between g12">
-            <span className="stack g4">
-              <strong className="small">
-                У вас {certs.length}{" "}
-                {certs.length === 1 ? "сертификат" : certs.length < 5 ? "сертификата" : "сертификатов"}
-              </strong>
-              <span className="caption muted-3">Скачать PDF или скопировать ссылку проверки</span>
-            </span>
-            <IconChevronRight size={18} className="muted-3" />
-          </Link>
-        )}
       </div>
 
       <style>{`
@@ -253,62 +233,48 @@ export default function MyPage() {
 
 /* ============ Блок «Продолжить обучение» ============ */
 
-function ContinueBlock({ course }: { course: Course }) {
-  const { t, completed } = useStore();
-  const { doneCount, total, pct } = useCourseProgress(course);
-  const done = completed[course.id] ?? [];
-  const next = currentLesson(course, done);
+/**
+ * Прогресс и следующий урок приходят готовыми. Кнопка ведёт прямо в урок —
+ * кроме случая, когда следующий шаг тест или задание: их экраны на прототипе
+ * до сессии 5, туда ведём через страницу курса.
+ */
+function ContinueBlock({ course }: { course: MyCourse }) {
+  const { t } = useStore();
+  const dictionaries = useDictionaries();
 
   return (
     <section className="stack g12">
       <h2 className="h2">{t.continue}</h2>
       <div className="card continue-card">
         <Link href={`/courses/${course.id}`} className="continue-cover">
-          <Cover tone={course.cover} />
+          <Cover tone="cover-c1" src={course.cover} />
         </Link>
         <div className="stack g16 card-pad grow">
           <div className="stack g6">
             <span className="caption" style={{ color: "var(--primary)" }}>
-              {course.category}
+              {categoryTitle(dictionaries.data?.categories, course.category_id)}
             </span>
             <Link href={`/courses/${course.id}`}>
               <h3 className="h2 pretty" style={{ fontSize: 20 }}>
                 {course.title}
               </h3>
             </Link>
-            {next && (
-              <span className="small muted pretty">
-                {t.lessonOf(next.n, total)} · {next.title}
-              </span>
+            {course.next_lesson && (
+              <span className="small muted pretty">Следующий: {course.next_lesson.title}</span>
             )}
           </div>
 
           <div className="stack g6">
             <div className="row between small">
-              <span className="muted">{t.ofLessons(doneCount, total)}</span>
-              <strong style={{ color: "var(--primary)" }}>{pct}%</strong>
+              <span className="muted">{t.ofLessons(course.done_count, course.total_count)}</span>
+              <strong style={{ color: "var(--primary)" }}>{course.progress_percent}%</strong>
             </div>
-            <Progress value={pct} thick />
+            <Progress value={course.progress_percent} thick />
           </div>
 
-          {next ? (
-            <LinkButton
-              href={lessonHref(course.id, next)}
-              size="lg"
-              block
-              icon={<IconPlay size={17} />}
-            >
-              {next.kind === "quiz"
-                ? "Перейти к тесту"
-                : next.kind === "task"
-                  ? "Перейти к заданию"
-                  : "Продолжить урок"}
-            </LinkButton>
-          ) : (
-            <LinkButton href={`/courses/${course.id}/complete`} size="lg" block variant="success">
-              Завершить курс
-            </LinkButton>
-          )}
+          <LinkButton href={continueHref(course.id, course.next_lesson)} size="lg" block>
+            {t.continueShort}
+          </LinkButton>
         </div>
       </div>
 

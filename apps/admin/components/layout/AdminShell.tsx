@@ -3,21 +3,27 @@
 /**
  * Каркас админки — десктоп-первым, но открывается с планшета и телефона.
  * На узких экранах боковое меню превращается в шторку.
+ *
+ * Отдельного входа в админку нет: тот же вход по SMS на domain.kz, права —
+ * `is_admin` у пользователя. Каркас проверяет `GET /me` и не пускает гостей
+ * и учителей без прав — права при этом проверяются и на сервере, гейт здесь
+ * только чтобы не показывать пустые экраны с ошибками 403.
  */
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { api, qs, useLoad, useMe, userInitials, type AdminLeadsPage } from "@lms/api";
 import { adminSubmissions } from "@lms/prototype/data";
-import { useNewLeadsCount } from "@/components/admin/leads";
 import { web } from "@/lib/urls";
-import { Avatar, Sheet } from "@lms/ui";
+import { Avatar, Empty, Sheet } from "@lms/ui";
 import {
   IconChart,
   IconChevronRight,
   IconInbox,
   IconLayers,
   IconLogout,
+  IconLock,
   IconMail,
   IconMenu,
   IconMessage,
@@ -68,13 +74,18 @@ const NAV: { group: string; items: NavItem[] }[] = [
 
 /**
  * Счётчики есть только у «Заявок» и «Проверки работ» — это две очереди,
- * которые действительно кто-то ждёт. У вопросов и отзывов их нет: колокольчика
- * в админке тоже нет, уведомления админа живут в Telegram-боте (5.15).
+ * которые действительно кто-то ждёт. Новые заявки считает сервер
+ * (`total` при `status=new`); очередь работ — прототип до сессии 5.
+ * У вопросов и отзывов счётчиков нет: колокольчика в админке тоже нет,
+ * уведомления админа живут в Telegram-боте (5.15).
  */
 function useBadgeValue() {
-  const newLeads = useNewLeadsCount();
+  const newLeads = useLoad(
+    () => api<AdminLeadsPage>(`/admin/leads${qs({ status: "new", per_page: 1 })}`),
+    [],
+  );
   return (key?: string) => {
-    if (key === "leads") return newLeads;
+    if (key === "leads") return newLeads.data?.total ?? 0;
     if (key === "queue") return adminSubmissions.length;
     return 0;
   };
@@ -114,6 +125,49 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/** Гость или учитель без прав — вежливый отказ вместо пустых экранов с 403. */
+function AdminGate() {
+  const { status, blocked_message } = useMe();
+
+  if (status === "loading") {
+    return (
+      <div className="row center" style={{ minHeight: "100dvh" }}>
+        <span className="spinner" style={{ width: 28, height: 28, color: "var(--primary)" }} />
+      </div>
+    );
+  }
+
+  const guest = status === "guest" || status === "error";
+  return (
+    <div className="row center" style={{ minHeight: "100dvh", padding: 16 }}>
+      <div className="card" style={{ maxWidth: 480, width: "100%" }}>
+        <Empty
+          icon={<IconLock size={36} />}
+          title={guest ? "Вход не выполнен" : "Нет доступа"}
+          text={
+            status === "blocked"
+              ? blocked_message ?? "Доступ заблокирован."
+              : guest
+                ? "Отдельного входа в админку нет. Войдите по SMS в приложении учителя — если у аккаунта есть права администратора, админка откроется."
+                : "У этого аккаунта нет прав администратора. Если они должны быть — напишите владельцу платформы."
+          }
+          action={
+            guest ? (
+              <a href={web("/login")} className="btn btn-primary">
+                Войти на {new URL(web("/")).host}
+              </a>
+            ) : (
+              <a href={web("/my")} className="btn btn-secondary">
+                Кабинет учителя
+              </a>
+            )
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
 export function AdminShell({
   children,
   title,
@@ -126,6 +180,13 @@ export function AdminShell({
   actions?: ReactNode;
 }) {
   const [menu, setMenu] = useState(false);
+  const { me } = useMe();
+
+  if (!me?.is_admin) return <AdminGate />;
+
+  const adminName =
+    [me.last_name, me.first_name && `${me.first_name[0]}.`].filter(Boolean).join(" ") ||
+    "Администратор";
 
   return (
     <div className="admin-shell">
@@ -152,10 +213,10 @@ export function AdminShell({
         <div style={{ marginTop: "auto", paddingTop: 16 }}>
           <hr className="divider" style={{ marginBottom: 12 }} />
           <div className="row g10" style={{ padding: "4px 8px" }}>
-            <Avatar initials="АБ" size={34} tone="neutral" />
+            <Avatar initials={userInitials(me)} size={34} tone="neutral" />
             <div className="stack grow" style={{ minWidth: 0, lineHeight: 1.25 }}>
-              <strong className="small">Аскарова Б.</strong>
-              <span className="caption muted-3">методист</span>
+              <strong className="small">{adminName}</strong>
+              <span className="caption muted-3">администратор</span>
             </div>
           </div>
           <Link href={web("/my")} className="admin-nav-item" style={{ marginTop: 6 }}>

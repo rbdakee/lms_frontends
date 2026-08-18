@@ -3,62 +3,85 @@
 /**
  * Карточка заявки «/leads/:id» — раздел 5.26 брифа.
  *
- * Всё, что нужно перед звонком: кто это, какие у него ещё курсы (повторный
- * клиент или новый), что уже происходило по заявке и заметка админа.
+ * Всё, что нужно перед звонком: кто это, что за курс, заметка админа.
  * Главное действие — «Открыть доступ»: после него курс появляется у учителя.
+ *
+ * Точечного `GET /admin/leads/{id}` в контракте пока нет — заявка ищется
+ * по страницам списка (`findLead`), пожелание записано владельцу. История
+ * заявки в модели данных тоже отсутствует — блок сведён к «создана /
+ * напоминание / текущий статус». «Другие курсы учителя» вернутся вместе
+ * с карточкой учителя (сессия 7).
  */
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import {
-  getCourse,
-  getTeacher,
-  LEAD_STATUS_LABEL,
-  teacherCourses,
-} from "@lms/prototype/data";
-import { price as fmtPrice } from "@lms/ui/i18n";
+import { api, isApiError, useLoad, type AdminLead, type LeadStatus } from "@lms/api";
+import { dayTime, phoneFmt, price as fmtPrice } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
-import {
-  DEMO_TEACHER_ID,
-  isOpenLead,
-  useLead,
-  useLeadsOfTeacher,
-} from "@/components/admin/leads";
+import { findLead, isOpenLead, LEAD_STATUS_LABEL } from "@/components/admin/leadsApi";
 import { LeadStatusPicker, PhoneActions } from "@/components/admin/LeadStatus";
 import { Waiting } from "@/components/admin/Waiting";
-import { GrantAccessSheet } from "@/components/admin/GrantAccess";
+import { GrantLeadSheet } from "@/components/admin/GrantLead";
 import { web } from "@/lib/urls";
 import { AdminShell } from "@/components/layout/AdminShell";
 import {
   Avatar,
-  Badge,
   Breadcrumbs,
   Button,
   Empty,
   LinkButton,
   Note,
-  Progress,
   StatusBadge,
 } from "@lms/ui";
-import { IconCheck, IconChevronRight } from "@lms/ui/icons";
+import { IconCheck } from "@lms/ui/icons";
 
 export default function LeadCardPage() {
   const { id } = useParams<{ id: string }>();
-  const { lang, grantAccess, setLeadStatus, toast } = useStore();
-  const lead = useLead(id);
-  const teacherLeads = useLeadsOfTeacher(lead?.teacherId ?? "");
+  const { lang, toast } = useStore();
+
+  const lead = useLoad(() => findLead(Number(id)), [id]);
 
   const [granting, setGranting] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
 
-  if (!lead) {
+  if (lead.loading) {
+    return (
+      <AdminShell title="Заявка">
+        <div className="card card-pad row center" style={{ minHeight: 200 }}>
+          <span className="spinner" style={{ width: 26, height: 26, color: "var(--primary)" }} />
+        </div>
+      </AdminShell>
+    );
+  }
+
+  if (lead.error) {
+    return (
+      <AdminShell title="Заявка">
+        <div className="card">
+          <Empty
+            title="Не удалось загрузить"
+            text="Проверьте интернет и попробуйте ещё раз."
+            action={
+              <Button variant="secondary" onClick={lead.reload}>
+                Повторить
+              </Button>
+            }
+          />
+        </div>
+      </AdminShell>
+    );
+  }
+
+  const l = lead.data;
+  if (!l) {
     return (
       <AdminShell title="Заявка не найдена">
         <div className="card">
           <Empty
             title="Заявка не найдена"
-            text="Возможно, демо-состояние сбросили — заявка исчезла вместе с ним."
+            text="Возможно, ссылка устарела."
             action={
               <LinkButton href="/leads" variant="secondary">
                 Ко всем заявкам
@@ -70,29 +93,38 @@ export default function LeadCardPage() {
     );
   }
 
-  const teacher = getTeacher(lead.teacherId);
-  const course = getCourse(lead.courseId);
-  const noteText = note ?? lead.note ?? "";
-  const access = teacherCourses(lead.teacherId);
-  const otherLeads = teacherLeads.filter((l) => l.id !== lead.id);
+  const teacherName = [l.teacher.last_name, l.teacher.first_name, l.teacher.middle_name]
+    .filter(Boolean)
+    .join(" ");
+  const noteText = note ?? l.note ?? "";
 
-  const grant = () => {
-    if (lead.teacherId === DEMO_TEACHER_ID) grantAccess(lead.courseId);
-    setLeadStatus(lead.id, "granted");
-    toast("Доступ открыт — курс появился у учителя, ему ушло уведомление", "success");
+  const replaceLead = (updated: AdminLead) => lead.setData(updated);
+
+  const saveNote = async () => {
+    setSavingNote(true);
+    try {
+      const updated = await api<AdminLead>(`/admin/leads/${l.id}`, {
+        method: "PATCH",
+        json: { note: noteText.trim() || null },
+      });
+      replaceLead(updated);
+      setNote(null);
+      toast("Заметка сохранена");
+    } catch (e) {
+      toast(isApiError(e) ? e.message : "Не удалось сохранить заметку", "error");
+    } finally {
+      setSavingNote(false);
+    }
   };
 
   return (
     <AdminShell
-      title={teacher?.name ?? "Заявка"}
-      subtitle={`Заявка на «${course?.title}» · ${lead.created}`}
+      title={teacherName || "Заявка"}
+      subtitle={`Заявка на «${l.course.title}» · ${dayTime(l.created_at, lang)}`}
     >
       <div className="stack g16">
         <Breadcrumbs
-          items={[
-            { label: "Заявки", href: "/leads" },
-            { label: teacher?.name ?? "Заявка" },
-          ]}
+          items={[{ label: "Заявки", href: "/leads" }, { label: teacherName || `№${l.id}` }]}
         />
 
         <div className="lead-two">
@@ -100,81 +132,45 @@ export default function LeadCardPage() {
           <aside className="stack g16">
             <div className="card card-pad stack g14">
               <div className="row g12">
-                <Avatar initials={teacher?.initials ?? "??"} size={54} tone="neutral" />
+                <Avatar
+                  initials={
+                    ((l.teacher.first_name[0] ?? "") + (l.teacher.last_name[0] ?? "")).toUpperCase() ||
+                    "??"
+                  }
+                  size={54}
+                  tone="neutral"
+                />
                 <div className="grow stack g4" style={{ minWidth: 0 }}>
-                  <strong className="pretty">{teacher?.name}</strong>
-                  <span className="caption muted-3">{teacher?.subject}</span>
+                  <strong className="pretty">{teacherName}</strong>
+                  <span className="caption muted-3">{l.teacher.subject}</span>
                 </div>
               </div>
 
               <hr className="divider" />
 
               <dl className="stack g10" style={{ margin: 0 }}>
-                {[
-                  ["Школа", teacher?.school],
-                  ["Регион", teacher?.region],
-                  ["Телефон", teacher?.phone],
-                  ["Email", teacher?.email],
-                  ["Регистрация", teacher?.registered],
-                ].map(([k, v]) => (
-                  <div key={k} className="row between g10" style={{ alignItems: "flex-start" }}>
-                    <dt className="caption muted nowrap">{k}</dt>
-                    <dd
-                      className="small"
-                      style={{ margin: 0, textAlign: "right", fontWeight: 600 }}
-                    >
-                      {v}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-
-              <PhoneActions phoneRaw={teacher?.phoneRaw ?? ""} />
-
-              <Link href={`/teachers/${lead.teacherId}`} className="btn btn-ghost btn-sm">
-                Карточка учителя
-                <IconChevronRight size={15} />
-              </Link>
-            </div>
-
-            {/* Другие курсы — видно, повторный это клиент или новый */}
-            <div className="card card-pad stack g12">
-              <h2 className="h3">Другие курсы учителя</h2>
-              {access.length === 0 && otherLeads.length === 0 ? (
-                <p className="small muted pretty">
-                  Курсов пока нет — это первая заявка, клиент новый.
-                </p>
-              ) : (
-                <div className="stack g12">
-                  {access.map(({ participant, course: c }) => (
-                    <div key={c.id} className="stack g6">
-                      <div className="row between wrap g8">
-                        <span className="small pretty" style={{ fontWeight: 600 }}>
-                          {c.title}
-                        </span>
-                        <Badge kind={participant.finished ? "done" : "progress"}>
-                          {participant.finished ? "Пройден" : "В процессе"}
-                        </Badge>
-                      </div>
-                      <Progress
-                        value={Math.round((participant.lessonsDone / c.lessons) * 100)}
-                      />
-                      <span className="caption muted-3">
-                        {participant.lessonsDone} из {c.lessons} уроков
-                      </span>
+                {(
+                  [
+                    ["Школа", l.teacher.school],
+                    ["Регион", l.teacher.region],
+                    ["Телефон", phoneFmt(l.teacher.phone)],
+                  ] as [string, string][]
+                )
+                  .filter(([, v]) => v)
+                  .map(([k, v]) => (
+                    <div key={k} className="row between g10" style={{ alignItems: "flex-start" }}>
+                      <dt className="caption muted nowrap">{k}</dt>
+                      <dd
+                        className="small"
+                        style={{ margin: 0, textAlign: "right", fontWeight: 600 }}
+                      >
+                        {v}
+                      </dd>
                     </div>
                   ))}
+              </dl>
 
-                  {otherLeads.map((l) => (
-                    <Link key={l.id} href={`/leads/${l.id}`} className="row between g10">
-                      <span className="small pretty grow" style={{ minWidth: 0 }}>
-                        {getCourse(l.courseId)?.title}
-                      </span>
-                      <StatusBadge status={LEAD_STATUS_LABEL[l.status]} />
-                    </Link>
-                  ))}
-                </div>
-              )}
+              <PhoneActions phone={l.teacher.phone} />
             </div>
           </aside>
 
@@ -184,59 +180,58 @@ export default function LeadCardPage() {
               <div className="row between wrap g10">
                 <div className="stack g4" style={{ minWidth: 0 }}>
                   <span className="caption muted">Курс</span>
-                  <Link href={`/courses/${lead.courseId}`} className="pretty">
-                    <strong>{course?.title}</strong>
-                  </Link>
+                  {/* Страница курса живёт в приложении учителя — там и смотрим */}
+                  <a href={web(`/courses/${l.course.id}`)} className="pretty">
+                    <strong>{l.course.title}</strong>
+                  </a>
                 </div>
-                <StatusBadge status={LEAD_STATUS_LABEL[lead.status]} />
+                <StatusBadge status={LEAD_STATUS_LABEL[l.status as LeadStatus]} />
               </div>
 
               <div className="row wrap g14">
                 <div className="stack g2">
-                  <span className="caption muted">Цена</span>
+                  <span className="caption muted">Цена на момент заявки</span>
                   <strong style={{ fontSize: 20, letterSpacing: "-0.01em" }}>
-                    {fmtPrice(lead.price ?? course?.price, lang)}
+                    {fmtPrice(l.price_snapshot ?? undefined, lang)}
                   </strong>
                 </div>
                 <div className="stack g2">
                   <span className="caption muted">Заявка</span>
-                  <strong className="small">{lead.created}</strong>
+                  <strong className="small">{dayTime(l.created_at, lang)}</strong>
                 </div>
-                {isOpenLead(lead.status) && (
+                {isOpenLead(l.status) && (
                   <div className="stack g2">
                     <span className="caption muted">Ожидание</span>
-                    <Waiting days={lead.waiting} redAfter={2} />
+                    <Waiting days={l.waiting_days} redAfter={2} />
                   </div>
                 )}
               </div>
 
-              {lead.reminded && (
+              {l.reminded_at && (
                 <Note kind="warning">
                   <span className="small">
-                    Учитель нажал «Записаться» повторно — новая заявка не создалась,
-                    обновилась дата в этой.
+                    Учитель нажал «Записаться» повторно ({dayTime(l.reminded_at, lang)}) —
+                    новая заявка не создалась, у этой обновилась метка.
                   </span>
-                </Note>
-              )}
-
-              {lead.declineReason && (
-                <Note kind="muted">
-                  <span className="small">Причина отказа: {lead.declineReason}</span>
                 </Note>
               )}
 
               <div className="stack g10">
                 <span className="caption muted">Статус заявки</span>
-                <LeadStatusPicker lead={lead} onGrant={() => setGranting(true)} />
+                <LeadStatusPicker
+                  lead={l}
+                  onGrant={() => setGranting(true)}
+                  onChanged={replaceLead}
+                />
               </div>
 
-              {lead.status === "granted" ? (
+              {l.status === "granted" ? (
                 <Note kind="success">
                   <span className="small">
                     Доступ открыт — курс у учителя в «Моих курсах».{" "}
-                    <Link href={web("/my")} style={{ color: "var(--primary)", fontWeight: 700 }}>
+                    <a href={web("/my")} style={{ color: "var(--primary)", fontWeight: 700 }}>
                       Посмотреть кабинет
-                    </Link>
+                    </a>
                   </span>
                 </Note>
               ) : (
@@ -251,11 +246,22 @@ export default function LeadCardPage() {
               )}
             </div>
 
-            {/* История статусов */}
+            {/* Хронология: полной истории статусов в модели данных пока нет */}
             <div className="card card-pad stack g12">
-              <h2 className="h3">История заявки</h2>
+              <h2 className="h3">Хронология</h2>
               <ol className="stack g12" style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                {lead.history.map((h, i) => (
+                {(
+                  [
+                    { label: "Заявка создана", when: dayTime(l.created_at, lang) },
+                    ...(l.reminded_at
+                      ? [{ label: "Напоминание от учителя", when: dayTime(l.reminded_at, lang) }]
+                      : []),
+                    {
+                      label: `Текущий статус: ${LEAD_STATUS_LABEL[l.status as LeadStatus]}`,
+                      when: "",
+                    },
+                  ] as { label: string; when: string }[]
+                ).map((h, i, arr) => (
                   <li key={i} className="row g10" style={{ alignItems: "flex-start" }}>
                     <span
                       style={{
@@ -264,18 +270,14 @@ export default function LeadCardPage() {
                         borderRadius: 999,
                         marginTop: 6,
                         flexShrink: 0,
-                        background:
-                          i === lead.history.length - 1 ? "var(--primary)" : "var(--border)",
+                        background: i === arr.length - 1 ? "var(--primary)" : "var(--border)",
                       }}
                     />
                     <div className="stack g2 grow" style={{ minWidth: 0 }}>
                       <span className="small" style={{ fontWeight: 600 }}>
-                        {LEAD_STATUS_LABEL[h.status]}
+                        {h.label}
                       </span>
-                      <span className="caption muted-3">
-                        {h.date}
-                        {h.by ? ` · ${h.by}` : ""}
-                      </span>
+                      {h.when && <span className="caption muted-3">{h.when}</span>}
                     </div>
                   </li>
                 ))}
@@ -297,7 +299,9 @@ export default function LeadCardPage() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => toast("Заметка сохранена")}
+                  loading={savingNote}
+                  disabled={note === null || note === (l.note ?? "")}
+                  onClick={saveNote}
                 >
                   Сохранить заметку
                 </Button>
@@ -307,12 +311,11 @@ export default function LeadCardPage() {
         </div>
       </div>
 
-      <GrantAccessSheet
+      <GrantLeadSheet
+        lead={l}
         open={granting}
         onClose={() => setGranting(false)}
-        teacherName={teacher?.name ?? ""}
-        course={course}
-        onGrant={() => grant()}
+        onGranted={lead.reload}
       />
 
       <style>{`

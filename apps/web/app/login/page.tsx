@@ -1,16 +1,25 @@
 "use client";
 
-/** Вход по телефону — раздел 5.4 брифа. Шаг 1: номер. Шаг 2: код из SMS. */
+/**
+ * Вход по телефону — раздел 5.4 брифа. Шаг 1: номер. Шаг 2: код из SMS.
+ *
+ * Живой API: `POST /auth/request_code` → таймер повтора из `retry_after_sec`,
+ * `POST /auth/verify_code` → пользователь и кука сессии. Три состояния ошибок
+ * кода: `wrong_code` (осталось N попыток), `code_expired`, `too_many_attempts`
+ * (ввод заблокирован, таймер). В dev SMS-код пишется в лог контейнера `api`.
+ *
+ * `?next=` — куда вернуть после входа: страница курса присылает сюда учителя,
+ * нажавшего «Записаться» без входа, и заявка отправляется после возвращения.
+ */
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { api, isApiError, useMe, type User } from "@lms/api";
 import { useStore } from "@lms/prototype";
 import { LangSwitch, Logo } from "@/components/layout/Shell";
 import { Button, Note } from "@lms/ui";
 import { IconArrowLeft, IconCheck, IconInfo } from "@lms/ui/icons";
-
-const DEMO_CODE = "4812";
 
 /**
  * Ввод телефона живёт в «пространстве цифр»: в состоянии лежат ровно 10 цифр
@@ -54,23 +63,42 @@ function caretAfterDigits(masked: string, count: number) {
   return masked.length;
 }
 
+/** Ошибка на шаге кода. `blocked` — ввод заблокирован (`too_many_attempts`). */
+type CodeError =
+  | { kind: "wrong"; attempts_left: number }
+  | { kind: "expired" }
+  | { kind: "blocked" }
+  | { kind: "other"; message: string };
+
 export default function LoginPage() {
   const router = useRouter();
-  const { set, onboarded, toast } = useStore();
+  const { toast } = useStore();
+  const { me, setMe } = useMe();
 
   const [step, setStep] = useState<1 | 2>(1);
   /** Только 10 цифр номера, без «+7» — маска строится из них */
-  const [phone, setPhone] = useState("7071234567");
+  const [phone, setPhone] = useState("");
   const [agree, setAgree] = useState(true);
   const [code, setCode] = useState(["", "", "", ""]);
-  const [error, setError] = useState<null | "wrong" | "expired" | "blocked">(null);
-  const [attempts, setAttempts] = useState(3);
-  const [seconds, setSeconds] = useState(59);
+  const [error, setError] = useState<CodeError | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  /** Секунды до повторной отправки кода — из `retry_after_sec` */
+  const [seconds, setSeconds] = useState(0);
+  /** Секунды до разблокировки ввода после `too_many_attempts` */
+  const [blockSeconds, setBlockSeconds] = useState(0);
   const [loading, setLoading] = useState(false);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const phoneInput = useRef<HTMLInputElement | null>(null);
 
   const phoneValid = phone.length === 10;
+
+  /* Уже вошёл и просто открыл /login — на экране входа делать нечего.
+     Проверка шага отличает этот случай от только что успешного входа,
+     где редиректом управляет submitCode (там есть ?next=). */
+  useEffect(() => {
+    if (me && step === 1) router.replace("/my");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, router]);
 
   /** Куда поставить каретку после ближайшей перерисовки поля */
   const caretAt = useRef<number | null>(null);
@@ -104,6 +132,7 @@ export default function LoginPage() {
       el.setSelectionRange(pos, pos);
       return;
     }
+    setPhoneError(null);
     applyPhone(next, keep);
   };
 
@@ -125,44 +154,104 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    if (step !== 2 || seconds <= 0) return;
+    if (seconds <= 0) return;
     const id = setInterval(() => setSeconds((s) => s - 1), 1000);
     return () => clearInterval(id);
-  }, [step, seconds]);
+  }, [seconds > 0]);
+
+  useEffect(() => {
+    if (blockSeconds <= 0) return;
+    const id = setInterval(
+      () =>
+        setBlockSeconds((s) => {
+          /* Таймер вышел — ввод снова открыт */
+          if (s <= 1) setError(null);
+          return s - 1;
+        }),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, [blockSeconds > 0]);
 
   useEffect(() => {
     if (step === 2) inputs.current[0]?.focus();
   }, [step]);
 
-  const sendCode = () => {
-    if (!phoneValid || !agree) return;
+  const sendCode = async () => {
+    if (!phoneValid || !agree || loading) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setPhoneError(null);
+    try {
+      const { retry_after_sec } = await api<{ retry_after_sec: number }>(
+        "/auth/request_code",
+        { method: "POST", json: { phone: maskPhone(phone), consent: agree } },
+      );
       setStep(2);
-      setSeconds(59);
+      setSeconds(retry_after_sec);
+      setBlockSeconds(0);
       setCode(["", "", "", ""]);
       setError(null);
-      toast(`Код отправлен. Для прототипа: ${DEMO_CODE}`, "info");
-    }, 600);
+    } catch (e) {
+      if (isApiError(e, "rate_limited")) {
+        /* Код уже отправлен — идём вводить его, таймер повтора из ответа */
+        setStep(2);
+        setSeconds(e.retryAfterSec || 60);
+        setCode(["", "", "", ""]);
+        setError(null);
+        toast(e.message, "info");
+      } else if (isApiError(e, "too_many_attempts")) {
+        setStep(2);
+        setSeconds(0);
+        setError({ kind: "blocked" });
+        setBlockSeconds(e.retryAfterSec || 600);
+      } else if (isApiError(e)) {
+        setPhoneError(e.message);
+      } else {
+        setPhoneError("Не удалось соединиться с сервером");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const submitCode = (value: string[]) => {
+  const submitCode = async (value: string[]) => {
     const entered = value.join("");
-    if (entered.length < 4) return;
-    if (entered === DEMO_CODE) {
-      setLoading(true);
-      setTimeout(() => {
-        set({ authed: true });
-        router.push(onboarded ? "/my" : "/onboarding");
-      }, 500);
+    if (entered.length < 4 || loading) return;
+    setLoading(true);
+    try {
+      const user = await api<User>("/auth/verify_code", {
+        method: "POST",
+        json: { phone: maskPhone(phone), code: entered },
+      });
+      setMe(user);
+      /* «Записаться» без входа: после входа возвращаем на страницу курса.
+         Новичка сначала ведём в онбординг — заявке нужны ФИО из профиля. */
+      const next = new URLSearchParams(window.location.search).get("next");
+      if (!user.onboarding_done) {
+        router.push(next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding");
+      } else {
+        router.push(next ?? "/my");
+      }
       return;
+    } catch (e) {
+      if (isApiError(e, "wrong_code")) {
+        setError({ kind: "wrong", attempts_left: e.attemptsLeft });
+      } else if (isApiError(e, "code_expired")) {
+        setError({ kind: "expired" });
+      } else if (isApiError(e, "too_many_attempts")) {
+        setError({ kind: "blocked" });
+        setBlockSeconds(e.retryAfterSec || 600);
+      } else {
+        setError({
+          kind: "other",
+          message: e instanceof Error ? e.message : "Что-то пошло не так",
+        });
+      }
+      setCode(["", "", "", ""]);
+      inputs.current[0]?.focus();
+    } finally {
+      setLoading(false);
     }
-    const left = attempts - 1;
-    setAttempts(left);
-    setError(left <= 0 ? "blocked" : "wrong");
-    setCode(["", "", "", ""]);
-    inputs.current[0]?.focus();
   };
 
   const onDigit = (i: number, v: string) => {
@@ -180,7 +269,7 @@ export default function LoginPage() {
       setCode(next);
       setError(null);
       inputs.current[Math.min(filled.length, 3)]?.focus();
-      submitCode(next);
+      void submitCode(next);
       return;
     }
     const next = [...code];
@@ -188,12 +277,15 @@ export default function LoginPage() {
     setCode(next);
     setError(null);
     if (i < 3) inputs.current[i + 1]?.focus();
-    else submitCode(next);
+    else void submitCode(next);
   };
 
   const onKey = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace" && !code[i] && i > 0) inputs.current[i - 1]?.focus();
   };
+
+  const blocked = error?.kind === "blocked";
+  const blockMinutes = Math.max(1, Math.ceil(blockSeconds / 60));
 
   return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
@@ -206,7 +298,6 @@ export default function LoginPage() {
             onClick={() => {
               setStep(1);
               setError(null);
-              setAttempts(3);
             }}
             aria-label="Изменить номер"
           >
@@ -238,7 +329,7 @@ export default function LoginPage() {
                   <input
                     id="phone"
                     ref={phoneInput}
-                    className="input"
+                    className={`input ${phoneError ? "input-error" : ""}`}
                     type="tel"
                     inputMode="numeric"
                     autoComplete="tel"
@@ -247,6 +338,7 @@ export default function LoginPage() {
                     onKeyDown={onPhoneKey}
                     placeholder="+7 (___) ___-__-__"
                   />
+                  {phoneError && <span className="error-text">{phoneError}</span>}
                 </div>
 
                 <label className="check">
@@ -305,7 +397,7 @@ export default function LoginPage() {
                       ref={(el) => {
                         inputs.current[i] = el;
                       }}
-                      className={`input ${error && error !== "expired" ? "input-error" : ""}`}
+                      className={`input ${error && error.kind !== "expired" ? "input-error" : ""}`}
                       style={{
                         width: 58,
                         height: 62,
@@ -318,7 +410,7 @@ export default function LoginPage() {
                       autoComplete="one-time-code"
                       maxLength={4}
                       value={c}
-                      disabled={error === "blocked"}
+                      disabled={blocked}
                       onChange={(e) => onDigit(i, e.target.value)}
                       onKeyDown={(e) => onKey(i, e)}
                       aria-label={`Цифра ${i + 1}`}
@@ -326,24 +418,30 @@ export default function LoginPage() {
                   ))}
                 </div>
 
-                {error === "wrong" && (
+                {error?.kind === "wrong" && (
                   <div className="error-text row center">
-                    Неверный код. Осталось {attempts} {attempts === 1 ? "попытка" : "попытки"}
+                    Неверный код. Осталось {error.attempts_left}{" "}
+                    {error.attempts_left === 1 ? "попытка" : "попытки"}
                   </div>
                 )}
 
-                {error === "expired" && (
+                {error?.kind === "expired" && (
                   <Note kind="warning">
                     Код устарел — он действует 5 минут. Запросите новый.
                   </Note>
                 )}
 
-                {error === "blocked" && (
+                {blocked && (
                   <Note kind="danger">
-                    Ввод кода заблокирован на <strong>10 минут</strong>. Если не получается
-                    войти — напишите нам, поможем.
+                    Ввод кода заблокирован. Попробуйте через{" "}
+                    <strong>
+                      {blockMinutes} {blockMinutes === 1 ? "минуту" : blockMinutes < 5 ? "минуты" : "минут"}
+                    </strong>{" "}
+                    или напишите нам — поможем войти.
                   </Note>
                 )}
+
+                {error?.kind === "other" && <Note kind="danger">{error.message}</Note>}
 
                 {!error && (
                   <div className="row center g6 caption muted-3">
@@ -356,8 +454,8 @@ export default function LoginPage() {
                   block
                   size="lg"
                   loading={loading}
-                  disabled={code.join("").length < 4 || error === "blocked"}
-                  onClick={() => submitCode(code)}
+                  disabled={code.join("").length < 4 || blocked}
+                  onClick={() => void submitCode(code)}
                 >
                   Войти
                 </Button>
@@ -365,30 +463,15 @@ export default function LoginPage() {
                 <div className="row center">
                   {seconds > 0 ? (
                     <span className="small muted-3">
-                      Отправить код повторно через 0:{seconds.toString().padStart(2, "0")}
+                      Отправить код повторно через{" "}
+                      {Math.floor(seconds / 60)}:{(seconds % 60).toString().padStart(2, "0")}
                     </span>
                   ) : (
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => {
-                        setSeconds(59);
-                        setError(null);
-                        setAttempts(3);
-                        setCode(["", "", "", ""]);
-                        toast(`Новый код: ${DEMO_CODE}`, "info");
-                      }}
-                    >
+                    <button className="btn btn-ghost btn-sm" disabled={loading} onClick={sendCode}>
                       Отправить новый код
                     </button>
                   )}
                 </div>
-
-                <Note kind="muted" icon={<IconInfo size={18} />}>
-                  <span className="small">
-                    Прототип: код <strong className="mono">{DEMO_CODE}</strong>. Любой другой
-                    код покажет состояние ошибки.
-                  </span>
-                </Note>
               </>
             )}
           </div>

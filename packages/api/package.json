@@ -1,0 +1,20 @@
+{
+  "name": "@lms/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Слой запросов к бэкенду: обёртка над fetch, сессия в куке, типы из OpenAPI-схемы. Единственное место, которое знает адрес API.",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "generate": "openapi-typescript http://localhost:8000/openapi.json -o types.gen.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.5.2"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}

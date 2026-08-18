@@ -5,49 +5,72 @@
  * Шаг 1: обязательны только фамилия и имя. Фото необязательное — без него
  * показываем инициалы, чтобы загрузка не стояла в критическом пути входа.
  * Шаг 2: можно пропустить.
+ *
+ * Сохранение — `PATCH /me`: шлём только изменённые поля, `null` для строки —
+ * «стереть». Успешный PATCH отмечает `onboarding_done` на сервере.
+ * `?next=` — куда идти после завершения (заявка на курс, начатая до входа).
  */
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { regions } from "@lms/prototype/data";
+import { useEffect, useState } from "react";
+import { api, isApiError, useDictionaries, useMe, type User } from "@lms/api";
 import { useStore } from "@lms/prototype";
+import { buildPatch, formFromUser, type UserForm } from "@/lib/userForm";
 import { Logo } from "@/components/layout/Shell";
 import { Button, Note, Progress } from "@lms/ui";
 import { IconArrowLeft, IconCamera, IconInfo, IconUpload, IconUser } from "@lms/ui/icons";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { profile, set, toast } = useStore();
+  const { me, status } = useMe();
+
+  /* Гостю здесь делать нечего — сначала вход */
+  useEffect(() => {
+    if (status === "guest") router.replace("/login");
+  }, [status, router]);
+
+  if (!me) return null;
+  return <OnboardingForm user={me} />;
+}
+
+function OnboardingForm({ user }: { user: User }) {
+  const router = useRouter();
+  const { setMe } = useMe();
+  const { set, toast } = useStore();
+  const dictionaries = useDictionaries();
+
   const [step, setStep] = useState<1 | 2>(1);
   const [photo, setPhoto] = useState(false);
-  const [form, setForm] = useState({
-    lastName: profile.lastName,
-    firstName: profile.firstName,
-    middleName: profile.middleName,
-    email: profile.email,
-    school: profile.school,
-    position: profile.position,
-    region: profile.region,
-    city: profile.city,
-    subject: profile.subject,
-    experience: profile.experience,
-  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<UserForm>(() => formFromUser(user));
 
-  const upd = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const step1Valid = form.lastName.trim() && form.firstName.trim();
+  const upd = (k: keyof UserForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const step1Valid = form.last_name.trim() && form.first_name.trim();
 
-  const finish = (skipped: boolean) => {
-    set({
-      onboarded: true,
-      authed: true,
-      profile: { ...profile, ...form },
-    });
-    toast(skipped ? "Профиль можно дозаполнить позже" : "Профиль сохранён", "success");
-    router.push("/my");
+  const finish = async (skipped: boolean) => {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      /* PATCH нужен даже без изменений: он отмечает onboarding_done */
+      const updated = await api<User>("/me", {
+        method: "PATCH",
+        json: buildPatch(user, form),
+      });
+      setMe(updated);
+      toast(skipped ? "Профиль можно дозаполнить позже" : "Профиль сохранён", "success");
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next ?? "/my");
+    } catch (e) {
+      setError(isApiError(e) ? e.message : "Не удалось сохранить — попробуйте ещё раз");
+      setSaving(false);
+    }
   };
 
   const initials =
-    ((form.firstName[0] ?? "") + (form.lastName[0] ?? "")).toUpperCase() || "";
+    ((form.first_name[0] ?? "") + (form.last_name[0] ?? "")).toUpperCase() || "";
+  const regions = dictionaries.data?.regions ?? [];
 
   return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
@@ -97,7 +120,7 @@ export default function OnboardingPage() {
                       border: "1px solid var(--border)",
                     }}
                   >
-                    {photo ? initials || <IconUser size={34} /> : initials || <IconUser size={34} />}
+                    {initials || <IconUser size={34} />}
                   </div>
                   <div className="stack g8 grow" style={{ minWidth: 180 }}>
                     <span className="small" style={{ fontWeight: 600 }}>
@@ -144,8 +167,8 @@ export default function OnboardingPage() {
                     <input
                       id="ln"
                       className="input"
-                      value={form.lastName}
-                      onChange={(e) => upd("lastName", e.target.value)}
+                      value={form.last_name}
+                      onChange={(e) => upd("last_name", e.target.value)}
                       placeholder="Нурланова"
                     />
                   </div>
@@ -156,8 +179,8 @@ export default function OnboardingPage() {
                     <input
                       id="fn"
                       className="input"
-                      value={form.firstName}
-                      onChange={(e) => upd("firstName", e.target.value)}
+                      value={form.first_name}
+                      onChange={(e) => upd("first_name", e.target.value)}
                       placeholder="Айгуль"
                     />
                   </div>
@@ -168,8 +191,8 @@ export default function OnboardingPage() {
                     <input
                       id="mn"
                       className="input"
-                      value={form.middleName}
-                      onChange={(e) => upd("middleName", e.target.value)}
+                      value={form.middle_name}
+                      onChange={(e) => upd("middle_name", e.target.value)}
                       placeholder="Сериковна"
                     />
                   </div>
@@ -291,11 +314,13 @@ export default function OnboardingPage() {
                   />
                 </div>
 
+                {error && <Note kind="danger">{error}</Note>}
+
                 <div className="stack g10">
-                  <Button block size="lg" onClick={() => finish(false)}>
+                  <Button block size="lg" loading={saving} onClick={() => finish(false)}>
                     Сохранить и начать
                   </Button>
-                  <Button variant="secondary" block onClick={() => finish(true)}>
+                  <Button variant="secondary" block disabled={saving} onClick={() => finish(true)}>
                     Пропустить
                   </Button>
                 </div>

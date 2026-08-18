@@ -3,38 +3,59 @@
 /**
  * Статус заявки и кнопки связи — раздел 5.26 брифа.
  *
- * Статус меняется одним кликом прямо в строке. «Отказ» требует причины,
- * «Доступ выдан» ставится только через модалку «Открыть доступ»: иначе
- * заявка закроется, а курс у учителя так и не появится.
+ * Статус меняется одним кликом прямо в строке — `PATCH /admin/leads/{id}`.
+ * «Отказ» требует причины (она сохраняется в заметку заявки), «Доступ выдан»
+ * ставится только через модалку «Открыть доступ»: перевод в `granted` этим
+ * эндпоинтом сервер запрещает — иначе заявка закроется, а курс у учителя
+ * так и не появится.
  */
 
 import { useState } from "react";
-import { LEAD_STATUS_LABEL, type LeadStatus } from "@lms/prototype/data";
+import { api, isApiError, type AdminLead, type LeadStatus } from "@lms/api";
 import { useStore } from "@lms/prototype";
-import type { LeadRow } from "./leads";
+import { LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "./leadsApi";
 import { Button, Sheet } from "@lms/ui";
 import { IconPhone, IconWhatsapp } from "@lms/ui/icons";
-
-const ORDER: LeadStatus[] = ["new", "contacted", "paid", "granted", "declined"];
 
 export function LeadStatusPicker({
   lead,
   onGrant,
+  onChanged,
 }: {
-  lead: LeadRow;
+  lead: AdminLead;
   /** «Доступ выдан» проходит через модалку выдачи доступа */
   onGrant: () => void;
+  /** PATCH вернул обновлённую заявку — экран подставляет её на место старой */
+  onChanged: (updated: AdminLead) => void;
 }) {
-  const { setLeadStatus, toast } = useStore();
+  const { toast } = useStore();
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const change = (next: LeadStatus) => {
+  const patch = async (json: { status: LeadStatus; note?: string }) => {
+    setBusy(true);
+    try {
+      const updated = await api<AdminLead>(`/admin/leads/${lead.id}`, {
+        method: "PATCH",
+        json,
+      });
+      onChanged(updated);
+      return updated;
+    } catch (e) {
+      toast(isApiError(e) ? e.message : "Не удалось изменить статус", "error");
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const change = async (next: LeadStatus) => {
     if (next === lead.status) return;
     if (next === "granted") return onGrant();
     if (next === "declined") return setDeclining(true);
-    setLeadStatus(lead.id, next);
-    toast(`Статус заявки: ${LEAD_STATUS_LABEL[next]}`);
+    const updated = await patch({ status: next });
+    if (updated) toast(`Статус заявки: ${LEAD_STATUS_LABEL[next]}`);
   };
 
   return (
@@ -43,10 +64,11 @@ export function LeadStatusPicker({
         className="input"
         aria-label="Статус заявки"
         value={lead.status}
-        onChange={(e) => change(e.target.value as LeadStatus)}
+        disabled={busy}
+        onChange={(e) => void change(e.target.value as LeadStatus)}
         style={{ minHeight: 44 }}
       >
-        {ORDER.map((s) => (
+        {LEAD_STATUS_ORDER.map((s) => (
           <option key={s} value={s}>
             {LEAD_STATUS_LABEL[s]}
           </option>
@@ -64,11 +86,14 @@ export function LeadStatusPicker({
               size="lg"
               variant="danger"
               disabled={!reason.trim()}
-              onClick={() => {
-                setLeadStatus(lead.id, "declined");
-                setDeclining(false);
-                toast(`Заявка закрыта: ${reason.trim()}`);
-                setReason("");
+              loading={busy}
+              onClick={async () => {
+                const updated = await patch({ status: "declined", note: reason.trim() });
+                if (updated) {
+                  setDeclining(false);
+                  toast(`Заявка закрыта: ${reason.trim()}`);
+                  setReason("");
+                }
               }}
             >
               Отметить отказ
@@ -88,7 +113,7 @@ export function LeadStatusPicker({
             onChange={(e) => setReason(e.target.value)}
             placeholder="Например: передумала — выбрала курс по инклюзии"
           />
-          <span className="hint">Причина обязательна — она остаётся в истории заявки</span>
+          <span className="hint">Причина обязательна — она сохраняется в заметке заявки</span>
         </div>
       </Sheet>
     </>
@@ -97,12 +122,12 @@ export function LeadStatusPicker({
 
 /* ============ «Позвонить» и «WhatsApp» прямо в строке ============ */
 
-export function PhoneActions({ phoneRaw }: { phoneRaw: string }) {
-  const digits = phoneRaw.replace(/\D/g, "");
+export function PhoneActions({ phone }: { phone: string }) {
+  const digits = phone.replace(/\D/g, "");
   return (
     <div className="row g6">
       <a
-        href={`tel:${phoneRaw}`}
+        href={`tel:${phone}`}
         className="btn btn-secondary btn-sm"
         style={{ minHeight: 44, paddingInline: 12 }}
       >

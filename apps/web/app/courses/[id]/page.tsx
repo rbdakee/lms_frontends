@@ -3,18 +3,37 @@
 /**
  * Страница курса «/courses/:id» — раздел 5.3 брифа.
  *
- * Главная кнопка проходит четыре состояния:
- * «Записаться» → «Заявка отправлена» → «Начать обучение» → «Продолжить».
- * Оплата идёт вне платформы: показываем только цену, платёжных полей нет.
+ * Данные — `GET /courses/{id}`, кнопка — по `access.state`:
+ * `none` → «Записаться» (`POST /courses/{id}/lead`, тело пустое — контакты
+ * сервер берёт из профиля); `requested` → «Заявка отправлена» и «ждёт N дней»;
+ * `granted` → прогресс. Оплата идёт вне платформы: только цена, платёжных
+ * полей нет.
+ *
+ * Гость, нажавший «Записаться», уходит на `/login?next=…&lead=1` — после
+ * входа возвращается сюда и заявка отправляется сама.
  */
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { allLessons, getCourse, groupLangs, groupRating, groupVersions } from "@lms/prototype/data";
-import { day, rating as fmtRating } from "@lms/ui/i18n";
+import { useEffect, useRef, useState } from "react";
+import {
+  api,
+  categoryTitle,
+  isApiError,
+  useDictionaries,
+  useLoad,
+  useMe,
+  type CoursePage,
+  type Lead,
+} from "@lms/api";
+import { day, rating as fmtRating, type UiLang } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { PublicShell, TeacherShell } from "@/components/layout/Shell";
-import { CertChecklist, currentLesson, lessonHref, Program } from "@/components/course/Program";
+import {
+  continueHref,
+  CourseCertChecklist,
+  CourseProgram,
+} from "@/components/course/CourseProgram";
 import { ReviewsBlock } from "@/components/course/CourseCard";
 import { ContactAdmin, EnrollBadge, Price } from "@/components/course/CourseMeta";
 import {
@@ -27,6 +46,7 @@ import {
   LinkButton,
   Note,
   Progress,
+  Skeleton,
 } from "@lms/ui";
 import {
   IconArrowLeft,
@@ -35,92 +55,139 @@ import {
   IconCheck,
   IconClock,
   IconLayers,
-  IconLock,
-  IconPlay,
   IconStar,
   IconUsers,
 } from "@lms/ui/icons";
 
-export default function CoursePage() {
+export default function CoursePageScreen() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const {
-    t,
-    lang,
-    authed,
-    access,
-    requestAccess,
-    requestDays,
-    completed,
-    certs,
-    toast,
-    isStrict,
-  } = useStore();
+  const { t, lang, toast } = useStore();
+  const { me, status } = useMe();
+  const dictionaries = useDictionaries();
+  const authed = Boolean(me);
 
-  const course = getCourse(id);
+  const course = useLoad(
+    () => api<CoursePage>(`/courses/${encodeURIComponent(id)}`),
+    /* Пока /me не отвечен, куки может не быть смысла ждать не надо: access
+       для гостя и так none; после входа перезапрашиваем ради access */
+    [id, me?.id],
+  );
+  const [enrolling, setEnrolling] = useState(false);
+  /* Автоотправка заявки после возвращения из /login — один раз за загрузку */
+  const autoLead = useRef(false);
 
-  if (!course) {
-    const body = (
-      <div className="page section">
-        <div className="card">
-          <Empty
-            title="Курс не найден"
-            text="Возможно, курс скрыт администратором или ссылка устарела."
-            action={
-              <LinkButton href="/courses" variant="secondary">
-                В каталог
-              </LinkButton>
-            }
-          />
-        </div>
-      </div>
-    );
-    return authed ? <TeacherShell>{body}</TeacherShell> : <PublicShell>{body}</PublicShell>;
-  }
-
-  const state = authed ? access(course.id) : "none";
-  const granted = state === "granted";
-  const requested = state === "requested";
-  const done = completed[course.id] ?? [];
-  const lessons = allLessons(course);
-  const total = lessons.length || course.lessons;
-  const pct = total ? Math.round((done.length / total) * 100) : 0;
-  const next = currentLesson(course, done);
-  const finished = total > 0 && done.length >= total;
-  const hasCert = certs.includes(course.id);
-  const langs = groupLangs(course);
-  const versions = groupVersions(course);
-  const { rating, count } = groupRating(course);
-  const closed = course.status === "closed";
-  const waitDays = requestDays(course.id) ?? 0;
-
-  const handleEnroll = () => {
-    if (!authed) {
-      /* Не вошёл — сначала вход, после него заявка отправится сама */
-      router.push("/login");
+  const enroll = async () => {
+    if (!me) {
+      router.push(`/login?next=${encodeURIComponent(`/courses/${id}?lead=1`)}`);
       return;
     }
-    requestAccess(course.id);
-    toast("Заявка отправлена — администратор свяжется с вами", "success");
+    if (enrolling) return;
+    setEnrolling(true);
+    try {
+      const lead = await api<Lead>(`/courses/${encodeURIComponent(id)}/lead`, {
+        method: "POST",
+      });
+      course.setData((c) =>
+        c ? { ...c, access: { state: "requested", waiting_days: lead.waiting_days } } : c,
+      );
+      toast("Заявка отправлена — администратор свяжется с вами", "success");
+    } catch (e) {
+      if (isApiError(e, "unauthorized")) {
+        router.push(`/login?next=${encodeURIComponent(`/courses/${id}?lead=1`)}`);
+      } else if (isApiError(e)) {
+        /* already_enrolled и enrollment_closed показываем текстом сервера */
+        toast(e.message, e.code === "already_enrolled" ? "info" : "error");
+        course.reload();
+      } else {
+        toast("Не удалось отправить заявку — попробуйте ещё раз", "error");
+      }
+    } finally {
+      setEnrolling(false);
+    }
   };
 
-  /* Главное действие — одно на весь экран */
+  useEffect(() => {
+    if (autoLead.current || !me || !course.data) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("lead") !== "1") return;
+    autoLead.current = true;
+    /* Убираем параметр, чтобы обновление страницы не слало заявку заново */
+    params.delete("lead");
+    const qs = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    if (course.data.access.state === "none") void enroll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, course.data]);
+
+  const Shell = authed ? TeacherShell : PublicShell;
+
+  /* Пока не знаем, гость это или учитель, каркас не выбираем — иначе шапка мигает */
+  if (course.loading || status === "loading") {
+    return (
+      <Shell>
+        <div className="page section stack g20" style={{ paddingTop: 16 }}>
+          <Skeleton w={260} h={16} />
+          <Skeleton h={220} r={14} />
+          <Skeleton w="70%" h={28} />
+          <Skeleton w="40%" h={16} />
+          <Skeleton h={120} r={14} />
+        </div>
+      </Shell>
+    );
+  }
+
+  if (course.error) {
+    const notFound = course.error.status === 404 || course.error.status === 422;
+    return (
+      <Shell>
+        <div className="page section">
+          <div className="card">
+            <Empty
+              title={notFound ? "Курс не найден" : t.loadError}
+              text={
+                notFound
+                  ? "Возможно, курс скрыт администратором или ссылка устарела."
+                  : t.loadErrorText
+              }
+              action={
+                notFound ? (
+                  <LinkButton href="/courses" variant="secondary">
+                    В каталог
+                  </LinkButton>
+                ) : (
+                  <Button variant="secondary" onClick={course.reload}>
+                    {t.retry}
+                  </Button>
+                )
+              }
+            />
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  const c = course.data!;
+  const access = c.access;
+  const granted = access.state === "granted";
+  const requested = access.state === "requested";
+  const closed = c.status === "closed";
+  const langs = c.versions.map((v) => v.lang) as UiLang[];
+  const category = categoryTitle(dictionaries.data?.categories, c.category_id);
+  const finished =
+    granted && access.total_count > 0 && access.done_count >= access.total_count;
+  const next = access.state === "granted" ? access.next_lesson : null;
+
+  /* Главное действие — одно на весь экран. С выданным доступом это «Продолжить
+     обучение» по `next_lesson`; всё пройдено (`next_lesson: null`) — кнопки
+     нет, звать больше некуда. */
   const cta = granted ? (
-    finished ? (
-      hasCert ? (
-        <LinkButton href="/certificates" block size="lg" variant="success">
-          Открыть сертификат
-        </LinkButton>
-      ) : (
-        <LinkButton href={`/courses/${course.id}/complete`} block size="lg" variant="success">
-          Завершить курс и получить сертификат
-        </LinkButton>
-      )
-    ) : next ? (
-      <LinkButton href={lessonHref(course.id, next)} block size="lg" icon={<IconPlay size={17} />}>
-        {done.length === 0 ? "Начать обучение" : t.continueShort}
+    next && (
+      <LinkButton block size="lg" href={continueHref(c.id, next)}>
+        {t.continue}
       </LinkButton>
-    ) : null
+    )
   ) : requested ? (
     <div className="stack g8">
       <Button block size="lg" disabled>
@@ -140,7 +207,7 @@ export default function CoursePage() {
       </span>
     </div>
   ) : (
-    <Button block size="lg" onClick={handleEnroll}>
+    <Button block size="lg" loading={enrolling} onClick={enroll}>
       {authed ? t.enroll : "Войти и записаться"}
     </Button>
   );
@@ -149,14 +216,33 @@ export default function CoursePage() {
   const priceBlock = (
     <div className="stack g8">
       <div className="row between wrap g10">
-        <Price course={course} size="lg" />
-        <EnrollBadge course={course} />
+        <Price course={c} size="lg" />
+        <EnrollBadge course={c} />
       </div>
-      {course.status === "planned" && course.startsAt && (
+      {c.status === "planned" && c.starts_at && (
         <span className="small muted row g6">
           <IconCalendar size={16} />
-          Обучение начнётся {day(course.startsAt, lang)}, заявку можно оставить сейчас
+          Обучение начнётся {day(c.starts_at, lang)}, заявку можно оставить сейчас
         </span>
+      )}
+    </div>
+  );
+
+  const progressBlock = granted && (
+    <div className="stack g8">
+      <div className="row between small">
+        {/* Счётчики — по всем элементам программы (уроки, тесты, задания),
+            поэтому без слова «уроков»: их в M больше, чем уроков на карточке */}
+        <span className="muted">
+          Пройдено {access.done_count} из {access.total_count}
+        </span>
+        <strong style={{ color: finished ? "var(--success)" : "var(--primary)" }}>
+          {access.progress_percent}%
+        </strong>
+      </div>
+      <Progress value={access.progress_percent} thick />
+      {access.next_lesson && (
+        <span className="caption muted-3 pretty">Следующий: {access.next_lesson.title}</span>
       )}
     </div>
   );
@@ -165,9 +251,7 @@ export default function CoursePage() {
     <>
       <div className="page section stack g24" style={{ paddingTop: 16 }}>
         <div className="row between g12">
-          <Breadcrumbs
-            items={[{ label: "Каталог", href: "/courses" }, { label: course.category }]}
-          />
+          <Breadcrumbs items={[{ label: "Каталог", href: "/courses" }, { label: category }]} />
           <Link href="/courses" className="btn btn-ghost btn-sm mobile-only">
             <IconArrowLeft size={16} />
             Каталог
@@ -179,11 +263,10 @@ export default function CoursePage() {
           <div className="stack g32" style={{ minWidth: 0 }}>
             <header className="stack g14">
               <div className="course-hero-cover">
-                <Cover tone={course.cover}>
+                <Cover tone="cover-c1" src={c.cover}>
                   <div className="cover-badges">
-                    <LangBadge langs={langs} />
+                    <LangBadge langs={langs.length ? langs : [c.lang as UiLang]} />
                     <div className="row g6">
-                      {course.isNew && <Badge kind="new">{t.stNew}</Badge>}
                       {granted && !finished && <Badge kind="progress">{t.stProgress}</Badge>}
                       {requested && <Badge kind="review">{t.stWaiting}</Badge>}
                       {finished && (
@@ -197,19 +280,19 @@ export default function CoursePage() {
               </div>
 
               <span className="caption" style={{ color: "var(--primary)" }}>
-                {course.category}
+                {category}
               </span>
-              <h1 className="h1 pretty">{course.title}</h1>
+              <h1 className="h1 pretty">{c.title}</h1>
 
-              {/* Языковые версии — два самостоятельных курса с общим groupId */}
-              {versions.length > 1 ? (
+              {/* Языковые версии — самостоятельные курсы с общим group_id */}
+              {c.versions.length > 1 ? (
                 <div className="row wrap g8">
-                  {versions.map((v) => (
+                  {c.versions.map((v) => (
                     <Link
                       key={v.id}
                       href={`/courses/${v.id}`}
                       className="chip"
-                      data-active={v.id === course.id || undefined}
+                      data-active={v.id === c.id || undefined}
                     >
                       {v.lang === "ru" ? "Русская версия" : "Қазақша нұсқасы"}
                     </Link>
@@ -217,40 +300,32 @@ export default function CoursePage() {
                 </div>
               ) : (
                 !langs.includes(lang) && (
-                  <span className="small muted-3">
-                    {course.lang === "kz" ? t.onlyKz : t.onlyRu}
-                  </span>
+                  <span className="small muted-3">{c.lang === "kz" ? t.onlyKz : t.onlyRu}</span>
                 )
               )}
 
-              <p className="body muted pretty">{course.short}</p>
+              <p className="body muted pretty">{c.short}</p>
 
               <div className="row wrap g10 small">
-                <span className="row g4" style={{ color: "#b45309", fontWeight: 700 }}>
-                  <IconStar size={16} filled strokeWidth={1.2} />
-                  {fmtRating(rating)}
-                </span>
-                <span className="muted-3">({count} отзывов)</span>
+                {c.rating === null ? (
+                  <span className="muted-3">{t.noReviews}</span>
+                ) : (
+                  <>
+                    <span className="row g4" style={{ color: "#b45309", fontWeight: 700 }}>
+                      <IconStar size={16} filled strokeWidth={1.2} />
+                      {fmtRating(c.rating)}
+                    </span>
+                    <span className="muted-3">({c.reviews_count})</span>
+                  </>
+                )}
                 <span className="dot-sep">·</span>
                 <span className="muted row g6">
                   <IconUsers size={16} />
-                  {t.students(course.students)}
+                  {t.students(c.students_count)}
                 </span>
               </div>
 
-              {granted && (
-                <div className="stack g8" style={{ marginTop: 4 }}>
-                  <div className="row between small">
-                    <span className="muted">
-                      Пройдено {done.length} из {total} уроков
-                    </span>
-                    <strong style={{ color: finished ? "var(--success)" : "var(--primary)" }}>
-                      {pct}%
-                    </strong>
-                  </div>
-                  <Progress value={pct} thick />
-                </div>
-              )}
+              {granted && <div style={{ marginTop: 4 }}>{progressBlock}</div>}
             </header>
 
             {/* Цена и статус — на мобильном сразу под шапкой, на десктопе в боковой карточке */}
@@ -258,7 +333,8 @@ export default function CoursePage() {
               {priceBlock}
               {requested && (
                 <Note kind="info">
-                  {t.sentAgo(waitDays)}. {t.requestedHint}
+                  {t.sentAgo(access.state === "requested" ? access.waiting_days : 0)}.{" "}
+                  {t.requestedHint}
                 </Note>
               )}
               <hr className="divider" />
@@ -269,35 +345,39 @@ export default function CoursePage() {
             {/* Метаданные */}
             <div className="meta-grid">
               {[
-                { icon: IconLayers, label: t.modules(course.modules) },
-                { icon: IconBook, label: t.lessons(course.lessons) },
-                { icon: IconClock, label: t.hours(course.hours) },
-                { icon: IconCalendar, label: course.weeks },
-              ].map((m, i) => {
-                const Icon = m.icon;
-                return (
-                  <div key={i} className="card card-pad row g10" style={{ padding: 14 }}>
-                    <span style={{ color: "var(--primary)" }}>
-                      <Icon size={20} />
-                    </span>
-                    <span className="small" style={{ fontWeight: 600 }}>
-                      {m.label}
-                    </span>
-                  </div>
-                );
-              })}
+                c.program.length > 0 && { icon: IconLayers, label: t.modules(c.program.length) },
+                { icon: IconBook, label: t.lessons(c.lessons_count) },
+                { icon: IconClock, label: t.hours(c.hours) },
+                c.duration_text && { icon: IconCalendar, label: c.duration_text },
+              ]
+                .filter((m): m is { icon: typeof IconBook; label: string } => Boolean(m))
+                .map((m, i) => {
+                  const Icon = m.icon;
+                  return (
+                    <div key={i} className="card card-pad row g10" style={{ padding: 14 }}>
+                      <span style={{ color: "var(--primary)" }}>
+                        <Icon size={20} />
+                      </span>
+                      <span className="small" style={{ fontWeight: 600 }}>
+                        {m.label}
+                      </span>
+                    </div>
+                  );
+                })}
             </div>
 
             {/* Чек-лист сертификата — на мобильном здесь, на десктопе в боковой карточке */}
             <div className="cert-inline">
-              <CertChecklist course={course} live={granted} />
+              <CourseCertChecklist course={c} />
             </div>
 
             {/* Полное описание */}
-            <section className="stack g10">
-              <h2 className="h2">О курсе</h2>
-              <p className="body muted pretty">{course.full}</p>
-            </section>
+            {c.full && (
+              <section className="stack g10">
+                <h2 className="h2">О курсе</h2>
+                <p className="body muted pretty">{c.full}</p>
+              </section>
+            )}
 
             {/* Программа */}
             <section className="stack g16">
@@ -305,38 +385,36 @@ export default function CoursePage() {
                 <h2 className="h2">{t.secProgram}</h2>
                 {granted && (
                   <span className="small muted">
-                    {done.length} из {total} пройдено
+                    {access.done_count} из {access.total_count} пройдено
                   </span>
                 )}
               </div>
-              <Program course={course} locked={!granted} strict={isStrict(course.id)} />
+              {/* С выданным доступом уроки отсюда открываются в плеере;
+                  тесты и задания — с сессии 5 */}
+              <CourseProgram program={c.program} locked={!granted} courseId={c.id} />
             </section>
 
             {/* Отзывы */}
-            {course.reviews && <ReviewsBlock course={course} />}
+            <ReviewsBlock course_id={c.id} />
           </div>
 
           {/* ===== Липкая карточка записи — десктоп ===== */}
           <aside className="course-side">
             <div className="card card-pad stack g16" style={{ position: "sticky", top: 88 }}>
               <Cover
-                tone={course.cover}
+                tone="cover-c1"
+                src={c.cover}
                 glyph={false}
                 style={{ borderRadius: 12, height: 110, aspectRatio: "auto" }}
               />
               {priceBlock}
 
               {granted ? (
-                <div className="stack g8">
-                  <div className="row between small">
-                    <span className="muted">Ваш прогресс</span>
-                    <strong style={{ color: "var(--primary)" }}>{pct}%</strong>
-                  </div>
-                  <Progress value={pct} thick />
-                  {next && <span className="caption muted-3 pretty">Следующий: {next.title}</span>}
-                </div>
+                progressBlock
               ) : requested ? (
-                <span className="caption muted pretty">{t.sentAgo(waitDays)}</span>
+                <span className="caption muted pretty">
+                  {t.sentAgo(access.state === "requested" ? access.waiting_days : 0)}
+                </span>
               ) : (
                 <span className="small muted pretty">
                   Нажмите «Записаться» — заявка уйдёт администратору. Имя и телефон
@@ -352,7 +430,7 @@ export default function CoursePage() {
               </span>
               <ContactAdmin />
               <hr className="divider" />
-              <CertChecklist course={course} live={granted} />
+              <CourseCertChecklist course={c} />
             </div>
           </aside>
         </div>
@@ -363,7 +441,7 @@ export default function CoursePage() {
         <div className={`sticky-cta mobile-only ${authed ? "" : "no-tabbar"}`}>
           <div className="sticky-cta-inner stack g4">
             {cta}
-            {!granted && <ContactAdmin variant="link" />}
+            <ContactAdmin variant="link" />
           </div>
         </div>
       )}
@@ -383,9 +461,5 @@ export default function CoursePage() {
     </>
   );
 
-  return authed ? (
-    <TeacherShell hasStickyCta>{content}</TeacherShell>
-  ) : (
-    <PublicShell hasStickyCta>{content}</PublicShell>
-  );
+  return <Shell hasStickyCta={Boolean(cta)}>{content}</Shell>;
 }

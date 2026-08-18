@@ -4,12 +4,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { courses } from "@lms/prototype/data";
+import { api, useLoad, useMe, type CatalogOut } from "@lms/api";
 import { fmt, rating as fmtRating } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { Footer, PublicShell } from "@/components/layout/Shell";
 import { CourseCard } from "@/components/course/CourseCard";
-import { Badge, Cover, Stars } from "@lms/ui";
+import { Badge, CourseCardSkeleton, Cover, Stars } from "@lms/ui";
 import {
   IconArrowRight,
   IconCatalog,
@@ -90,9 +90,12 @@ const faq = [
 ];
 
 export default function LandingPage() {
-  const { t, authed } = useStore();
+  const { t } = useStore();
+  const authed = Boolean(useMe().me);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-  const popular = courses.slice(0, 6);
+  /* Витрина каталога — те же живые данные, что и на «/courses» */
+  const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
+  const popular = (catalog.data?.items ?? []).slice(0, 6);
 
   return (
     <PublicShell hasStickyCta>
@@ -260,23 +263,25 @@ export default function LandingPage() {
       </section>
 
       {/* ===== Популярные курсы ===== */}
-      <section className="page section" style={{ paddingTop: 8 }}>
-        <div className="row between wrap g12" style={{ marginBottom: 20 }}>
-          <div className="stack g4">
-            <h2 className="h2">{t.secPopular}</h2>
-            <p className="small muted">Чаще всего выбирают учителя в этом месяце</p>
+      {(catalog.loading || popular.length > 0) && (
+        <section className="page section" style={{ paddingTop: 8 }}>
+          <div className="row between wrap g12" style={{ marginBottom: 20 }}>
+            <div className="stack g4">
+              <h2 className="h2">{t.secPopular}</h2>
+              <p className="small muted">Чаще всего выбирают учителя в этом месяце</p>
+            </div>
+            <Link href="/courses" className="btn btn-secondary">
+              {t.viewAll}
+              <IconArrowRight size={17} />
+            </Link>
           </div>
-          <Link href="/courses" className="btn btn-secondary">
-            Смотреть все 120
-            <IconArrowRight size={17} />
-          </Link>
-        </div>
-        <div className="grid-courses">
-          {popular.map((c) => (
-            <CourseCard key={c.id} course={c} />
-          ))}
-        </div>
-      </section>
+          <div className="grid-courses">
+            {catalog.loading
+              ? Array.from({ length: 3 }).map((_, i) => <CourseCardSkeleton key={i} />)
+              : popular.map((g) => <CourseCard key={g.group_id} group={g} />)}
+          </div>
+        </section>
+      )}
 
       {/* ===== Отзывы ===== */}
       <section className="page section" style={{ paddingTop: 8 }}>

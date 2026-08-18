@@ -402,18 +402,39 @@ export function RowSkeleton() {
 
 export function Cover({
   tone = "cover-c1",
+  src,
   children,
   glyph = true,
   style,
 }: {
   tone?: string;
+  /** URL обложки из API. Не загрузилась — остаётся градиент с глифом. */
+  src?: string | null;
   children?: ReactNode;
   glyph?: boolean;
   style?: React.CSSProperties;
 }) {
+  const [broken, setBroken] = useState(false);
+  const showImage = Boolean(src) && !broken;
   return (
     <div className={`cover ${tone}`} style={style}>
-      {glyph && (
+      {showImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src!}
+          alt=""
+          onError={() => setBroken(true)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            zIndex: 1,
+          }}
+        />
+      )}
+      {glyph && !showImage && (
         <span className="cover-glyph">
           <IconGraduation size={44} strokeWidth={1.4} />
         </span>
@@ -455,6 +476,32 @@ export function Breadcrumbs({ items }: { items: { label: string; href?: string }
 }
 
 /* ============ Тип файла ============ */
+
+const MIME_LABELS: Record<string, string> = {
+  "application/pdf": "PDF",
+  "application/msword": "DOC",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
+  "application/vnd.ms-excel": "XLS",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
+  "application/vnd.ms-powerpoint": "PPT",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PPTX",
+  "application/zip": "ZIP",
+  "text/plain": "TXT",
+  "image/jpeg": "JPG",
+  "image/png": "PNG",
+  "video/mp4": "MP4",
+};
+
+/**
+ * MIME из API → короткая метка на бейдже: «application/pdf» → «PDF».
+ * Незнакомый тип не прячем: из подтипа получается хоть какая-то подпись.
+ */
+export function fileType(mime: string): string {
+  const known = MIME_LABELS[mime];
+  if (known) return known;
+  const sub = (mime.split("/")[1] ?? "").replace(/^x-/, "").split(/[-.+]/)[0];
+  return (sub || "файл").slice(0, 4).toUpperCase();
+}
 
 export function FileTypeChip({ type }: { type: string }) {
   const tone: Record<string, string> = {

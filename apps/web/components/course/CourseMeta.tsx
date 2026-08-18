@@ -6,31 +6,36 @@
  *
  * Оплата на платформе не принимается — цена это просто число рядом
  * с длительностью, никаких корзин и кнопок «Оплатить».
+ *
+ * Типы структурные — подходит и карточка каталога, и курс из «Моих курсов».
+ * `draft` и `hidden` в выдаче API не бывают, веток под них нет.
  */
 
-import { adminContacts, type Course } from "@lms/prototype/data";
+import { adminContacts } from "@lms/prototype/data";
 import { day, price as fmtPrice } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { Badge } from "@lms/ui";
 import { IconPhone, IconTelegram, IconWhatsapp } from "@lms/ui/icons";
 
 /** Три вида бейджа: идёт набор · старт такого-то числа · набор закрыт. */
-export function EnrollBadge({ course }: { course: Course }) {
+export function EnrollBadge({
+  course,
+}: {
+  course: { status: string; starts_at?: string | null };
+}) {
   const { t, lang } = useStore();
   if (course.status === "planned")
-    return <Badge kind="new">{t.setPlanned(day(course.startsAt, lang))}</Badge>;
+    return <Badge kind="new">{t.setPlanned(day(course.starts_at, lang))}</Badge>;
   if (course.status === "closed") return <Badge kind="locked">{t.setClosed}</Badge>;
-  if (course.status === "draft") return <Badge kind="neutral">Черновик</Badge>;
-  if (course.status === "hidden") return <Badge kind="locked">Скрыт</Badge>;
   return <Badge kind="done">{t.setOpen}</Badge>;
 }
 
-/** Цена строкой. Не задана — «Цена по запросу», а не пустое место. */
+/** Цена строкой. `null` — «Цена по запросу», а не пустое место. */
 export function Price({
   course,
   size = "md",
 }: {
-  course: Course;
+  course: { price: number | null };
   size?: "sm" | "md" | "lg";
 }) {
   const { lang } = useStore();
@@ -45,7 +50,7 @@ export function Price({
         fontWeight: course.price ? 800 : 600,
       }}
     >
-      {fmtPrice(course.price, lang)}
+      {fmtPrice(course.price ?? undefined, lang)}
     </strong>
   );
 }

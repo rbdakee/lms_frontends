@@ -1,56 +1,75 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import {
+  api,
+  categoryTitle,
+  qs,
+  useDictionaries,
+  useLoad,
+  type CatalogCourse,
+  type CatalogGroup,
+  type MyCourse,
+  type MyLead,
+  type Review,
+  type ReviewsPage,
+} from "@lms/api";
 import { useStore } from "@lms/prototype";
-import { rating as fmtRating } from "@lms/ui/i18n";
-import { allLessons, groupLangs, groupRating, type Course } from "@lms/prototype/data";
-import { Badge, Cover, LangBadge, Progress, Stars } from "@lms/ui";
+import { dayYear, rating as fmtRating, type UiLang } from "@lms/ui/i18n";
+import { Badge, Button, Cover, LangBadge, Progress, Stars } from "@lms/ui";
 import { ContactAdmin, EnrollBadge, Price } from "@/components/course/CourseMeta";
+import { continueHref } from "@/components/course/CourseProgram";
 import { IconCheck, IconClock, IconPlay, IconStar } from "@lms/ui/icons";
 
-/** Доля пройденного курса в процентах. */
-export function useCourseProgress(course: Course) {
-  const { completed } = useStore();
-  const done = completed[course.id] ?? [];
-  const total = course.modulesList ? allLessons(course).length : course.lessons;
-  const pct = total ? Math.round((done.length / total) * 100) : 0;
-  return { doneCount: done.length, total, pct };
+/** Версия языковой группы под язык интерфейса; своей нет — первая (ru первой). */
+export function pickVersion(group: CatalogGroup, lang: UiLang): CatalogCourse {
+  return group.versions.find((v) => v.lang === lang) ?? group.versions[0];
 }
+
+/** Состояние доступа для бейджа на карточке — считается из `GET /me/courses`. */
+export type AccessState = "none" | "requested" | "granted";
 
 /* ============ Карточка каталога ============ */
 
 /**
  * Одна карточка на языковую группу: русская и казахская версии связаны
- * общим groupId. Цена, дата старта и статус набора — открываемой версии.
+ * общим `group_id`, группировку делает сервер. Цена, дата старта и статус
+ * набора — открываемой версии; рейтинг и число отзывов — по всей группе.
  */
-export function CourseCard({ course, showState }: { course: Course; showState?: boolean }) {
-  const { t, lang, access } = useStore();
-  const langs = groupLangs(course);
-  const { rating, count } = groupRating(course);
-  const state = access(course.id);
+export function CourseCard({
+  group,
+  access = "none",
+}: {
+  group: CatalogGroup;
+  access?: AccessState;
+}) {
+  const { t, lang } = useStore();
+  const dictionaries = useDictionaries();
+  const course = pickVersion(group, lang);
+  const langs = group.langs as UiLang[];
   /* Версии на языке интерфейса нет — честно предупреждаем прямо в карточке */
   const otherLangOnly = !langs.includes(lang);
 
   return (
     <Link href={`/courses/${course.id}`} className="card card-link" style={{ overflow: "hidden" }}>
-      <Cover tone={course.cover}>
+      <Cover tone="cover-c1" src={course.cover}>
         <div className="cover-badges">
           <LangBadge langs={langs} />
           <div className="row g6">
-            {course.isNew && <Badge kind="new">{t.stNew}</Badge>}
-            {showState && state === "granted" && (
+            {access === "granted" && (
               <Badge kind="done" icon={<IconCheck size={13} />}>
                 {t.stEnrolled}
               </Badge>
             )}
-            {showState && state === "requested" && <Badge kind="review">{t.stWaiting}</Badge>}
+            {access === "requested" && <Badge kind="review">{t.stWaiting}</Badge>}
           </div>
         </div>
       </Cover>
 
       <div className="stack g8 card-pad">
         <span className="caption" style={{ color: "var(--primary)" }}>
-          {course.category}
+          {categoryTitle(dictionaries.data?.categories, course.category_id)}
         </span>
         <h3 className="h3 pretty">{course.title}</h3>
         {otherLangOnly && (
@@ -58,15 +77,21 @@ export function CourseCard({ course, showState }: { course: Course; showState?: 
         )}
 
         <div className="row wrap g8 small muted">
-          <span>{t.lessons(course.lessons)}</span>
+          <span>{t.lessons(course.lessons_count)}</span>
           <span className="dot-sep">·</span>
           <span>{t.hours(course.hours)}</span>
           <span className="dot-sep">·</span>
-          <span className="row g4" style={{ color: "#b45309", fontWeight: 700 }}>
-            <IconStar size={14} filled strokeWidth={1.2} />
-            {fmtRating(rating)}
-          </span>
-          <span className="muted-3">({count})</span>
+          {group.rating === null ? (
+            <span className="muted-3">{t.noReviews}</span>
+          ) : (
+            <>
+              <span className="row g4" style={{ color: "#b45309", fontWeight: 700 }}>
+                <IconStar size={14} filled strokeWidth={1.2} />
+                {fmtRating(group.rating)}
+              </span>
+              <span className="muted-3">({group.reviews_count})</span>
+            </>
+          )}
         </div>
 
         {/* Цена и статус набора видны прямо в карточке */}
@@ -81,18 +106,24 @@ export function CourseCard({ course, showState }: { course: Course; showState?: 
 
 /* ============ Карточка «Мои курсы» с прогрессом ============ */
 
-export function MyCourseCard({ course }: { course: Course }) {
-  const { t, certs } = useStore();
-  const { doneCount, total, pct } = useCourseProgress(course);
-  const finished = pct >= 100;
-  const hasCert = certs.includes(course.id);
+/**
+ * Прогресс приходит готовым из `GET /me/courses` — на клиенте ничего
+ * не считаем. «Продолжить» ведёт в следующий урок по `next_lesson`,
+ * тест и задание — через страницу курса (их экраны с сессии 5).
+ */
+export function MyCourseCard({ course }: { course: MyCourse }) {
+  const { t } = useStore();
+  const dictionaries = useDictionaries();
+  const finished =
+    course.completed_at !== null ||
+    (course.total_count > 0 && course.done_count >= course.total_count);
 
   return (
     <div className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <Link href={`/courses/${course.id}`}>
-        <Cover tone={course.cover}>
+        <Cover tone="cover-c1" src={course.cover}>
           <div className="cover-badges">
-            <LangBadge langs={[course.lang]} />
+            <LangBadge langs={[course.lang as UiLang]} />
             {finished ? (
               <Badge kind="done" icon={<IconCheck size={13} />}>
                 {t.stDone}
@@ -107,35 +138,28 @@ export function MyCourseCard({ course }: { course: Course }) {
       <div className="stack g10 card-pad grow">
         <Link href={`/courses/${course.id}`} className="stack g6">
           <span className="caption" style={{ color: "var(--primary)" }}>
-            {course.category}
+            {categoryTitle(dictionaries.data?.categories, course.category_id)}
           </span>
           <h3 className="h3 pretty">{course.title}</h3>
         </Link>
 
         <div className="stack g6" style={{ marginTop: "auto" }}>
           <div className="row between small">
-            <span className="muted">{t.ofLessons(doneCount, total)}</span>
+            <span className="muted">{t.ofLessons(course.done_count, course.total_count)}</span>
             <strong style={{ color: finished ? "var(--success)" : "var(--primary)" }}>
-              {pct}%
+              {course.progress_percent}%
             </strong>
           </div>
-          <Progress value={pct} />
+          <Progress value={course.progress_percent} />
         </div>
 
-        {finished && hasCert ? (
-          <Link href="/certificates" className="btn btn-secondary btn-block">
-            Открыть сертификат
-          </Link>
-        ) : finished ? (
-          <Link href={`/courses/${course.id}/complete`} className="btn btn-success btn-block">
-            Завершить курс
-          </Link>
-        ) : (
-          <Link href={`/courses/${course.id}`} className="btn btn-primary btn-block">
-            <IconPlay size={16} />
-            {t.continueShort}
-          </Link>
-        )}
+        <Link
+          href={continueHref(course.id, course.next_lesson)}
+          className="btn btn-primary btn-block"
+        >
+          <IconPlay size={16} />
+          {t.continueShort}
+        </Link>
       </div>
     </div>
   );
@@ -146,30 +170,32 @@ export function MyCourseCard({ course }: { course: Course }) {
 /**
  * Без этого блока после нажатия «Записаться» экран не меняется
  * и человек жмёт кнопку снова — раздел 5.6 брифа.
+ * `waiting_days` считает сервер, цена — снимок на момент заявки.
  */
-export function PendingCourseCard({ course, days }: { course: Course; days: number }) {
+export function PendingCourseCard({ lead }: { lead: MyLead }) {
   const { t } = useStore();
   return (
     <div className="card card-pad stack g12">
       <div className="row g12" style={{ alignItems: "flex-start" }}>
-        <Link href={`/courses/${course.id}`} style={{ flexShrink: 0 }}>
+        <Link href={`/courses/${lead.course.id}`} style={{ flexShrink: 0 }}>
           <Cover
-            tone={course.cover}
+            tone="cover-c1"
+            src={lead.course.cover}
             glyph={false}
             style={{ width: 72, height: 54, aspectRatio: "auto", borderRadius: 10 }}
           />
         </Link>
         <div className="grow stack g6" style={{ minWidth: 0 }}>
-          <Link href={`/courses/${course.id}`}>
-            <strong className="small pretty">{course.title}</strong>
+          <Link href={`/courses/${lead.course.id}`}>
+            <strong className="small pretty">{lead.course.title}</strong>
           </Link>
           <div className="row wrap g8">
             <Badge kind="review" icon={<IconClock size={13} />}>
               {t.stWaiting}
             </Badge>
-            <Price course={course} size="sm" />
+            <Price course={lead.course} size="sm" />
           </div>
-          <span className="caption muted-3">{t.sentAgo(days)}</span>
+          <span className="caption muted-3">{t.sentAgo(lead.waiting_days)}</span>
         </div>
       </div>
       <span className="caption muted pretty">{t.requestedHint}</span>
@@ -180,12 +206,13 @@ export function PendingCourseCard({ course, days }: { course: Course; days: numb
 
 /* ============ Компактная строка курса («Новые курсы») ============ */
 
-export function CourseRow({ course }: { course: Course }) {
+export function CourseRow({ course }: { course: CatalogCourse }) {
   const { t } = useStore();
   return (
     <Link href={`/courses/${course.id}`} className="card card-link card-pad row g12">
       <Cover
-        tone={course.cover}
+        tone="cover-c1"
+        src={course.cover}
         glyph={false}
         style={{ width: 72, height: 54, aspectRatio: "auto", borderRadius: 10, flexShrink: 0 }}
       />
@@ -194,7 +221,7 @@ export function CourseRow({ course }: { course: Course }) {
           {course.title}
         </h3>
         <div className="row wrap g6 caption muted">
-          <span>{t.lessons(course.lessons)}</span>
+          <span>{t.lessons(course.lessons_count)}</span>
           <span className="dot-sep">·</span>
           <span>{t.hours(course.hours)}</span>
         </div>
@@ -209,53 +236,100 @@ export function CourseRow({ course }: { course: Course }) {
 
 /* ============ Блок отзывов ============ */
 
+const REVIEWS_PER_PAGE = 10;
+
 /**
- * Премодерации нет — отзыв виден сразу, админ убирает лишнее постфактум.
- * От одного человека отзывов может быть несколько, у каждого своя дата;
- * на отзыв админ отвечает тем же тредом, что и в вопросах.
+ * `GET /courses/{id}/reviews`: свежие сверху, гистограмма — из `breakdown`
+ * (по последнему отзыву каждого автора). Премодерации нет — отзыв виден сразу.
+ * `reply` пока всегда `null` — блок ответа админа рисуется только при непустом.
  */
-export function ReviewsBlock({ course }: { course: Course }) {
-  const { t, hiddenReviews } = useStore();
-  const reviews = (course.reviews ?? []).filter((r) => !hiddenReviews.includes(r.id));
-  const { rating, count } = groupRating(course);
-  const dist = [
-    { stars: 5, pct: 78 },
-    { stars: 4, pct: 16 },
-    { stars: 3, pct: 4 },
-    { stars: 2, pct: 1 },
-    { stars: 1, pct: 1 },
-  ];
+export function ReviewsBlock({ course_id }: { course_id: number }) {
+  const { t, lang } = useStore();
+  const [more, setMore] = useState<Review[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const first = useLoad(
+    () =>
+      api<ReviewsPage>(
+        `/courses/${course_id}/reviews${qs({ page: 1, per_page: REVIEWS_PER_PAGE })}`,
+      ),
+    [course_id],
+  );
+
+  if (first.loading) return null;
+  if (first.error) {
+    return (
+      <section className="stack g16">
+        <h2 className="h2">{t.secReviews}</h2>
+        <div className="card card-pad row between g10">
+          <span className="small muted">{t.loadError}</span>
+          <Button variant="secondary" size="sm" onClick={first.reload}>
+            {t.retry}
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  const data = first.data!;
+  const reviews = [...data.items, ...more];
+  const hasMore = reviews.length < data.total;
+  /* База процентов гистограммы — авторы, а не строки: как и сам рейтинг */
+  const breakdownTotal = Object.values(data.breakdown).reduce((a, b) => a + b, 0);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = await api<ReviewsPage>(
+        `/courses/${course_id}/reviews${qs({
+          page: Math.floor(reviews.length / REVIEWS_PER_PAGE) + 1,
+          per_page: REVIEWS_PER_PAGE,
+        })}`,
+      );
+      setMore((m) => [...m, ...next.items]);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   return (
     <section className="stack g16">
       <h2 className="h2">{t.secReviews}</h2>
-      <div className="card card-pad row g24 wrap">
-        <div className="stack g6" style={{ alignItems: "center", minWidth: 120 }}>
-          <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.03em" }}>
-            {fmtRating(rating)}
-          </div>
-          <Stars value={rating} size={16} />
-          <span className="caption muted-3">{count} отзывов</span>
-        </div>
-        <div className="stack g6 grow" style={{ minWidth: 200 }}>
-          {dist.map((d) => (
-            <div key={d.stars} className="row g10">
-              <span className="caption muted" style={{ width: 12 }}>
-                {d.stars}
-              </span>
-              <div className="progress grow" style={{ height: 8 }}>
-                <div
-                  className="progress-bar"
-                  style={{ width: `${d.pct}%`, background: "#f59e0b" }}
-                />
-              </div>
-              <span className="caption muted-3" style={{ width: 34, textAlign: "right" }}>
-                {d.pct}%
-              </span>
+
+      {data.total === 0 || data.rating === null ? (
+        <div className="card card-pad small muted">{t.reviewsEmpty}</div>
+      ) : (
+        <div className="card card-pad row g24 wrap">
+          <div className="stack g6" style={{ alignItems: "center", minWidth: 120 }}>
+            <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-0.03em" }}>
+              {fmtRating(data.rating)}
             </div>
-          ))}
+            <Stars value={data.rating} size={16} />
+            <span className="caption muted-3">{data.total}</span>
+          </div>
+          <div className="stack g6 grow" style={{ minWidth: 200 }}>
+            {[5, 4, 3, 2, 1].map((stars) => {
+              const count = data.breakdown[String(stars)] ?? 0;
+              const pct = breakdownTotal ? Math.round((count / breakdownTotal) * 100) : 0;
+              return (
+                <div key={stars} className="row g10">
+                  <span className="caption muted" style={{ width: 12 }}>
+                    {stars}
+                  </span>
+                  <div className="progress grow" style={{ height: 8 }}>
+                    <div
+                      className="progress-bar"
+                      style={{ width: `${pct}%`, background: "#f59e0b" }}
+                    />
+                  </div>
+                  <span className="caption muted-3" style={{ width: 34, textAlign: "right" }}>
+                    {pct}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {reviews.length > 0 && (
         <div className="stack g12">
@@ -264,33 +338,38 @@ export function ReviewsBlock({ course }: { course: Course }) {
               <div className="row g10">
                 <div className="grow" style={{ minWidth: 0 }}>
                   <div className="h3" style={{ fontSize: 15 }}>
-                    {r.author}
+                    {r.author_name}
                   </div>
-                  <div className="caption muted-3">{r.school}</div>
+                  <div className="caption muted-3">
+                    {[r.school, r.city].filter(Boolean).join(" · ")}
+                  </div>
                 </div>
                 <div className="stack g4" style={{ alignItems: "flex-end" }}>
                   <Stars value={r.rating} />
-                  <span className="caption muted-3 nowrap">{r.date}</span>
+                  <span className="caption muted-3 nowrap">{dayYear(r.created_at, lang)}</span>
                 </div>
               </div>
-              <p className="small pretty">{r.text}</p>
+              {r.text && <p className="small pretty">{r.text}</p>}
 
               {r.reply && (
                 <div
                   className="stack g6"
                   style={{ borderLeft: "3px solid var(--primary)", paddingLeft: 12, marginLeft: 4 }}
                 >
-                  <div className="row g8">
-                    <strong className="caption" style={{ color: "var(--primary)" }}>
-                      Ответ администратора
-                    </strong>
-                    <span className="caption muted-3">{r.reply.date}</span>
-                  </div>
-                  <p className="small pretty">{r.reply.text}</p>
+                  <strong className="caption" style={{ color: "var(--primary)" }}>
+                    Ответ администратора
+                  </strong>
+                  <p className="small pretty">{r.reply}</p>
                 </div>
               )}
             </div>
           ))}
+
+          {hasMore && (
+            <Button variant="secondary" loading={loadingMore} onClick={loadMore}>
+              {t.showMore}
+            </Button>
+          )}
         </div>
       )}
     </section>

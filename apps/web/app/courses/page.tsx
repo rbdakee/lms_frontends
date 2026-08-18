@@ -4,21 +4,32 @@
  * Каталог «/courses» — раздел 5.2 брифа.
  *
  * Каталог открытый: смотреть можно без входа, доступ к содержимому выдаёт
- * админ после заявки. Русская и казахская версии курса показываются одной
- * карточкой — они связаны общим groupId.
+ * админ после заявки. Данные — `GET /courses`: группировку по языкам делает
+ * сервер (одна карточка на `group_id`), фильтры, поиск и сортировка остаются
+ * клиентскими. Подписи категорий — из `GET /dictionaries` по `category_id`.
  */
 
 import { useMemo, useState } from "react";
-import { catalogCourses, categories, groupLangs, type Course, type Lang } from "@lms/prototype/data";
+import {
+  api,
+  categoryTitle,
+  useDictionaries,
+  useLoad,
+  useMe,
+  type CatalogGroup,
+  type CatalogOut,
+  type MyCourses,
+} from "@lms/api";
 import { useStore } from "@lms/prototype";
+import { type UiLang } from "@lms/ui/i18n";
 import { PublicShell, TeacherShell } from "@/components/layout/Shell";
-import { CourseCard } from "@/components/course/CourseCard";
+import { CourseCard, pickVersion, type AccessState } from "@/components/course/CourseCard";
 import { Button, CourseCardSkeleton, Empty, Note, Sheet } from "@lms/ui";
 import { IconCheck, IconClose, IconFilter, IconSearch } from "@lms/ui/icons";
 
 type Sort = "new" | "start" | "rating";
 type Hours = "any" | "short" | "mid" | "long";
-type CourseLang = "any" | Lang;
+type CourseLang = "any" | UiLang;
 type Enroll = "default" | "open" | "planned" | "closed";
 
 const HOURS_LABEL: Record<Exclude<Hours, "any">, string> = {
@@ -34,10 +45,20 @@ const ENROLL_LABEL: Record<Exclude<Enroll, "default">, string> = {
 };
 
 export default function CatalogPage() {
-  const { t, lang, authed, ready } = useStore();
+  const { t, lang } = useStore();
+  const { me } = useMe();
+  const authed = Boolean(me);
+
+  const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
+  const dictionaries = useDictionaries();
+  /* Бейджи «Доступ открыт» и «Заявка отправлена» на карточках — из /me/courses */
+  const mine = useLoad<MyCourses | null>(
+    () => (me ? api<MyCourses>("/me/courses") : Promise.resolve(null)),
+    [me?.id],
+  );
 
   const [query, setQuery] = useState("");
-  const [cats, setCats] = useState<string[]>([]);
+  const [cats, setCats] = useState<number[]>([]);
   const [courseLang, setCourseLang] = useState<CourseLang>("any");
   const [hours, setHours] = useState<Hours>("any");
   const [enroll, setEnroll] = useState<Enroll>("default");
@@ -57,62 +78,63 @@ export default function CatalogPage() {
     setEnroll("default");
   };
 
-  /**
-   * Одна карточка на языковую группу. Открывается версия на языке
-   * интерфейса; если её нет — единственная существующая.
-   */
-  const grouped = useMemo(() => {
-    const seen = new Set<string>();
-    const out: Course[] = [];
-    for (const c of catalogCourses) {
-      if (seen.has(c.groupId)) continue;
-      seen.add(c.groupId);
-      const versions = catalogCourses.filter((x) => x.groupId === c.groupId);
-      out.push(versions.find((x) => x.lang === lang) ?? versions[0]);
-    }
-    return out;
-  }, [lang]);
+  const groups = useMemo(() => catalog.data?.items ?? [], [catalog.data]);
+  const categories = dictionaries.data?.categories ?? [];
+
+  const accessOf = useMemo(() => {
+    const granted = new Set(mine.data?.items.map((c) => c.id) ?? []);
+    const requested = new Set(mine.data?.leads.map((l) => l.course.id) ?? []);
+    return (group: CatalogGroup): AccessState => {
+      if (group.versions.some((v) => granted.has(v.id))) return "granted";
+      if (group.versions.some((v) => requested.has(v.id))) return "requested";
+      return "none";
+    };
+  }, [mine.data]);
 
   const result = useMemo(() => {
-    let list = grouped.filter((c) => {
+    let list = groups.filter((g) => {
+      const shown = pickVersion(g, lang);
       if (query.trim()) {
         const q = query.trim().toLowerCase();
-        const inGroup = catalogCourses
-          .filter((x) => x.groupId === c.groupId)
-          .some((x) => x.title.toLowerCase().includes(q));
-        if (!inGroup && !c.category.toLowerCase().includes(q)) return false;
+        const inTitles = g.versions.some((v) => v.title.toLowerCase().includes(q));
+        const inCategory = categoryTitle(categories, shown.category_id)
+          .toLowerCase()
+          .includes(q);
+        if (!inTitles && !inCategory) return false;
       }
-      if (cats.length && !cats.includes(c.category)) return false;
-      if (courseLang !== "any" && !groupLangs(c).includes(courseLang)) return false;
-      if (hours === "short" && c.hours >= 24) return false;
-      if (hours === "mid" && (c.hours < 24 || c.hours > 48)) return false;
-      if (hours === "long" && c.hours <= 48) return false;
+      if (cats.length && !cats.includes(shown.category_id)) return false;
+      if (courseLang !== "any" && !g.langs.includes(courseLang)) return false;
+      if (hours === "short" && shown.hours >= 24) return false;
+      if (hours === "mid" && (shown.hours < 24 || shown.hours > 48)) return false;
+      if (hours === "long" && shown.hours <= 48) return false;
 
       /* По умолчанию показываем идущие и запланированные вперемешку;
          закрытый набор скрыт из выдачи, но доступен по прямой ссылке
          и по отдельному фильтру. */
-      if (enroll === "default") return c.status !== "closed";
-      if (enroll === "open") return c.status === "open";
-      if (enroll === "planned") return c.status === "planned";
-      return c.status === "closed";
+      if (enroll === "default") return shown.status !== "closed";
+      return shown.status === enroll;
     });
 
-    list = list.slice().sort((a, b) => {
-      if (sort === "rating") return b.rating - a.rating;
-      if (sort === "start") {
-        /* Сначала те, у кого есть дата старта — по возрастанию */
-        if (a.startsAt && b.startsAt) return a.startsAt.localeCompare(b.startsAt);
-        if (a.startsAt) return -1;
-        if (b.startsAt) return 1;
-        return b.publishedAt.localeCompare(a.publishedAt);
-      }
-      return b.publishedAt.localeCompare(a.publishedAt);
-    });
+    /* «Новые» — порядок сервера (свежие группы сверху), сортировка стабильная */
+    if (sort === "rating") {
+      /* Рейтинг групповой; курсы без отзывов — в конец */
+      list = list.slice().sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+    } else if (sort === "start") {
+      /* Сначала те, у кого есть дата старта — по возрастанию */
+      list = list.slice().sort((a, b) => {
+        const sa = pickVersion(a, lang).starts_at;
+        const sb = pickVersion(b, lang).starts_at;
+        if (sa && sb) return sa.localeCompare(sb);
+        if (sa) return -1;
+        if (sb) return 1;
+        return 0;
+      });
+    }
     return list;
-  }, [grouped, query, cats, courseLang, hours, enroll, sort]);
+  }, [groups, categories, query, cats, courseLang, hours, enroll, sort, lang]);
 
-  const toggleCat = (c: string) =>
-    setCats((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  const toggleCat = (id: number) =>
+    setCats((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const filtersBody = (
     <div className="stack g24">
@@ -120,12 +142,16 @@ export default function CatalogPage() {
         <strong className="small">Категория</strong>
         <div className="stack g2">
           {categories.map((c) => (
-            <label key={c} className="check">
-              <input type="checkbox" checked={cats.includes(c)} onChange={() => toggleCat(c)} />
+            <label key={c.id} className="check">
+              <input
+                type="checkbox"
+                checked={cats.includes(c.id)}
+                onChange={() => toggleCat(c.id)}
+              />
               <span className="check-box">
                 <IconCheck size={14} />
               </span>
-              <span className="check-label">{c}</span>
+              <span className="check-label">{c.title}</span>
             </label>
           ))}
         </div>
@@ -288,9 +314,9 @@ export default function CatalogPage() {
           {/* Активные фильтры чипами */}
           {activeFilters > 0 && (
             <div className="row wrap g8">
-              {cats.map((c) => (
-                <button key={c} className="chip" data-active onClick={() => toggleCat(c)}>
-                  {c}
+              {cats.map((id) => (
+                <button key={id} className="chip" data-active onClick={() => toggleCat(id)}>
+                  {categoryTitle(categories, id)}
                   <IconClose size={14} />
                 </button>
               ))}
@@ -322,11 +348,27 @@ export default function CatalogPage() {
             </Note>
           )}
 
-          {!ready ? (
+          {catalog.loading ? (
             <div className="grid-courses">
               {Array.from({ length: 6 }).map((_, i) => (
                 <CourseCardSkeleton key={i} />
               ))}
+            </div>
+          ) : catalog.error ? (
+            <div className="card">
+              <Empty
+                title={t.loadError}
+                text={t.loadErrorText}
+                action={
+                  <Button variant="secondary" onClick={catalog.reload}>
+                    {t.retry}
+                  </Button>
+                }
+              />
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="card">
+              <Empty title={t.emptyCatalogTitle} text={t.emptyCatalogText} />
             </div>
           ) : result.length === 0 ? (
             <div className="card">
@@ -353,8 +395,8 @@ export default function CatalogPage() {
             </div>
           ) : (
             <div className="grid-courses">
-              {result.map((c) => (
-                <CourseCard key={c.groupId} course={c} showState={authed} />
+              {result.map((g) => (
+                <CourseCard key={g.group_id} group={g} access={accessOf(g)} />
               ))}
             </div>
           )}

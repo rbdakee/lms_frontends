@@ -4,12 +4,13 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { courses, demoCertificate, getCourse } from "@lms/prototype/data";
+import { api, useLoad, type CatalogOut } from "@lms/api";
+import { demoCertificate, getCourse } from "@lms/prototype/data";
 import { useStore } from "@lms/prototype";
 import { useOrigin } from "@lms/ui/useOrigin";
 import { TeacherShell } from "@/components/layout/Shell";
 import { CertificateThumb } from "@/components/course/CertificateSheet";
-import { CourseRow } from "@/components/course/CourseCard";
+import { CourseRow, pickVersion } from "@/components/course/CourseCard";
 import { Button, Empty, LinkButton, Note } from "@lms/ui";
 import {
   IconCheck,
@@ -21,8 +22,10 @@ import {
 export default function CompletePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { issueCert, certs, rateCourse, ratings, toast } = useStore();
+  const { lang, issueCert, rateCourse, ratings, toast } = useStore();
   const { verifyUrl } = useOrigin();
+  /* «Что пройти дальше» — живой каталог, а не моки */
+  const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
 
   const course = getCourse(id);
   const [stars, setStars] = useState(ratings[id] ?? 0);
@@ -59,7 +62,7 @@ export default function CompletePage() {
   }
 
   const cert = { ...demoCertificate, courseId: course.id, courseTitle: course.title, hours: course.hours };
-  const next = courses.filter((c) => c.id !== course.id).slice(0, 3);
+  const next = (catalog.data?.items ?? []).map((g) => pickVersion(g, lang)).slice(0, 3);
 
   return (
     <TeacherShell>
@@ -140,9 +143,9 @@ export default function CompletePage() {
           <div className="card card-pad stack g14">
             <h2 className="h3">Оцените курс</h2>
             {sent ? (
+              /* Премодерации нет — отзыв виден на странице курса сразу */
               <Note kind="success">
-                Спасибо! Отзыв отправлен на модерацию — появится на странице курса
-                после проверки.
+                Спасибо! Отзыв опубликован на странице курса.
               </Note>
             ) : (
               <>
@@ -190,17 +193,19 @@ export default function CompletePage() {
         </section>
 
         {/* Что дальше */}
-        <section className="stack g16">
-          <h2 className="h2">Что пройти дальше</h2>
-          <div className="stack g10 next-list">
-            {next.map((c) => (
-              <CourseRow key={c.id} course={c} />
-            ))}
-          </div>
-          <LinkButton href="/courses" variant="secondary" block>
-            Открыть каталог
-          </LinkButton>
-        </section>
+        {next.length > 0 && (
+          <section className="stack g16">
+            <h2 className="h2">Что пройти дальше</h2>
+            <div className="stack g10 next-list">
+              {next.map((c) => (
+                <CourseRow key={c.id} course={c} />
+              ))}
+            </div>
+            <LinkButton href="/courses" variant="secondary" block>
+              Открыть каталог
+            </LinkButton>
+          </section>
+        )}
       </div>
 
       <style>{`
