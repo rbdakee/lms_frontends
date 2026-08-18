@@ -13,8 +13,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { api, qs, useLoad, useMe, userInitials, type AdminLeadsPage } from "@lms/api";
-import { adminSubmissions } from "@lms/prototype/data";
+import {
+  api,
+  qs,
+  useLoad,
+  useMe,
+  userInitials,
+  type AdminLeadsPage,
+  type AdminSubmissionsPage,
+} from "@lms/api";
 import { web } from "@/lib/urls";
 import { Avatar, Empty, Sheet } from "@lms/ui";
 import {
@@ -74,19 +81,24 @@ const NAV: { group: string; items: NavItem[] }[] = [
 
 /**
  * Счётчики есть только у «Заявок» и «Проверки работ» — это две очереди,
- * которые действительно кто-то ждёт. Новые заявки считает сервер
- * (`total` при `status=new`); очередь работ — прототип до сессии 5.
- * У вопросов и отзывов счётчиков нет: колокольчика в админке тоже нет,
- * уведомления админа живут в Telegram-боте (5.15).
+ * которые действительно кто-то ждёт. Обе считает сервер: `total` при
+ * `status=new` у заявок и при `status=pending` у работ; сами списки для
+ * этого не тянем — `per_page: 1`. У вопросов и отзывов счётчиков нет:
+ * колокольчика в админке тоже нет, уведомления админа живут
+ * в Telegram-боте (5.15).
  */
 function useBadgeValue() {
   const newLeads = useLoad(
     () => api<AdminLeadsPage>(`/admin/leads${qs({ status: "new", per_page: 1 })}`),
     [],
   );
+  const queue = useLoad(
+    () => api<AdminSubmissionsPage>(`/admin/submissions${qs({ status: "pending", per_page: 1 })}`),
+    [],
+  );
   return (key?: string) => {
     if (key === "leads") return newLeads.data?.total ?? 0;
-    if (key === "queue") return adminSubmissions.length;
+    if (key === "queue") return queue.data?.total ?? 0;
     return 0;
   };
 }

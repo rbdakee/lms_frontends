@@ -5,8 +5,8 @@
  * между страницами и после перезагрузки.
  *
  * Пакет временный и выключается поэкранно: авторизованность здесь больше
- * не живёт (её определяет `GET /me` из `@lms/api`), каталог, заявки и «Мои
- * курсы» ходят в API. Остальное — уроки, тесты, задания, сертификаты,
+ * не живёт (её определяет `GET /me` из `@lms/api`), каталог, заявки, «Мои
+ * курсы», уроки, тесты и задания ходят в API. Остальное — сертификаты,
  * уведомления и админские редакторы — на моках до своих сессий бэкенда.
  */
 
@@ -29,8 +29,6 @@ import {
   type ThreadReply,
 } from "./data";
 import { dict, type UiLang } from "@lms/ui/i18n";
-
-export type TaskStatus = "none" | "review" | "accepted" | "rework";
 
 /**
  * Элементы программы, добавленные админом прямо в прототипе — раздел 5.17.
@@ -55,22 +53,6 @@ export interface DraftModule {
 /** Состояние курса у учителя — раздел 5.3 брифа. */
 export type CourseAccess = "none" | "requested" | "granted";
 
-export interface QuizResult {
-  score: number;
-  maxScore: number;
-  pct: number;
-  passed: boolean;
-  minutesSpent: number;
-  answers: Record<string, number[]>;
-  timedOut?: boolean;
-  date: string;
-}
-
-/** Попытки не затираются никогда, даже когда засчитывается последняя. */
-export interface QuizAttempt extends QuizResult {
-  id: string;
-}
-
 export interface Profile {
   lastName: string;
   firstName: string;
@@ -93,14 +75,6 @@ interface State {
   requests: Record<string, number>;
   /** courseId → список id пройденных уроков */
   completed: Record<string, string[]>;
-  /** lessonId теста → зачётный результат */
-  quizzes: Record<string, QuizResult>;
-  /** lessonId теста → все попытки, включая незачётные */
-  attempts: Record<string, QuizAttempt[]>;
-  /** разрешённые админом пересдачи (только у непересдаваемых тестов) */
-  quizRetakes: string[];
-  /** lessonId задания → статус */
-  tasks: Record<string, TaskStatus>;
   readNotifications: string[];
   profile: Profile;
   /** есть ли загруженное фото — без него показываем инициалы */
@@ -143,54 +117,6 @@ function initialState(): State {
       [DEMO_COURSE_ID]: ["l1", "l2", "l3", "l4", "l5", "l6", "l7", "l8", "l9", "l10", "l11", "l12"],
       "formative-assessment": [],
     },
-    quizzes: {
-      l4: {
-        score: 7,
-        maxScore: 8,
-        pct: 88,
-        passed: true,
-        minutesSpent: 9,
-        answers: {},
-        date: "6 августа 2026",
-      },
-      l9: {
-        score: 9,
-        maxScore: 10,
-        pct: 90,
-        passed: true,
-        minutesSpent: 11,
-        answers: {},
-        date: "10 августа 2026",
-      },
-    },
-    attempts: {
-      l4: [
-        {
-          id: "a-l4-1",
-          score: 7,
-          maxScore: 8,
-          pct: 88,
-          passed: true,
-          minutesSpent: 9,
-          answers: {},
-          date: "6 августа 2026",
-        },
-      ],
-      l9: [
-        {
-          id: "a-l9-1",
-          score: 9,
-          maxScore: 10,
-          pct: 90,
-          passed: true,
-          minutesSpent: 11,
-          answers: {},
-          date: "10 августа 2026",
-        },
-      ],
-    },
-    quizRetakes: [],
-    tasks: { l7: "accepted", l12: "rework", l17: "none" },
     readNotifications: [],
     profile: {
       lastName: teacherProfile.lastName,
@@ -228,9 +154,6 @@ function emptyState(): State {
     enrolled: [],
     requests: {},
     completed: {},
-    quizzes: {},
-    attempts: {},
-    tasks: {},
     certs: [],
     profile: { ...s.profile, lastName: "", firstName: "", middleName: "", email: "" },
   };
@@ -253,9 +176,6 @@ interface Ctx extends State {
   completeLesson: (courseId: string, lessonId: string) => void;
   uncompleteLesson: (courseId: string, lessonId: string) => void;
   isCompleted: (courseId: string, lessonId: string) => boolean;
-  saveQuiz: (quizId: string, r: QuizResult) => void;
-  allowRetake: (quizId: string) => void;
-  setTask: (taskId: string, status: TaskStatus) => void;
   markAllRead: () => void;
   markRead: (id: string) => void;
   issueCert: (courseId: string) => void;
@@ -391,22 +311,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
         })),
       isCompleted: (courseId, lessonId) => (state.completed[courseId] ?? []).includes(lessonId),
-
-      saveQuiz: (quizId, r) =>
-        set((s) => {
-          const prev = s.attempts[quizId] ?? [];
-          const attempt: QuizAttempt = { ...r, id: `a-${quizId}-${prev.length + 1}` };
-          return {
-            quizzes: { ...s.quizzes, [quizId]: r },
-            attempts: { ...s.attempts, [quizId]: [...prev, attempt] },
-            quizRetakes: s.quizRetakes.filter((q) => q !== quizId),
-          };
-        }),
-      allowRetake: (quizId) =>
-        set((s) => ({
-          quizRetakes: s.quizRetakes.includes(quizId) ? s.quizRetakes : [...s.quizRetakes, quizId],
-        })),
-      setTask: (taskId, status) => set((s) => ({ tasks: { ...s.tasks, [taskId]: status } })),
 
       markAllRead: () => set({ readNotifications: [...notificationIds] }),
       markRead: (id) =>

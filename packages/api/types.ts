@@ -54,3 +54,30 @@ export type LeadPatch = S["LeadPatchIn"];
 export type LeadStatus = NonNullable<LeadPatch["status"]>;
 export type EnrollmentIn = S["EnrollmentIn"];
 export type Enrollment = S["EnrollmentOut"];
+
+/* Тест (`GET /quizzes/{id}`): правила и состояние. Вопросы приходят только
+   внутри активной попытки; правильные ответы — только в разборе. */
+export type Quiz = S["QuizOut"];
+export type QuizState = Quiz["state"];
+export type QuizAttempt = S["QuizAttemptOut"];
+export type QuizQuestion = S["QuizQuestionOut"];
+export type QuizAnswer = S["QuizAnswerOut"];
+export type AnswerIn = S["AnswerIn"];
+export type QuizResult = S["QuizResultOut"];
+export type QuizAttemptHistory = S["QuizAttemptHistoryOut"];
+export type QuizReview = S["QuizReviewOut"];
+export type QuizReviewQuestion = S["QuizReviewQuestionOut"];
+
+/* Задание и сдачи (`GET /tasks/{id}`, `POST /tasks/{id}/submissions`). */
+export type Task = S["TaskOut"];
+export type TaskStatus = Task["status"];
+export type Submission = S["SubmissionOut"];
+export type SubmissionFile = S["SubmissionFileOut"];
+export type SubmissionIn = S["SubmissionIn"];
+
+/* Очередь проверки в админке (`GET /admin/submissions`, карточка, вердикт). */
+export type AdminSubmission = S["AdminSubmissionOut"];
+export type AdminSubmissionsPage = S["AdminSubmissionsPageOut"];
+export type AdminSubmissionCard = S["AdminSubmissionCardOut"];
+export type SubmissionReviewIn = S["SubmissionReviewIn"];
+export type SubmissionVerdict = SubmissionReviewIn["verdict"];

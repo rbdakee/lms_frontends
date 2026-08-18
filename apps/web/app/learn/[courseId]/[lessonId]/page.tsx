@@ -279,9 +279,10 @@ export default function LessonPage() {
     }
   };
 
-  /* Сосед — тест или задание: их экраны на прототипе до сессии 5, ведём
-     к программе курса, и подпись кнопки говорит об этом честно */
-  const isLesson = (i?: ProgramStatusItem) => i?.kind === "video" || i?.kind === "text";
+  /* Сосед бывает уроком, тестом или заданием — у каждого свой экран,
+     и подпись кнопки говорит, куда именно ведёт «Далее» */
+  const navLabel = (i?: ProgramStatusItem, fallback = t.nextLesson) =>
+    i?.kind === "quiz" ? t.nextQuiz : i?.kind === "task" ? t.nextTask : fallback;
 
   const goNext = () => {
     if (next?.status === "locked") {
@@ -431,7 +432,7 @@ export default function LessonPage() {
                     onClick={() => prev && router.push(continueHref(courseId, prev))}
                     icon={<IconArrowLeft size={17} />}
                   >
-                    {prev && !isLesson(prev) ? t.toProgram : t.prevLesson}
+                    {navLabel(prev, t.prevLesson)}
                   </Button>
                   <Button
                     variant={isDone ? "primary" : "secondary"}
@@ -439,7 +440,7 @@ export default function LessonPage() {
                     onClick={goNext}
                     iconRight={<IconArrowRight size={17} />}
                   >
-                    {isLesson(next) ? t.nextLesson : t.toProgram}
+                    {next ? navLabel(next) : t.toProgram}
                   </Button>
                 </div>
                 {next?.status === "locked" && (

@@ -1,160 +1,287 @@
 "use client";
 
 /**
- * Проверка работ «/submissions» — раздел 5.21 брифа.
+ * Очередь проверки работ «/submissions» — раздел 5.21 брифа.
  *
- * Вход в проверку идёт от курса, а не от общего списка учителей: методист
- * выбирает курс, видит его состав и очередь, и уже внутри — кто на каком
- * этапе и чью работу открывать. Плоский список всех сдач подряд не давал
- * понять, к какому курсу относится работа и что у человека сдано до неё.
+ * Плоский список, а не карточки курсов: сводки по курсу у API нет, а очередь
+ * и есть очередь — сверху тот, кто ждёт дольше всех (сортирует сервер).
+ * Состав курса и кто на каком уроке остановился остались на своём месте —
+ * на вкладке «Участники» карточки курса.
+ *
+ * Данные — `GET /admin/submissions` с серверной пагинацией и фильтрами:
+ * `status` (по умолчанию `pending` — это и есть очередь) и `course_id`.
+ * Счётчик очереди не зависит от фильтров — считается отдельным запросом.
  */
 
 import Link from "next/link";
-import { adminSubmissions, reviewCourses } from "@lms/prototype/data";
-import { plural } from "@lms/ui/i18n";
+import { useState } from "react";
+import {
+  api,
+  qs,
+  useLoad,
+  type AdminSubmissionsPage,
+  type CatalogOut,
+} from "@lms/api";
+import { dayMonth } from "@lms/ui/i18n";
+import { useStore } from "@lms/prototype";
+import {
+  SubmissionStatusBadge,
+  TeacherAvatar,
+  teacherName,
+  type SubmissionStatus,
+} from "@/components/admin/submissionsApi";
+import { Waiting } from "@/components/admin/Waiting";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { Badge, Cover, Empty, Progress } from "@lms/ui";
-import { IconCheckCircle, IconChevronRight } from "@lms/ui/icons";
+import { Badge, Button, Empty, LinkButton } from "@lms/ui";
+import { IconCheckCircle, IconChevronRight, IconSearch } from "@lms/ui/icons";
+
+const PER_PAGE = 20;
+
+/** Порог краснеющего ожидания у работ — три дня (у заявок он свой, два). */
+const RED_AFTER_DAYS = 3;
+
+type StatusFilter = SubmissionStatus | "all";
 
 export default function SubmissionsPage() {
-  const list = reviewCourses();
-  const total = adminSubmissions.length;
-  const longWait = adminSubmissions.filter((s) => s.waiting > 3).length;
+  const { t, lang } = useStore();
+
+  const [status, setStatus] = useState<StatusFilter>("pending");
+  const [courseId, setCourseId] = useState<"all" | number>("all");
+  const [page, setPage] = useState(1);
+
+  const list = useLoad(
+    () =>
+      api<AdminSubmissionsPage>(
+        `/admin/submissions${qs({
+          page,
+          per_page: PER_PAGE,
+          status,
+          course_id: courseId === "all" ? undefined : courseId,
+        })}`,
+      ),
+    [page, status, courseId],
+  );
+  /* Сколько работ ждёт всего — цифра в шапке и в счётчике меню */
+  const queue = useLoad(
+    () => api<AdminSubmissionsPage>(`/admin/submissions${qs({ status: "pending", per_page: 1 })}`),
+    [],
+  );
+  /* Фильтр по курсу — все версии из каталога, как в заявках */
+  const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
+
+  const items = list.data?.items ?? [];
+  const total = list.data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const queueTotal = queue.data?.total ?? 0;
+  /* Пустая очередь — это хорошая новость; пусто из-за фильтров — другой текст */
+  const filtered = status !== "pending" || courseId !== "all";
+  const courseOptions = (catalog.data?.items ?? []).flatMap((g) => g.versions);
+
+  const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+    { value: "pending", label: t.subFilterPending },
+    { value: "rework", label: t.subFilterRework },
+    { value: "accepted", label: t.subFilterAccepted },
+    { value: "all", label: t.subFilterAll },
+  ];
+
+  const resetFilters = () => {
+    setStatus("pending");
+    setCourseId("all");
+    setPage(1);
+  };
 
   return (
     <AdminShell
-      title="Проверка работ"
-      subtitle={`${total} в очереди · ${longWait} ${plural(longWait, "ждёт", "ждут", "ждут")} дольше трёх дней · выберите курс`}
+      title={t.subTitle}
+      subtitle={`${t.subInQueue(queueTotal)} · ${t.subByFilter(total)}`}
     >
-      {list.length === 0 ? (
-        <div className="card">
-          <Empty
-            icon={<IconCheckCircle size={38} />}
-            title="Все работы проверены"
-            text="Новые сдачи появятся здесь и в счётчике меню."
-          />
+      <div className="stack g16">
+        {/* ===== Фильтры ===== */}
+        <div className="row wrap g10">
+          <select
+            className="input"
+            style={{ width: "auto", minWidth: 190 }}
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as StatusFilter);
+              setPage(1);
+            }}
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="input"
+            style={{ width: "auto", minWidth: 190 }}
+            value={courseId}
+            onChange={(e) => {
+              setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            <option value="all">{t.subAllCourses}</option>
+            {courseOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
         </div>
-      ) : (
-        <div className="stack g16">
-          <p className="small muted pretty" style={{ maxWidth: 720 }}>
-            Внутри курса видно, из чего он состоит, кто на каком уроке
-            остановился, какие тесты сданы и какие задания ждут проверки.
-          </p>
 
-          <div className="review-courses">
-            {list.map(({ course, summary }) => {
-              const donePct = Math.round((summary.finished / summary.participants) * 100);
-              return (
-                <Link
-                  key={course.id}
-                  href={`/courses/${course.id}?tab=participants`}
-                  className="card card-link stack"
-                  style={{ overflow: "hidden" }}
-                >
-                  <Cover tone={course.cover} glyph={false} style={{ height: 76 }} />
+        {list.loading ? (
+          <div className="card card-pad row center" style={{ minHeight: 200 }}>
+            <span className="spinner" style={{ width: 26, height: 26, color: "var(--primary)" }} />
+          </div>
+        ) : list.error ? (
+          <div className="card">
+            <Empty
+              title={t.loadError}
+              text={t.loadErrorText}
+              action={
+                <Button variant="secondary" onClick={list.reload}>
+                  {t.retry}
+                </Button>
+              }
+            />
+          </div>
+        ) : items.length === 0 ? (
+          <div className="card">
+            <Empty
+              icon={filtered ? <IconSearch size={34} /> : <IconCheckCircle size={38} />}
+              title={filtered ? t.subNoMatchTitle : t.subQueueEmptyTitle}
+              text={filtered ? t.subNoMatchText : t.subQueueEmptyText}
+              action={
+                filtered ? (
+                  <Button variant="secondary" onClick={resetFilters}>
+                    {t.resetFilters}
+                  </Button>
+                ) : undefined
+              }
+            />
+          </div>
+        ) : (
+          <>
+            {/* ===== Десктоп: таблица ===== */}
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t.subTeacher}</th>
+                    <th>{t.subTask}</th>
+                    <th>{t.subCourse}</th>
+                    <th>{t.subSent}</th>
+                    <th>{t.subStatus}</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((s) => (
+                    <tr key={s.id}>
+                      <td style={{ maxWidth: 240 }}>
+                        <Link href={`/submissions/${s.id}`} className="row g10">
+                          <TeacherAvatar teacher={s.teacher} />
+                          <span className="small" style={{ fontWeight: 600, minWidth: 0 }}>
+                            {teacherName(s.teacher)}
+                          </span>
+                        </Link>
+                      </td>
+                      <td style={{ maxWidth: 280 }}>
+                        <div className="stack g4">
+                          <span className="small pretty">{s.task.title}</span>
+                          {s.attempt_number > 1 && (
+                            <span>
+                              <Badge kind="rework">{t.subReworkTag}</Badge>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ maxWidth: 240 }}>
+                        <span className="small muted pretty">{s.course.title}</span>
+                      </td>
+                      <td>
+                        <div className="stack g2">
+                          <span className="caption muted-3 nowrap">
+                            {dayMonth(s.created_at, lang)}
+                          </span>
+                          {s.status === "pending" && (
+                            <Waiting days={s.waiting_days} redAfter={RED_AFTER_DAYS} />
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <SubmissionStatusBadge status={s.status} />
+                      </td>
+                      <td style={{ width: 130 }}>
+                        <LinkButton href={`/submissions/${s.id}`} variant="secondary" size="sm">
+                          {t.subCheck}
+                          <IconChevronRight size={15} />
+                        </LinkButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                  <div className="card-pad stack g12">
-                    <div className="row between g10" style={{ alignItems: "flex-start" }}>
-                      <strong className="pretty" style={{ fontSize: 16, lineHeight: 1.3 }}>
-                        {course.title}
-                      </strong>
-                      {summary.waiting > 0 ? (
-                        <Badge kind={summary.longWait > 0 ? "rework" : "review"}>
-                          {summary.waiting} на проверке
-                        </Badge>
-                      ) : (
-                        <Badge kind="accepted">Очередь пуста</Badge>
-                      )}
-                    </div>
-
-                    <span className="caption muted-3">
-                      {course.lessons} {plural(course.lessons, "урок", "урока", "уроков")} ·{" "}
-                      {summary.quizzes} {plural(summary.quizzes, "тест", "теста", "тестов")} ·{" "}
-                      {summary.tasks} {plural(summary.tasks, "задание", "задания", "заданий")}
+            {/* ===== Мобильный: карточки, а не горизонтальный скролл ===== */}
+            <div className="table-mobile-cards">
+              {items.map((s) => (
+                <Link key={s.id} href={`/submissions/${s.id}`} className="card card-pad card-link stack g12">
+                  <div className="row g10">
+                    <TeacherAvatar teacher={s.teacher} size={42} />
+                    <span className="grow stack g2" style={{ minWidth: 0 }}>
+                      <span className="small" style={{ fontWeight: 700 }}>
+                        {teacherName(s.teacher)}
+                      </span>
+                      <span className="caption muted-3 pretty">{s.course.title}</span>
                     </span>
+                    <SubmissionStatusBadge status={s.status} />
+                  </div>
 
-                    <div className="stack g6">
-                      <div className="row between caption muted">
-                        <span>
-                          {summary.participants}{" "}
-                          {plural(summary.participants, "участник", "участника", "участников")} ·{" "}
-                          {summary.finished} завершили
-                        </span>
-                        <strong style={{ color: "var(--primary)" }}>{donePct}%</strong>
-                      </div>
-                      <Progress value={donePct} />
-                    </div>
+                  <span className="small pretty">{s.task.title}</span>
 
-                    <hr className="divider" />
-
-                    <div className="row between g10">
-                      <span className="row g10">
-                        <Stat
-                          value={summary.waiting}
-                          label="ждут"
-                          tone={summary.waiting > 0 ? "review" : undefined}
-                        />
-                        <Stat
-                          value={summary.longWait}
-                          label="дольше 3 дней"
-                          tone={summary.longWait > 0 ? "danger" : undefined}
-                        />
-                        <Stat
-                          value={summary.rework}
-                          label="доработка"
-                          tone={summary.rework > 0 ? "warn" : undefined}
-                        />
-                      </span>
-                      <span
-                        className="row g4 caption"
-                        style={{ color: "var(--primary)", fontWeight: 700 }}
-                      >
-                        Открыть
-                        <IconChevronRight size={14} />
-                      </span>
-                    </div>
+                  <div className="row wrap g8">
+                    <span className="caption muted-3">{dayMonth(s.created_at, lang)}</span>
+                    {s.status === "pending" && (
+                      <>
+                        <span className="dot-sep">·</span>
+                        <Waiting days={s.waiting_days} redAfter={RED_AFTER_DAYS} />
+                      </>
+                    )}
+                    {s.attempt_number > 1 && <Badge kind="rework">{t.subReworkTag}</Badge>}
                   </div>
                 </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              ))}
+            </div>
 
-      <style>{`
-        .review-courses {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 14px;
-        }
-        @media (min-width: 760px) { .review-courses { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (min-width: 1280px) { .review-courses { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-      `}</style>
+            {/* ===== Пагинация ===== */}
+            {pages > 1 && (
+              <div className="row center g10">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  {t.back}
+                </Button>
+                <span className="small muted-3">{t.pageOf(page, pages)}</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={page >= pages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  {t.forward}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </AdminShell>
-  );
-}
-
-function Stat({
-  value,
-  label,
-  tone,
-}: {
-  value: number;
-  label: string;
-  tone?: "review" | "danger" | "warn";
-}) {
-  const color =
-    tone === "danger"
-      ? "var(--danger)"
-      : tone === "warn"
-        ? "var(--warning)"
-        : tone === "review"
-          ? "var(--primary)"
-          : "var(--text-3)";
-  return (
-    <span className="stack g2" style={{ lineHeight: 1.15 }}>
-      <strong style={{ fontSize: 17, color }}>{value}</strong>
-      <span className="caption muted-3">{label}</span>
-    </span>
   );
 }

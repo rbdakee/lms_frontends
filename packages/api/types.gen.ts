@@ -312,6 +312,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/quizzes/{quiz_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quiz */
+        get: operations["quiz_quizzes__quiz_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quizzes/{quiz_id}/quiz_attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Attempt */
+        post: operations["start_attempt_quizzes__quiz_id__quiz_attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quiz_attempts/{attempt_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Answer */
+        post: operations["save_answer_quiz_attempts__attempt_id__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quiz_attempts/{attempt_id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish Attempt */
+        post: operations["finish_attempt_quiz_attempts__attempt_id__finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quiz_attempts/{attempt_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Attempt Review */
+        get: operations["attempt_review_quiz_attempts__attempt_id__review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Task */
+        get: operations["task_tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{task_id}/template_file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Task Template File */
+        get: operations["task_template_file_tasks__task_id__template_file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{task_id}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Task */
+        post: operations["submit_task_tasks__task_id__submissions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files": {
         parameters: {
             query?: never;
@@ -338,6 +474,40 @@ export interface paths {
         };
         /** Download Lesson File */
         get: operations["download_lesson_file_files_lesson__file_id___filename__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/task/{task_id}/{filename}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Task Template */
+        get: operations["download_task_template_files_task__task_id___filename__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/submission/{submission_id}/{index}/{filename}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Submission File */
+        get: operations["download_submission_file_files_submission__submission_id___index___filename__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -408,6 +578,57 @@ export interface paths {
         put?: never;
         /** Grant Enrollment */
         post: operations["grant_enrollment_admin_enrollments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Submissions */
+        get: operations["admin_submissions_admin_submissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/submissions/{submission_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Submission */
+        get: operations["admin_submission_admin_submissions__submission_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/submissions/{submission_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Submission */
+        post: operations["review_submission_admin_submissions__submission_id__review_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -494,6 +715,102 @@ export interface components {
             page: number;
             /** Per Page */
             per_page: number;
+        };
+        /** AdminSubmissionCardOut */
+        AdminSubmissionCardOut: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "accepted" | "rework";
+            /** Attempt Number */
+            attempt_number: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Waiting Days */
+            waiting_days: number;
+            teacher: components["schemas"]["SubmissionTeacherOut"];
+            task: components["schemas"]["AdminSubmissionTaskOut"];
+            course: components["schemas"]["SubmissionCourseOut"];
+            /** Text */
+            text: string | null;
+            /** Files */
+            files: components["schemas"]["SubmissionFileOut"][];
+            /** Comment */
+            comment: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** History */
+            history: components["schemas"]["SubmissionOut"][];
+        };
+        /** AdminSubmissionOut */
+        AdminSubmissionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "accepted" | "rework";
+            /** Attempt Number */
+            attempt_number: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Waiting Days */
+            waiting_days: number;
+            teacher: components["schemas"]["SubmissionTeacherOut"];
+            task: components["schemas"]["SubmissionTaskOut"];
+            course: components["schemas"]["SubmissionCourseOut"];
+        };
+        /**
+         * AdminSubmissionTaskOut
+         * @description Задание в карточке проверки: слева условие, справа работа.
+         */
+        AdminSubmissionTaskOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Statement */
+            statement: {
+                [key: string]: unknown;
+            };
+            template_file: components["schemas"]["TemplateFileOut"] | null;
+            /**
+             * Submit Format
+             * @enum {string}
+             */
+            submit_format: "text" | "file" | "both";
+            /** Allowed Ext */
+            allowed_ext: string[];
+            /** Max Size Mb */
+            max_size_mb: number;
+        };
+        /** AdminSubmissionsPageOut */
+        AdminSubmissionsPageOut: {
+            /** Items */
+            items: components["schemas"]["AdminSubmissionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /** AnswerIn */
+        AnswerIn: {
+            /** Question Id */
+            question_id: number;
+            /** Option Ids */
+            option_ids: number[];
         };
         /** Body_upload_file_files_post */
         Body_upload_file_files_post: {
@@ -983,6 +1300,210 @@ export interface components {
              */
             status: "available" | "locked" | "done";
         };
+        /** QuizAnswerOut */
+        QuizAnswerOut: {
+            /** Question Id */
+            question_id: number;
+            /** Option Ids */
+            option_ids: number[];
+        };
+        /** QuizAttemptHistoryOut */
+        QuizAttemptHistoryOut: {
+            /** Id */
+            id: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+            /** Minutes Spent */
+            minutes_spent: number;
+            /** Score */
+            score: number;
+            /** Max Score */
+            max_score: number;
+            /** Score Percent */
+            score_percent: number;
+            /** Passed */
+            passed: boolean;
+            /** Timed Out */
+            timed_out: boolean;
+            /** Is Counted */
+            is_counted: boolean;
+        };
+        /** QuizAttemptOut */
+        QuizAttemptOut: {
+            /** Id */
+            id: number;
+            /** Quiz Id */
+            quiz_id: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Remaining Sec */
+            remaining_sec: number | null;
+            /** Questions */
+            questions: components["schemas"]["QuizQuestionOut"][];
+            /** Answers */
+            answers: components["schemas"]["QuizAnswerOut"][];
+        };
+        /**
+         * QuizOptionOut
+         * @description Вариант внутри идущей попытки: is_correct здесь нет и быть не может.
+         */
+        QuizOptionOut: {
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+        };
+        /** QuizOut */
+        QuizOut: {
+            /** Id */
+            id: number;
+            /** Module Id */
+            module_id: number;
+            /** Title */
+            title: string;
+            /** Is Final */
+            is_final: boolean;
+            /** Pass Score */
+            pass_score: number;
+            /** Time Limit Min */
+            time_limit_min: number | null;
+            /** Retakable */
+            retakable: boolean;
+            /** Show Review */
+            show_review: boolean;
+            /** Time Required Min */
+            time_required_min: number;
+            /** Questions Count */
+            questions_count: number;
+            /** Max Score */
+            max_score: number;
+            /** State */
+            state: components["schemas"]["QuizStateNotStartedOut"] | components["schemas"]["QuizStateInProgressOut"] | components["schemas"]["QuizStateFinishedOut"];
+            /** Attempts */
+            attempts: components["schemas"]["QuizAttemptHistoryOut"][];
+        };
+        /** QuizQuestionOut */
+        QuizQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "single" | "multi" | "bool";
+            /** Text */
+            text: string;
+            /** Points */
+            points: number;
+            /** Options */
+            options: components["schemas"]["QuizOptionOut"][];
+        };
+        /**
+         * QuizResultOut
+         * @description Результат попытки — ответ finish и он же `result` завершённого теста.
+         */
+        QuizResultOut: {
+            /** Id */
+            id: number;
+            /** Score */
+            score: number;
+            /** Max Score */
+            max_score: number;
+            /** Score Percent */
+            score_percent: number;
+            /** Pass Score */
+            pass_score: number;
+            /** Passed */
+            passed: boolean;
+            /** Is Counted */
+            is_counted: boolean;
+            /** Timed Out */
+            timed_out: boolean;
+            /** Minutes Spent */
+            minutes_spent: number;
+            /** Review Available */
+            review_available: boolean;
+        };
+        /** QuizReviewOptionOut */
+        QuizReviewOptionOut: {
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+            /** Is Correct */
+            is_correct: boolean;
+            /** Is Chosen */
+            is_chosen: boolean;
+        };
+        /** QuizReviewOut */
+        QuizReviewOut: {
+            result: components["schemas"]["QuizResultOut"];
+            /** Questions */
+            questions: components["schemas"]["QuizReviewQuestionOut"][];
+        };
+        /** QuizReviewQuestionOut */
+        QuizReviewQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "single" | "multi" | "bool";
+            /** Text */
+            text: string;
+            /** Points */
+            points: number;
+            /** Earned Points */
+            earned_points: number;
+            /** Explanation */
+            explanation: string | null;
+            /** Options */
+            options: components["schemas"]["QuizReviewOptionOut"][];
+        };
+        /** QuizStateFinishedOut */
+        QuizStateFinishedOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            status: "finished";
+            result: components["schemas"]["QuizResultOut"];
+            /** Can Retake */
+            can_retake: boolean;
+            /** Review Available */
+            review_available: boolean;
+        };
+        /** QuizStateInProgressOut */
+        QuizStateInProgressOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            status: "in_progress";
+            attempt: components["schemas"]["QuizAttemptOut"];
+        };
+        /** QuizStateNotStartedOut */
+        QuizStateNotStartedOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            status: "not_started";
+            /** Can Start */
+            can_start: boolean;
+        };
         /** RequestCodeIn */
         RequestCodeIn: {
             /** Phone */
@@ -1067,6 +1588,148 @@ export interface components {
             user_agent: string;
             /** Is Current */
             is_current: boolean;
+        };
+        /** SubmissionCourseOut */
+        SubmissionCourseOut: {
+            /** Id */
+            id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+        };
+        /** SubmissionFileIn */
+        SubmissionFileIn: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+        };
+        /** SubmissionFileOut */
+        SubmissionFileOut: {
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Mime */
+            mime: string;
+            /** Url */
+            url: string;
+        };
+        /** SubmissionIn */
+        SubmissionIn: {
+            /** Text */
+            text?: string | null;
+            /** Files */
+            files?: components["schemas"]["SubmissionFileIn"][];
+        };
+        /**
+         * SubmissionOut
+         * @description Элемент истории сдач — и ответ на отправку работы. reviewed_by здесь
+         *     нет: имя проверяющего учителю не отдаётся.
+         */
+        SubmissionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "accepted" | "rework";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Text */
+            text: string | null;
+            /** Files */
+            files: components["schemas"]["SubmissionFileOut"][];
+            /** Comment */
+            comment: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+        };
+        /** SubmissionReviewIn */
+        SubmissionReviewIn: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "accepted" | "rework";
+            /** Comment */
+            comment?: string | null;
+        };
+        /** SubmissionTaskOut */
+        SubmissionTaskOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+        };
+        /**
+         * SubmissionTeacherOut
+         * @description Учитель в очереди: телефона и школы здесь нет — они на карточке
+         *     учителя, а очередь их не показывает.
+         */
+        SubmissionTeacherOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+            /** Photo Url */
+            photo_url: string | null;
+        };
+        /** TaskOut */
+        TaskOut: {
+            /** Id */
+            id: number;
+            /** Module Id */
+            module_id: number;
+            /** Title */
+            title: string;
+            /** Statement */
+            statement: {
+                [key: string]: unknown;
+            };
+            template_file: components["schemas"]["TemplateFileOut"] | null;
+            /**
+             * Submit Format
+             * @enum {string}
+             */
+            submit_format: "text" | "file" | "both";
+            /** Allowed Ext */
+            allowed_ext: string[];
+            /** Max Size Mb */
+            max_size_mb: number;
+            /** Time Required Min */
+            time_required_min: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "pending" | "accepted" | "rework";
+            /** Can Submit */
+            can_submit: boolean;
+            /** Submissions */
+            submissions: components["schemas"]["SubmissionOut"][];
+        };
+        /**
+         * TemplateFileOut
+         * @description Файл-шаблон задания. Ссылки здесь нет — за ней идут отдельно,
+         *     в GET /tasks/{id}/template_file.
+         */
+        TemplateFileOut: {
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Mime */
+            mime: string;
         };
         /** UploadedFileOut */
         UploadedFileOut: {
@@ -1730,6 +2393,260 @@ export interface operations {
             };
         };
     };
+    quiz_quizzes__quiz_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quiz_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_attempt_quizzes__quiz_id__quiz_attempts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quiz_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizAttemptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_answer_quiz_attempts__attempt_id__answers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_attempt_quiz_attempts__attempt_id__finish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizResultOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attempt_review_quiz_attempts__attempt_id__review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizReviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    task_tasks__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    task_template_file_tasks__task_id__template_file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_task_tasks__task_id__submissions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_file_files_post: {
         parameters: {
             query?: never;
@@ -1772,6 +2689,74 @@ export interface operations {
             header?: never;
             path: {
                 file_id: number;
+                filename: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_task_template_files_task__task_id___filename__get: {
+        parameters: {
+            query?: {
+                e?: number;
+                s?: string;
+            };
+            header?: never;
+            path: {
+                task_id: number;
+                filename: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_submission_file_files_submission__submission_id___index___filename__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submission_id: number;
+                index: number;
                 filename: string;
             };
             cookie?: never;
@@ -1919,6 +2904,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnrollmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_submissions_admin_submissions_get: {
+        parameters: {
+            query?: {
+                status?: "pending" | "accepted" | "rework" | "all";
+                course_id?: number | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSubmissionsPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_submission_admin_submissions__submission_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submission_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSubmissionCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_submission_admin_submissions__submission_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submission_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionReviewIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSubmissionCardOut"];
                 };
             };
             /** @description Validation Error */

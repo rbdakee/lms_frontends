@@ -13,8 +13,6 @@
  * Строки вида «8 вопросов · 15 мин · порог 70%» собираются здесь из полей
  * (`questions_count`, `time_limit_min`, `pass_score`) — сервер готовых
  * подписей не шлёт.
- *
- * Прежний `Program.tsx` остаётся для прототипных экранов уроков.
  */
 
 import { useEffect, useState } from "react";
@@ -39,8 +37,8 @@ type AnyModule = { id: number; title: string; items: AnyItem[] };
 
 /**
  * Ссылка на экран элемента программы: у урока, теста и задания свои маршруты
- * и свои id — `kind` обязателен. Экраны тестов и заданий живут на прототипе
- * до сессии 5, поэтому серверный id там пока ни во что не попадёт.
+ * и свои id — `kind` обязателен. Id серверные и живут в разных таблицах,
+ * поэтому совпадение чисел у урока и теста ничего не значит.
  */
 export function itemHref(
   courseId: number | string,
@@ -52,15 +50,14 @@ export function itemHref(
 }
 
 /**
- * Куда ведёт «Продолжить» по `next_lesson`. Урок открывается сразу в плеере,
- * а тест и задание — только через страницу курса: их экраны на прототипе
- * до сессии 5, и серверный id туда пока не подставить.
+ * Куда ведёт «Продолжить» по `next_lesson`: сразу на экран элемента —
+ * урок, тест или задание. Продолжать нечего (курс пройден) — к программе.
  */
 export function continueHref(
   courseId: number | string,
   next: { kind: ProgramItem["kind"]; id: number } | null | undefined,
 ): string {
-  if (!next || next.kind === "quiz" || next.kind === "task") return `/courses/${courseId}`;
+  if (!next) return `/courses/${courseId}`;
   return itemHref(courseId, next);
 }
 
@@ -79,7 +76,7 @@ function statusOf(item: AnyItem): ProgramStatusItem["status"] | undefined {
   return "status" in item ? item.status : undefined;
 }
 
-/** В плеер ведут только уроки; тест и задание — свои экраны, с сессии 5. */
+/** «Вы здесь» бывает только у урока: `activeItemId` — id из плеера. */
 function isLesson(item: AnyItem): boolean {
   return item.kind === "video" || item.kind === "text";
 }
@@ -202,7 +199,8 @@ export function CourseProgram({
               {m.items.map((item) => {
                 const status = statusOf(item);
                 const active = live && isLesson(item) && item.id === activeItemId;
-                const clickable = live && isLesson(item);
+                /* С доступом кликается всё: у теста и задания свои экраны */
+                const clickable = live;
                 const iconClass = locked
                   ? "locked"
                   : status === "done"
@@ -255,12 +253,11 @@ export function CourseProgram({
                     {content}
                   </button>
                 ) : (
+                  /* До выдачи доступа ряд виден, но никуда не ведёт */
                   <div
                     key={`${item.kind}-${item.id}`}
                     className="lesson-row"
                     data-locked={locked || status === "locked" || undefined}
-                    /* Тесты и задания не кликабельны до сессии 5 — и не притворяются */
-                    style={live ? { cursor: "default" } : undefined}
                   >
                     {content}
                   </div>
