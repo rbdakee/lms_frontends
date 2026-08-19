@@ -6,8 +6,9 @@
  *
  * Пакет временный и выключается поэкранно: авторизованность здесь больше
  * не живёт (её определяет `GET /me` из `@lms/api`), каталог, заявки, «Мои
- * курсы», уроки, тесты и задания ходят в API. Остальное — сертификаты,
- * уведомления и админские редакторы — на моках до своих сессий бэкенда.
+ * курсы», уроки, тесты, задания, сертификаты, уведомления, вопросы под
+ * уроком, дашборд, отчёты и очередь вопросов ходят в API. Остались язык,
+ * тосты, оценка курса и админские редакторы — до своих сессий бэкенда.
  */
 
 import {
@@ -20,13 +21,10 @@ import {
   type ReactNode,
 } from "react";
 import {
-  adminQuestions,
   adminReviews,
   DEMO_COURSE_ID,
-  notificationIds,
   teacherProfile,
   type LessonKind,
-  type ThreadReply,
 } from "./data";
 import { dict, type UiLang } from "@lms/ui/i18n";
 
@@ -75,20 +73,13 @@ interface State {
   requests: Record<string, number>;
   /** courseId → список id пройденных уроков */
   completed: Record<string, string[]>;
-  readNotifications: string[];
   profile: Profile;
   /** есть ли загруженное фото — без него показываем инициалы */
   hasPhoto: boolean;
-  /** курсы, по которым выдан сертификат */
-  certs: string[];
   /** оценки курсов */
   ratings: Record<string, number>;
   /** курсы со строгим последовательным порядком уроков (настройка админа) */
   strictCourses: string[];
-  /** Ответы в тредах: id вопроса → добавленные ответы.
-      Живут в общем состоянии, чтобы ответ из карточки курса был виден
-      и в разделе «Вопросы», и под уроком. */
-  threadReplies: Record<string, ThreadReply[]>;
   /** Ответы админа на отзывы: id отзыва → текст */
   reviewReplies: Record<string, string>;
   /** Удалённые отзывы — премодерации нет, есть удаление постфактум */
@@ -109,7 +100,7 @@ interface State {
 function initialState(): State {
   return {
     lang: "ru",
-    /* Доступ открыт к двум курсам: один в процессе, один завершён с сертификатом */
+    /* Доступ открыт к двум курсам: один в процессе, один завершён */
     enrolled: [DEMO_COURSE_ID, "formative-assessment"],
     /* Заявка отправлена два дня назад — курса ещё нет, ждём администратора */
     requests: { "ai-for-teacher": 2 },
@@ -117,7 +108,6 @@ function initialState(): State {
       [DEMO_COURSE_ID]: ["l1", "l2", "l3", "l4", "l5", "l6", "l7", "l8", "l9", "l10", "l11", "l12"],
       "formative-assessment": [],
     },
-    readNotifications: [],
     profile: {
       lastName: teacherProfile.lastName,
       firstName: teacherProfile.firstName,
@@ -132,10 +122,8 @@ function initialState(): State {
       phone: teacherProfile.phone,
     },
     hasPhoto: false,
-    certs: ["formative-assessment"],
     ratings: {},
     strictCourses: [],
-    threadReplies: {},
     reviewReplies: {},
     hiddenReviews: [],
     leadStatus: {},
@@ -154,7 +142,6 @@ function emptyState(): State {
     enrolled: [],
     requests: {},
     completed: {},
-    certs: [],
     profile: { ...s.profile, lastName: "", firstName: "", middleName: "", email: "" },
   };
 }
@@ -176,15 +163,9 @@ interface Ctx extends State {
   completeLesson: (courseId: string, lessonId: string) => void;
   uncompleteLesson: (courseId: string, lessonId: string) => void;
   isCompleted: (courseId: string, lessonId: string) => boolean;
-  markAllRead: () => void;
-  markRead: (id: string) => void;
-  issueCert: (courseId: string) => void;
   rateCourse: (courseId: string, stars: number) => void;
   setStrict: (courseId: string, strict: boolean) => void;
   isStrict: (courseId: string) => boolean;
-  /** Ответ в тред вопроса — от админа или от коллеги */
-  addReply: (threadId: string, reply: ThreadReply) => void;
-  repliesFor: (threadId: string, base: ThreadReply[]) => ThreadReply[];
   replyToReview: (id: string, text: string) => void;
   hideReview: (id: string) => void;
   setLeadStatus: (id: string, status: string) => void;
@@ -312,15 +293,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       isCompleted: (courseId, lessonId) => (state.completed[courseId] ?? []).includes(lessonId),
 
-      markAllRead: () => set({ readNotifications: [...notificationIds] }),
-      markRead: (id) =>
-        set((s) =>
-          s.readNotifications.includes(id)
-            ? {}
-            : { readNotifications: [...s.readNotifications, id] },
-        ),
-      issueCert: (courseId) =>
-        set((s) => (s.certs.includes(courseId) ? {} : { certs: [...s.certs, courseId] })),
       rateCourse: (courseId, stars) =>
         set((s) => ({ ratings: { ...s.ratings, [courseId]: stars } })),
       setStrict: (courseId, strict) =>
@@ -331,14 +303,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       isStrict: (courseId) => state.strictCourses.includes(courseId),
 
-      addReply: (threadId, reply) =>
-        set((s) => ({
-          threadReplies: {
-            ...s.threadReplies,
-            [threadId]: [...(s.threadReplies[threadId] ?? []), reply],
-          },
-        })),
-      repliesFor: (threadId, base) => [...base, ...(state.threadReplies[threadId] ?? [])],
       replyToReview: (id, text) =>
         set((s) => ({ reviewReplies: { ...s.reviewReplies, [id]: text } })),
       hideReview: (id) =>
@@ -406,15 +370,12 @@ export function useStore(): Ctx {
   return ctx;
 }
 
-/** Ответы на отзывы и вопросы, заготовленные в моках, плюс добавленные админом. */
+/** Ответы на отзывы, заготовленные в моках, плюс добавленные админом. */
 export function useModeration() {
-  const { reviewReplies, hiddenReviews, threadReplies } = useStore();
+  const { reviewReplies, hiddenReviews } = useStore();
   return {
     reviewReply: (id: string) =>
       reviewReplies[id] ?? adminReviews.find((r) => r.id === id)?.reply?.text ?? null,
     isHidden: (id: string) => hiddenReviews.includes(id),
-    replyCount: (id: string) =>
-      (adminQuestions.find((q) => q.id === id)?.replies.length ?? 0) +
-      (threadReplies[id]?.length ?? 0),
   };
 }

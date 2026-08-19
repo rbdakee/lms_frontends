@@ -81,3 +81,47 @@ export type AdminSubmissionsPage = S["AdminSubmissionsPageOut"];
 export type AdminSubmissionCard = S["AdminSubmissionCardOut"];
 export type SubmissionReviewIn = S["SubmissionReviewIn"];
 export type SubmissionVerdict = SubmissionReviewIn["verdict"];
+
+/* Сертификат: чек-лист условий (`GET /courses/{id}/completion`), выдача
+   и публичная проверка. Экран `/certificates/{id}` живёт списком
+   `GET /me/certificates` — отдельного эндпоинта за одним документом нет. */
+export type Completion = S["CompletionOut"];
+export type Condition = Completion["conditions"][number];
+export type ConditionStatus = Condition["status"];
+export type Blocker = S["BlockerOut"];
+export type Certificate = S["CertificateOut"];
+export type MyCertificate = S["MyCertificateOut"];
+export type MyCertificates = S["MyCertificatesOut"];
+export type Verify = S["VerifyOut"];
+export type VerifyStatus = Verify["status"];
+
+/* Колокольчик (`GET /notifications`). Текст приходит собранным на языке
+   читателя, `params` — чтобы построить адрес перехода. */
+export type Notification = S["NotificationOut"];
+export type NotificationType = Notification["type"];
+export type NotificationsPage = S["NotificationsPageOut"];
+export type NotificationsReadIn = S["NotificationsReadIn"];
+
+/* Вопросы под уроком: тред ровно в два уровня. */
+export type ThreadQuestion = S["ThreadQuestionOut"];
+export type ThreadReply = S["ThreadReplyOut"];
+export type QuestionsPage = S["QuestionsPageOut"];
+export type ThreadMessageIn = S["ThreadMessageIn"];
+
+/* Админка: дашборд, сводная очередь вопросов и отчёт по курсу. */
+export type AdminOverview = S["AdminOverviewOut"];
+export type OverviewLead = S["OverviewLeadOut"];
+export type OverviewSubmission = S["OverviewSubmissionOut"];
+export type OverviewQuestion = S["OverviewQuestionOut"];
+export type OverviewTotals = S["OverviewTotalsOut"];
+export type AdminQuestion = S["AdminQuestionOut"];
+export type AdminQuestionsPage = S["AdminQuestionsPageOut"];
+export type AdminReport = S["AdminReportOut"];
+export type ReportSummary = S["ReportSummaryOut"];
+export type ReportFunnelItem = S["ReportFunnelItemOut"];
+export type ReportParticipant = S["ReportParticipantOut"];
+export type ReportCertificateState = ReportParticipant["certificate"];
+
+/* Предпросмотр как учитель: флаг живёт в сессии, экраны узнают о нём из /me. */
+export type Preview = S["PreviewOut"];
+export type PreviewEnterIn = S["PreviewEnterIn"];

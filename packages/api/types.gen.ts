@@ -261,6 +261,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/courses/{course_id}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Completion */
+        get: operations["completion_courses__course_id__completion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{course_id}/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Certificate */
+        post: operations["issue_certificate_courses__course_id__certificate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Certificates */
+        get: operations["my_certificates_me_certificates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/verify/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Verify */
+        get: operations["verify_verify__number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lessons/{lesson_id}": {
         parameters: {
             query?: never;
@@ -306,6 +374,58 @@ export interface paths {
         get: operations["lesson_playback_lessons__lesson_id__playback_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lessons/{lesson_id}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lesson Questions */
+        get: operations["lesson_questions_lessons__lesson_id__questions_get"];
+        put?: never;
+        /** Add Question */
+        post: operations["add_question_lessons__lesson_id__questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notifications */
+        get: operations["notifications_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read Notifications */
+        post: operations["read_notifications_notifications_read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -635,6 +755,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Overview */
+        get: operations["admin_overview_admin_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reports/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Report */
+        get: operations["admin_report_admin_reports__course_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Questions */
+        get: operations["admin_questions_admin_questions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/preview/enter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enter Preview */
+        post: operations["enter_preview_admin_preview_enter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/preview/exit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exit Preview */
+        post: operations["exit_preview_admin_preview_exit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -715,6 +920,63 @@ export interface components {
             page: number;
             /** Per Page */
             per_page: number;
+        };
+        /** AdminOverviewOut */
+        AdminOverviewOut: {
+            /** Leads Count */
+            leads_count: number;
+            /** Submissions Count */
+            submissions_count: number;
+            /** Questions Count */
+            questions_count: number;
+            /** Leads */
+            leads: components["schemas"]["OverviewLeadOut"][];
+            /** Submissions */
+            submissions: components["schemas"]["OverviewSubmissionOut"][];
+            /** Questions */
+            questions: components["schemas"]["OverviewQuestionOut"][];
+            totals: components["schemas"]["OverviewTotalsOut"];
+        };
+        /** AdminQuestionOut */
+        AdminQuestionOut: {
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            teacher: components["schemas"]["QuestionTeacherOut"];
+            course: components["schemas"]["QuestionCourseOut"];
+            lesson: components["schemas"]["QuestionLessonOut"];
+            /** Replies */
+            replies: components["schemas"]["ThreadReplyOut"][];
+        };
+        /** AdminQuestionsPageOut */
+        AdminQuestionsPageOut: {
+            /** Items */
+            items: components["schemas"]["AdminQuestionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /** AdminReportOut */
+        AdminReportOut: {
+            course: components["schemas"]["ReportCourseOut"];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            summary: components["schemas"]["ReportSummaryOut"];
+            /** Funnel */
+            funnel: components["schemas"]["ReportFunnelItemOut"][];
+            participants: components["schemas"]["ReportParticipantsPageOut"];
         };
         /** AdminSubmissionCardOut */
         AdminSubmissionCardOut: {
@@ -812,6 +1074,19 @@ export interface components {
             /** Option Ids */
             option_ids: number[];
         };
+        /**
+         * BlockerOut
+         * @description Почему кнопка выдачи неактивна, хотя условия выполнены.
+         */
+        BlockerOut: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "attempt_in_progress";
+            /** Message */
+            message: string;
+        };
         /** Body_upload_file_files_post */
         Body_upload_file_files_post: {
             /** File */
@@ -841,6 +1116,77 @@ export interface components {
             id: number;
             /** Title */
             title: string;
+        };
+        /**
+         * CertificateBriefOut
+         * @description Уже выданный сертификат в чек-листе: ссылка на документ, не сам документ.
+         */
+        CertificateBriefOut: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: string;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+        };
+        /** CertificateOut */
+        CertificateOut: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: string;
+            /** Course Id */
+            course_id: number;
+            /** Course Title */
+            course_title: string;
+            /** Holder Name */
+            holder_name: string;
+            /** Hours */
+            hours: number;
+            /** Lang */
+            lang: string;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
+        };
+        /** CompletionOut */
+        CompletionOut: {
+            /** Conditions */
+            conditions: (components["schemas"]["ConditionOut"] | components["schemas"]["FinalQuizConditionOut"])[];
+            /** Can Issue */
+            can_issue: boolean;
+            blocker: components["schemas"]["BlockerOut"] | null;
+            certificate: components["schemas"]["CertificateBriefOut"] | null;
+        };
+        /**
+         * ConditionOut
+         * @description Строка чек-листа. `done_count` — null, пока доступа к курсу нет:
+         *     до выдачи это просто список требований, живой прогресс появляется после.
+         */
+        ConditionOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            code: "lessons" | "module_quizzes" | "tasks";
+            /** Label */
+            label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_started" | "in_progress" | "done";
+            /** Done Count */
+            done_count: number | null;
+            /** Total Count */
+            total_count: number;
         };
         /**
          * CourseCardOut
@@ -973,6 +1319,31 @@ export interface components {
              */
             expires_at: string;
         };
+        /**
+         * FinalQuizConditionOut
+         * @description У итогового теста в строке есть проходной балл; у тестов модулей его нет —
+         *     он свой у каждого теста (CONTRACT, сессия 6).
+         */
+        FinalQuizConditionOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            code: "final_quiz";
+            /** Label */
+            label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_started" | "in_progress" | "done";
+            /** Done Count */
+            done_count: number | null;
+            /** Total Count */
+            total_count: number;
+            /** Pass Score */
+            pass_score: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1072,6 +1443,37 @@ export interface components {
             /** Revoked Count */
             revoked_count: number;
         };
+        /**
+         * MyCertificateOut
+         * @description Элемент списка `/certificates` — он же всё, что печатает `/certificates/{id}`:
+         *     отдельного эндпоинта за одним сертификатом нет.
+         */
+        MyCertificateOut: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: string;
+            /** Course Id */
+            course_id: number;
+            /** Course Title */
+            course_title: string;
+            /** Holder Name */
+            holder_name: string;
+            /** Hours */
+            hours: number;
+            /** Lang */
+            lang: string;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+        };
+        /** MyCertificatesOut */
+        MyCertificatesOut: {
+            /** Items */
+            items: components["schemas"]["MyCertificateOut"][];
+        };
         /** MyCourseOut */
         MyCourseOut: {
             /** Id */
@@ -1145,6 +1547,134 @@ export interface components {
              */
             kind: "video" | "text" | "quiz" | "task";
         };
+        /** NotificationOut */
+        NotificationOut: {
+            /** Id */
+            id: number;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "access_granted" | "submission_reviewed" | "answer_posted" | "certificate_issued";
+            /** Text */
+            text: string;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Read At */
+            read_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** NotificationsPageOut */
+        NotificationsPageOut: {
+            /** Items */
+            items: components["schemas"]["NotificationOut"][];
+            /** Unread Count */
+            unread_count: number;
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /**
+         * NotificationsReadIn
+         * @description Ровно одно из двух полей: клик по уведомлению или «отметить все».
+         *     Что именно прислано — проверяет сценарий, ему же принадлежит текст отказа.
+         */
+        NotificationsReadIn: {
+            /** Ids */
+            ids?: number[] | null;
+            /** All */
+            all?: boolean | null;
+        };
+        /** OverviewCourseOut */
+        OverviewCourseOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+        };
+        /** OverviewLeadOut */
+        OverviewLeadOut: {
+            /** Id */
+            id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Waiting Days */
+            waiting_days: number;
+            /** Price Snapshot */
+            price_snapshot: number | null;
+            teacher: components["schemas"]["OverviewTeacherOut"];
+            course: components["schemas"]["OverviewCourseOut"];
+        };
+        /** OverviewQuestionOut */
+        OverviewQuestionOut: {
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            teacher: components["schemas"]["OverviewTeacherOut"];
+            course: components["schemas"]["OverviewCourseOut"];
+            lesson: components["schemas"]["QuestionLessonOut"];
+        };
+        /** OverviewSubmissionOut */
+        OverviewSubmissionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Waiting Days */
+            waiting_days: number;
+            teacher: components["schemas"]["OverviewTeacherOut"];
+            course: components["schemas"]["OverviewCourseOut"];
+            task: components["schemas"]["SubmissionTaskOut"];
+        };
+        /**
+         * OverviewTeacherOut
+         * @description Учитель в списках дашборда: ни телефона, ни школы — за ними карточка
+         *     заявки. ФИО тремя полями, собирает его фронт.
+         */
+        OverviewTeacherOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+        };
+        /**
+         * OverviewTotalsOut
+         * @description Строка справочных чисел внизу экрана. Учителя — все, у кого не стоит
+         *     is_admin; курсы — версии, видимые в каталоге; сертификаты — действующие.
+         */
+        OverviewTotalsOut: {
+            /** Teachers */
+            teachers: number;
+            /** Courses Published */
+            courses_published: number;
+            /** Certificates */
+            certificates: number;
+        };
         /** PlaybackOut */
         PlaybackOut: {
             /** Provider */
@@ -1153,6 +1683,20 @@ export interface components {
             url: string;
             /** Expires At */
             expires_at: string | null;
+        };
+        /** PreviewEnterIn */
+        PreviewEnterIn: {
+            /** Course Id */
+            course_id: number;
+        };
+        /**
+         * PreviewOut
+         * @description Режим «Предпросмотр как учитель»: null — режим выключен. Клиентское
+         *     приложение узнаёт о режиме только отсюда (CONTRACT, сессия 6).
+         */
+        PreviewOut: {
+            /** Course Id */
+            course_id: number;
         };
         /** ProgramLessonOut */
         ProgramLessonOut: {
@@ -1299,6 +1843,44 @@ export interface components {
              * @enum {string}
              */
             status: "available" | "locked" | "done";
+        };
+        /** QuestionCourseOut */
+        QuestionCourseOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+        };
+        /** QuestionLessonOut */
+        QuestionLessonOut: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: number;
+            /** Title */
+            title: string;
+        };
+        /** QuestionTeacherOut */
+        QuestionTeacherOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+        };
+        /** QuestionsPageOut */
+        QuestionsPageOut: {
+            /** Items */
+            items: components["schemas"]["ThreadQuestionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
         };
         /** QuizAnswerOut */
         QuizAnswerOut: {
@@ -1503,6 +2085,106 @@ export interface components {
             status: "not_started";
             /** Can Start */
             can_start: boolean;
+        };
+        /** ReportCourseOut */
+        ReportCourseOut: {
+            /** Id */
+            id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+        };
+        /** ReportFinalQuizOut */
+        ReportFinalQuizOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_started" | "in_progress" | "passed" | "failed";
+            /** Score */
+            score: number | null;
+        };
+        /** ReportFunnelItemOut */
+        ReportFunnelItemOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "video" | "text" | "quiz" | "task";
+            /** Id */
+            id: number;
+            /** Number */
+            number: number;
+            /** Title */
+            title: string;
+            /** Reached */
+            reached: number;
+        };
+        /** ReportParticipantOut */
+        ReportParticipantOut: {
+            /** User Id */
+            user_id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+            /** School */
+            school: string;
+            /** Region */
+            region: string;
+            /** Progress Percent */
+            progress_percent: number;
+            /** Module Quizzes */
+            module_quizzes: components["schemas"]["ReportQuizScoreOut"][];
+            final_quiz: components["schemas"]["ReportFinalQuizOut"];
+            /**
+             * Certificate
+             * @enum {string}
+             */
+            certificate: "issued" | "ready" | "in_progress";
+        };
+        /** ReportParticipantsPageOut */
+        ReportParticipantsPageOut: {
+            /** Items */
+            items: components["schemas"]["ReportParticipantOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /** ReportQuizScoreOut */
+        ReportQuizScoreOut: {
+            /** Quiz Id */
+            quiz_id: number;
+            /** Title */
+            title: string;
+            /** Score */
+            score: number | null;
+        };
+        /**
+         * ReportSummaryOut
+         * @description Средние — округлённые до целого; null, если считать не по кому.
+         */
+        ReportSummaryOut: {
+            /** Granted */
+            granted: number;
+            /** Started */
+            started: number;
+            /** Completed */
+            completed: number;
+            /** Avg Progress Percent */
+            avg_progress_percent: number | null;
+            /** Avg Final Score */
+            avg_final_score: number | null;
+            /** Certificates */
+            certificates: number;
+            /** Avg Days To Complete */
+            avg_days_to_complete: number | null;
         };
         /** RequestCodeIn */
         RequestCodeIn: {
@@ -1731,6 +2413,47 @@ export interface components {
             /** Mime */
             mime: string;
         };
+        /** ThreadMessageIn */
+        ThreadMessageIn: {
+            /** Text */
+            text: string;
+            /** Parent Id */
+            parent_id?: number | null;
+        };
+        /** ThreadQuestionOut */
+        ThreadQuestionOut: {
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+            /** Author Name */
+            author_name: string;
+            /** Author Is Admin */
+            author_is_admin: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Replies */
+            replies: components["schemas"]["ThreadReplyOut"][];
+        };
+        /** ThreadReplyOut */
+        ThreadReplyOut: {
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+            /** Author Name */
+            author_name: string;
+            /** Author Is Admin */
+            author_is_admin: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** UploadedFileOut */
         UploadedFileOut: {
             /** Key */
@@ -1781,6 +2504,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            preview?: components["schemas"]["PreviewOut"] | null;
         };
         /**
          * UserPatch
@@ -1829,6 +2553,33 @@ export interface components {
             phone: string;
             /** Code */
             code: string;
+        };
+        /**
+         * VerifyOut
+         * @description Публичная проверка: только то, что напечатано на бумаге — ни user_id,
+         *     ни course_id, ни id сертификата, ни ссылок в кабинет.
+         */
+        VerifyOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "valid" | "revoked";
+            /** Number */
+            number: string;
+            /** Holder Name */
+            holder_name: string;
+            /** Course Title */
+            course_title: string;
+            /** Hours */
+            hours: number;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
         };
         /** VersionChipOut */
         VersionChipOut: {
@@ -2300,6 +3051,119 @@ export interface operations {
             };
         };
     };
+    completion_courses__course_id__completion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompletionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_certificate_courses__course_id__certificate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_certificates_me_certificates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyCertificatesOut"];
+                };
+            };
+        };
+    };
+    verify_verify__number__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     lesson_lessons__lesson_id__get: {
         parameters: {
             query?: never;
@@ -2381,6 +3245,138 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlaybackOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lesson_questions_lessons__lesson_id__questions_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                lesson_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionsPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_question_lessons__lesson_id__questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lesson_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThreadMessageIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadQuestionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notifications_notifications_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_notifications_notifications_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationsReadIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -3014,6 +4010,145 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    admin_overview_admin_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverviewOut"];
+                };
+            };
+        };
+    };
+    admin_report_admin_reports__course_id__get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_questions_admin_questions_get: {
+        parameters: {
+            query?: {
+                answered?: boolean | null;
+                course_id?: number | null;
+                q?: string | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminQuestionsPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enter_preview_admin_preview_enter_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewEnterIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exit_preview_admin_preview_exit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

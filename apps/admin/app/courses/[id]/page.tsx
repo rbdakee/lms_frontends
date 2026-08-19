@@ -14,25 +14,25 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
   adminCourses,
-  adminQuestions,
   adminReviews,
   courseReviewSummary,
   getCourse,
   groupLangs,
   groupVersions,
 } from "@lms/prototype/data";
+import { api, qs, useLoad, type AdminQuestionsPage } from "@lms/api";
 import { day, plural, price as fmtPrice } from "@lms/ui/i18n";
 import { useModeration, useStore } from "@lms/prototype";
 import { COURSE_STATUS_LABEL } from "@/components/admin/courseStatus";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { CourseParticipants } from "@/components/admin/CourseParticipants";
-import { QuestionCard, ReviewCard } from "@/components/admin/Moderation";
+import { QuestionsQueue } from "@/components/admin/QuestionsQueue";
+import { ReviewCard } from "@/components/admin/Moderation";
 import { Badge, Cover, Empty, LinkButton, Note, Progress, StatusBadge } from "@lms/ui";
 import {
   IconChevronRight,
   IconEdit,
   IconEye,
-  IconMessage,
   IconStar,
 } from "@lms/ui/icons";
 
@@ -42,8 +42,21 @@ export default function CoursePage() {
   const { id } = useParams<{ id: string }>();
   const params = useSearchParams();
   const { lang } = useStore();
-  const { replyCount, isHidden } = useModeration();
+  const { isHidden } = useModeration();
   const course = getCourse(id);
+
+  /* Вопросы уже в API, а карточка курса — ещё на прототипе, где у курса
+     строковый id. Числовой `course_id` появится вместе с редактором курса;
+     до тех пор вкладка показывает очередь со своим выбором курса. */
+  const numericId = Number(id);
+  const apiCourseId = Number.isInteger(numericId) ? numericId : undefined;
+  const openQuestions = useLoad(
+    () =>
+      api<AdminQuestionsPage>(
+        `/admin/questions${qs({ answered: false, course_id: apiCourseId, per_page: 1 })}`,
+      ),
+    [apiCourseId],
+  );
 
   /** `?tab=participants` — из раздела проверки работ приходят сразу к людям */
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab | null) ?? "overview");
@@ -67,8 +80,7 @@ export default function CoursePage() {
 
   const summary = courseReviewSummary(course.id);
   const reviews = adminReviews.filter((r) => r.courseId === course.id && !isHidden(r.id));
-  const questions = adminQuestions.filter((q) => q.courseId === course.id);
-  const unanswered = questions.filter((q) => replyCount(q.id) === 0).length;
+  const unanswered = openQuestions.data?.total ?? 0;
 
   const tabs: [Tab, string, number][] = [
     ["overview", "Обзор", 0],
@@ -110,7 +122,9 @@ export default function CoursePage() {
         {tab === "overview" && <Overview course={course} summary={summary} />}
         {tab === "participants" && <CourseParticipants course={course} />}
         {tab === "reviews" && <Reviews items={reviews} />}
-        {tab === "questions" && <Questions items={questions} />}
+        {tab === "questions" && (
+          <Questions courseId={apiCourseId} onAnswered={openQuestions.reload} />
+        )}
       </div>
     </AdminShell>
   );
@@ -330,28 +344,17 @@ function Reviews({ items }: { items: typeof adminReviews }) {
 
 /* ============ Вопросы по курсу ============ */
 
-function Questions({ items }: { items: typeof adminQuestions }) {
-  if (items.length === 0) {
-    return (
-      <div className="card">
-        <Empty icon={<IconMessage size={38} />} title="Вопросов по курсу нет" />
-      </div>
-    );
-  }
+function Questions({ courseId, onAnswered }: { courseId?: number; onAnswered: () => void }) {
+  const { t } = useStore();
   return (
     <div className="stack g14" style={{ maxWidth: 860 }}>
-      <p className="small muted pretty">
-        Ответ увидит автор вопроса и все, кто откроет этот урок.
-      </p>
-      {items.map((q) => (
-        <QuestionCard key={q.id} question={q} />
-      ))}
+      <QuestionsQueue courseId={courseId} onAnswered={onAnswered} />
       <Link
         href="/questions"
         className="row g4 small"
         style={{ color: "var(--primary)", fontWeight: 700 }}
       >
-        Все вопросы платформы
+        {t.qaAllPlatform}
         <IconChevronRight size={15} />
       </Link>
     </div>

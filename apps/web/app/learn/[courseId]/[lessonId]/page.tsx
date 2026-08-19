@@ -15,7 +15,8 @@
  * Ссылку на видео экран не запрашивает: за ней ходит сам плеер
  * (`GET /lessons/{id}/playback`) — доступ проверяется на каждый её выпуск.
  *
- * Вопросы под уроком остаются на прототипе: их API появится своей сессией.
+ * Вопросы под уроком — своя секция со своими тремя состояниями
+ * (`GET/POST /lessons/{id}/questions`), она грузится отдельно от урока.
  */
 
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ import { useEffect, useState } from "react";
 import {
   api,
   isApiError,
+  qs,
   useLoad,
   type FileLink,
   type Lesson,
@@ -30,8 +32,9 @@ import {
   type LessonFile,
   type Program,
   type ProgramStatusItem,
+  type QuestionsPage,
+  type ThreadQuestion,
 } from "@lms/api";
-import { lessonThreads, type LessonThread, type ThreadReply } from "@lms/prototype/data";
 import { useStore } from "@lms/prototype";
 import { BackHeader, TabBar } from "@/components/layout/Shell";
 import { continueHref, CourseProgram } from "@/components/course/CourseProgram";
@@ -49,7 +52,7 @@ import {
   Sheet,
   Skeleton,
 } from "@lms/ui";
-import { fileSize } from "@lms/ui/i18n";
+import { dayTime, fileSize } from "@lms/ui/i18n";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -119,11 +122,9 @@ export default function LessonPage() {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
   const router = useRouter();
   const pathname = usePathname();
-  const { t, toast, initials, fullName, addReply, repliesFor } = useStore();
+  const { t, toast } = useStore();
 
   const [programOpen, setProgramOpen] = useState(false);
-  const [question, setQuestion] = useState("");
-  const [asked, setAsked] = useState<{ id: string; text: string }[]>([]);
   /** Ответ `POST /lessons/{id}/complete` — прогресс на экране без перезапроса */
   const [marked, setMarked] = useState<LessonComplete | null>(null);
   const [marking, setMarking] = useState(false);
@@ -292,26 +293,6 @@ export default function LessonPage() {
     router.push(continueHref(courseId, next));
   };
 
-  const submitQuestion = () => {
-    if (!question.trim()) return;
-    setAsked((a) => [{ id: `own-${a.length + 1}`, text: question.trim() }, ...a]);
-    setQuestion("");
-    toast("Вопрос отправлен — ответит администратор или коллега", "success");
-  };
-
-  /** Ответить в тред может админ и любой учитель с доступом к курсу */
-  const sendReply = (threadId: string, text: string) => {
-    addReply(threadId, {
-      id: `${threadId}-r${Date.now()}`,
-      author: fullName || "Вы",
-      initials,
-      role: "teacher",
-      date: "только что",
-      text,
-    });
-    toast("Ответ добавлен — его увидят все, кто откроет этот урок", "success");
-  };
-
   return (
     <>
       <BackHeader
@@ -452,61 +433,7 @@ export default function LessonPage() {
               </section>
 
               {/* Вопросы под уроком */}
-              <section className="stack g16">
-                <h2 className="h2">{t.secQuestions}</h2>
-
-                <div className="card card-pad stack g10">
-                  <textarea
-                    className="input"
-                    placeholder="Задайте вопрос по этому уроку — ответит администратор или коллега"
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    style={{ minHeight: 88 }}
-                    aria-label="Ваш вопрос"
-                  />
-                  <div className="row between g10">
-                    <span className="caption muted-3">Отвечаем в рабочие дни</span>
-                    <Button size="sm" onClick={submitQuestion} disabled={!question.trim()}>
-                      {t.send}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="stack g12">
-                  {asked.map((q) => (
-                    <div key={q.id} className="card card-pad stack g10">
-                      <div className="row g10">
-                        <Avatar initials={initials} size={36} />
-                        <div className="grow">
-                          <strong className="small">Вы</strong>
-                          <div className="caption muted-3">только что</div>
-                        </div>
-                        <Badge kind="review">Ожидает ответа</Badge>
-                      </div>
-                      <p className="small pretty">{q.text}</p>
-                    </div>
-                  ))}
-
-                  {lessonThreads.map((thread) => (
-                    <QuestionThread
-                      key={thread.id}
-                      thread={thread}
-                      replies={repliesFor(thread.id, thread.replies)}
-                      onReply={(text) => sendReply(thread.id, text)}
-                    />
-                  ))}
-
-                  {lessonThreads.length === 0 && asked.length === 0 && (
-                    <div className="card">
-                      <Empty
-                        icon={<IconMessage size={34} />}
-                        title="Пока вопросов нет"
-                        text="Задайте первый — ответит администратор или коллега с этого курса"
-                      />
-                    </div>
-                  )}
-                </div>
-              </section>
+              <QuestionsSection lessonId={lessonId} />
             </div>
 
             {/* ===== Панель программы — десктоп ===== */}
@@ -572,52 +499,231 @@ export default function LessonPage() {
   );
 }
 
-/* ============ Тред вопроса ============ */
+/* ============ Вопросы под уроком ============ */
+
+const QUESTIONS_PER_PAGE = 20;
+/** Длиннее 2000 символов сервер отдаёт 422 — не даём набрать заведомо лишнее. */
+const TEXT_MAX = 2000;
 
 /**
- * Под вопросом сколько угодно ответов, у каждого автор и дата.
- * Отвечать может админ и любой учитель с доступом к курсу.
- * Вложенности второго уровня и лайков нет — именно они превращают
- * вопросы под уроком в форум с модерацией.
+ * Секция вопросов: `GET /lessons/{id}/questions` со своей загрузкой, своей
+ * ошибкой сети и своим пустым состоянием — урок при этом уже показан.
+ *
+ * Тред ровно в два уровня: вопрос и плоский список ответов. Признак «ждёт
+ * ответа» — пустой `replies`, отдельного статуса у вопроса нет.
+ */
+function QuestionsSection({ lessonId }: { lessonId: string }) {
+  const { t, toast } = useStore();
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  /* Догруженные страницы: «Показать ещё» не перечитывает первую */
+  const [more, setMore] = useState<ThreadQuestion[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const feed = useLoad(
+    () =>
+      api<QuestionsPage>(
+        `/lessons/${encodeURIComponent(lessonId)}/questions${qs({
+          page: 1,
+          per_page: QUESTIONS_PER_PAGE,
+        })}`,
+      ),
+    [lessonId],
+  );
+
+  /** Отказы у отправки одинаковые и у вопроса, и у ответа в треде. */
+  const sendError = (e: unknown) => {
+    if (isApiError(e, "rate_limited")) toast(t.qTooOften(e.retryAfterSec), "error");
+    else if (isApiError(e) && e.status > 0) toast(e.message, "error");
+    else toast(t.qSendError, "error");
+  };
+
+  const ask = async () => {
+    const body = text.trim();
+    if (!body || sending) return;
+    setSending(true);
+    try {
+      const created = await api<ThreadQuestion>(
+        `/lessons/${encodeURIComponent(lessonId)}/questions`,
+        { method: "POST", json: { text: body, parent_id: null } },
+      );
+      /* Свежие сверху — ровно как отдаёт сервер */
+      feed.setData((d) => (d ? { ...d, items: [created, ...d.items], total: d.total + 1 } : d));
+      setText("");
+      toast(t.qSent, "success");
+    } catch (e) {
+      sendError(e);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const reply = async (parentId: number, body: string) => {
+    const created = await api<ThreadQuestion>(
+      `/lessons/${encodeURIComponent(lessonId)}/questions`,
+      { method: "POST", json: { text: body, parent_id: parentId } },
+    );
+    const add = (list: ThreadQuestion[]) =>
+      list.map((q) => (q.id === parentId ? { ...q, replies: [...q.replies, created] } : q));
+    feed.setData((d) => (d ? { ...d, items: add(d.items) } : d));
+    setMore(add);
+    toast(t.qReplySent, "success");
+  };
+
+  const questions = [...(feed.data?.items ?? []), ...more];
+  const hasMore = feed.data ? questions.length < feed.data.total : false;
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = await api<QuestionsPage>(
+        `/lessons/${encodeURIComponent(lessonId)}/questions${qs({
+          page: Math.floor((questions.length || 0) / QUESTIONS_PER_PAGE) + 1,
+          per_page: QUESTIONS_PER_PAGE,
+        })}`,
+      );
+      setMore((m) => [...m, ...next.items]);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  return (
+    <section className="stack g16">
+      <h2 className="h2">{t.secQuestions}</h2>
+
+      <div className="card card-pad stack g10">
+        <textarea
+          className="input"
+          placeholder={t.qAskPlaceholder}
+          value={text}
+          maxLength={TEXT_MAX}
+          onChange={(e) => setText(e.target.value)}
+          style={{ minHeight: 88 }}
+          aria-label={t.secQuestions}
+        />
+        <div className="row between g10">
+          <span className="caption muted-3">{t.qAskHint}</span>
+          <Button size="sm" loading={sending} onClick={ask} disabled={!text.trim()}>
+            {t.send}
+          </Button>
+        </div>
+      </div>
+
+      {feed.loading ? (
+        <div className="stack g12">
+          <div className="card card-pad stack g8">
+            <Skeleton w="40%" h={14} />
+            <Skeleton w="90%" h={14} />
+          </div>
+          <div className="card card-pad stack g8">
+            <Skeleton w="35%" h={14} />
+            <Skeleton w="80%" h={14} />
+          </div>
+        </div>
+      ) : feed.error ? (
+        <div className="card card-pad row between g10">
+          <span className="small muted">{t.loadError}</span>
+          <Button variant="secondary" size="sm" onClick={feed.reload}>
+            {t.retry}
+          </Button>
+        </div>
+      ) : questions.length === 0 ? (
+        <div className="card">
+          <Empty icon={<IconMessage size={34} />} title={t.qEmptyTitle} text={t.qEmptyText} />
+        </div>
+      ) : (
+        <div className="stack g12">
+          {questions.map((q) => (
+            <QuestionThread key={q.id} question={q} onReply={reply} onError={sendError} />
+          ))}
+          {hasMore && (
+            <Button variant="secondary" block loading={loadingMore} onClick={loadMore}>
+              {t.showMore}
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Инициалы для аватара считает фронт — сервер отдаёт только ФИО. */
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "??";
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+/** У админа профиль может быть не заполнен — пустой подписи на экране не место. */
+function authorName(a: { author_name: string; author_is_admin: boolean }, admin: string): string {
+  return a.author_name || (a.author_is_admin ? admin : "");
+}
+
+/**
+ * Тред вопроса. Отвечать может админ и любой учитель с доступом к курсу —
+ * «часто коллега отвечает быстрее». Вложенности второго уровня и лайков нет:
+ * именно они превращают вопросы под уроком в форум с модерацией.
  */
 function QuestionThread({
-  thread,
-  replies,
+  question,
   onReply,
+  onError,
 }: {
-  thread: LessonThread;
-  replies: ThreadReply[];
-  onReply: (text: string) => void;
+  question: ThreadQuestion;
+  onReply: (parentId: number, text: string) => Promise<void>;
+  onError: (e: unknown) => void;
 }) {
+  const { t, lang } = useStore();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    const body = draft.trim();
+    if (!body || sending) return;
+    setSending(true);
+    try {
+      await onReply(question.id, body);
+      setDraft("");
+      setOpen(false);
+    } catch (e) {
+      onError(e);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="card card-pad stack g12">
       <div className="row g10">
-        <Avatar initials={thread.initials} size={36} tone="neutral" />
+        <Avatar initials={initialsOf(authorName(question, t.qAdmin))} size={36} tone="neutral" />
         <div className="grow" style={{ minWidth: 0 }}>
-          <strong className="small">{thread.author}</strong>
-          <div className="caption muted-3">{thread.date}</div>
+          <strong className="small">{authorName(question, t.qAdmin)}</strong>
+          <div className="caption muted-3">{dayTime(question.created_at, lang)}</div>
         </div>
-        {replies.length === 0 && <Badge kind="review">Ожидает ответа</Badge>}
+        {/* Ждёт ответа — это пустой `replies`, отдельного статуса нет */}
+        {question.replies.length === 0 && <Badge kind="review">{t.qWaiting}</Badge>}
       </div>
 
-      <p className="small pretty">{thread.text}</p>
+      <p className="small pretty">{question.text}</p>
 
-      {replies.length > 0 && (
-        <div className="stack g12" style={{ borderLeft: "3px solid var(--border)", paddingLeft: 12, marginLeft: 4 }}>
-          {replies.map((r) => (
+      {question.replies.length > 0 && (
+        <div
+          className="stack g12"
+          style={{ borderLeft: "3px solid var(--border)", paddingLeft: 12, marginLeft: 4 }}
+        >
+          {question.replies.map((r) => (
             <div key={r.id} className="stack g4">
               <div className="row g8 wrap">
                 <strong
                   className="caption"
-                  style={{ color: r.role === "admin" ? "var(--primary)" : "var(--text)" }}
+                  style={{ color: r.author_is_admin ? "var(--primary)" : "var(--text)" }}
                 >
-                  {r.author}
+                  {authorName(r, t.qAdmin)}
                 </strong>
-                {r.role === "admin" && <Badge kind="new">Администратор</Badge>}
-                <span className="caption muted-3">{r.date}</span>
+                {r.author_is_admin && <Badge kind="new">{t.qAdmin}</Badge>}
+                <span className="caption muted-3">{dayTime(r.created_at, lang)}</span>
               </div>
               <p className="small pretty">{r.text}</p>
             </div>
@@ -630,31 +736,24 @@ function QuestionThread({
           <textarea
             className="input"
             style={{ minHeight: 72 }}
-            placeholder="Ваш ответ увидят все, кто откроет этот урок"
+            placeholder={t.qAnswerPlaceholder}
             value={draft}
+            maxLength={TEXT_MAX}
             onChange={(e) => setDraft(e.target.value)}
           />
           <div className="row g8">
-            <Button
-              size="sm"
-              disabled={!draft.trim()}
-              onClick={() => {
-                onReply(draft.trim());
-                setDraft("");
-                setOpen(false);
-              }}
-            >
-              Отправить ответ
+            <Button size="sm" loading={sending} disabled={!draft.trim()} onClick={send}>
+              {t.qSendAnswer}
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
-              Отмена
+              {t.cancel}
             </Button>
           </div>
         </div>
       ) : (
         <div className="row">
           <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-            Ответить
+            {t.reply}
           </Button>
         </div>
       )}

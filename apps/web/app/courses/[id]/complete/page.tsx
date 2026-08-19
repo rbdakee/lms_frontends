@@ -1,67 +1,109 @@
 "use client";
 
-/** Завершение курса «/courses/:id/complete» — раздел 5.10 брифа. Праздничный экран. */
+/**
+ * Завершение курса «/courses/:id/complete» — раздел 5.10 брифа. Праздничный экран.
+ *
+ * Сертификат выдаёт `POST /courses/{id}/certificate` при открытии экрана.
+ * Выдача идемпотентна: повторный вызов отдаёт тот же документ и `200`,
+ * поэтому F5 экран не ломает и «выдастся второй» здесь невозможно.
+ *
+ * Отказ — не «что-то пошло не так», а понятная причина: чего не хватает
+ * в чек-листе (`conditions_not_met`), незавершённая попытка теста, пустые
+ * фамилия и имя в профиле или закрытый доступ.
+ */
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, useLoad, type CatalogOut } from "@lms/api";
-import { demoCertificate, getCourse } from "@lms/prototype/data";
+import {
+  api,
+  ApiError,
+  isApiError,
+  useLoad,
+  useMe,
+  type CatalogOut,
+  type Certificate,
+  type Condition,
+} from "@lms/api";
 import { useStore } from "@lms/prototype";
 import { useOrigin } from "@lms/ui/useOrigin";
 import { TeacherShell } from "@/components/layout/Shell";
 import { CertificateThumb } from "@/components/course/CertificateSheet";
 import { CourseRow, pickVersion } from "@/components/course/CourseCard";
+import { ConditionRow } from "@/components/course/CourseProgram";
 import { Button, Empty, LinkButton, Note } from "@lms/ui";
-import {
-  IconCheck,
-  IconDownload,
-  IconShare,
-  IconStar,
-} from "@lms/ui/icons";
+import { IconCheck, IconDownload, IconShare, IconStar } from "@lms/ui/icons";
 
 export default function CompletePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { lang, issueCert, rateCourse, ratings, toast } = useStore();
+  const pathname = usePathname();
+  const { t, lang, rateCourse, ratings, toast } = useStore();
+  const { me, status } = useMe();
   const { verifyUrl } = useOrigin();
-  /* «Что пройти дальше» — живой каталог, а не моки */
+
+  /* «Что пройти дальше» — живой каталог */
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
 
-  const course = getCourse(id);
+  const [cert, setCert] = useState<Certificate | null>(null);
+  const [fail, setFail] = useState<ApiError | null>(null);
+  const [issuing, setIssuing] = useState(true);
+
   const [stars, setStars] = useState(ratings[id] ?? 0);
   const [hover, setHover] = useState(0);
   const [review, setReview] = useState("");
   const [sent, setSent] = useState(false);
-  const [generating, setGenerating] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      setGenerating(false);
-      issueCert(id);
-    }, 1400);
-    return () => clearTimeout(t);
-  }, [id, issueCert]);
+    if (status === "guest") router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+  }, [status, router, pathname]);
 
-  if (!course) {
+  useEffect(() => {
+    if (!me) return;
+    let alive = true;
+    setIssuing(true);
+    api<Certificate>(`/courses/${encodeURIComponent(id)}/certificate`, { method: "POST" })
+      .then(
+        (c) => {
+          if (!alive) return;
+          setCert(c);
+          setFail(null);
+        },
+        (e) => {
+          if (!alive) return;
+          /* Сессия умерла между /me и выдачей — на вход, а не в отказ */
+          if (isApiError(e, "unauthorized")) {
+            router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+            return;
+          }
+          setCert(null);
+          setFail(e instanceof ApiError ? e : null);
+        },
+      )
+      .then(() => alive && setIssuing(false));
+    return () => {
+      alive = false;
+    };
+  }, [id, me, router, pathname]);
+
+  if (!me || issuing) {
     return (
       <TeacherShell>
-        <div className="page section">
-          <div className="card">
-            <Empty
-              title="Курс не найден"
-              action={
-                <LinkButton href="/courses" variant="secondary">
-                  В каталог
-                </LinkButton>
-              }
-            />
+        <div className="page section" style={{ paddingTop: 40 }}>
+          <div
+            className="card card-pad stack g12"
+            style={{ alignItems: "center", padding: 40, maxWidth: 620, margin: "0 auto" }}
+          >
+            <span className="spinner" style={{ width: 30, height: 30, color: "var(--primary)" }} />
+            <strong>{t.cmpIssuing}</strong>
+            <span className="small muted-3">{t.cmpIssuingHint}</span>
           </div>
         </div>
       </TeacherShell>
     );
   }
 
-  const cert = { ...demoCertificate, courseId: course.id, courseTitle: course.title, hours: course.hours };
+  if (!cert) return <IssueFailed courseId={id} error={fail} />;
+
   const next = (catalog.data?.items ?? []).map((g) => pickVersion(g, lang)).slice(0, 3);
 
   return (
@@ -91,62 +133,49 @@ export default function CompletePage() {
           </div>
 
           <div className="stack g8">
-            <h1 className="h1">Поздравляем! Курс пройден</h1>
+            <h1 className="h1">{t.cmpTitle}</h1>
             <p className="body muted pretty" style={{ maxWidth: 520 }}>
-              «{course.title}» · {course.hours} академических часов. Сертификат уже
-              в вашем профиле.
+              {t.cmpSub(cert.course_title, cert.hours)}
             </p>
           </div>
         </section>
 
         {/* Сертификат */}
         <section style={{ maxWidth: 620, margin: "0 auto", width: "100%" }} className="stack g16">
-          {generating ? (
-            <div className="card card-pad stack g12" style={{ alignItems: "center", padding: 40 }}>
-              <span className="spinner" style={{ width: 30, height: 30, color: "var(--primary)" }} />
-              <strong>Готовим сертификат…</strong>
-              <span className="small muted-3">Обычно занимает несколько секунд</span>
-            </div>
-          ) : (
-            <>
-              <CertificateThumb cert={cert} />
-              <div className="row g10 wrap">
-                <Button
-                  block
-                  size="lg"
-                  icon={<IconDownload size={18} />}
-                  onClick={() => toast("Сертификат скачивается в PDF", "success")}
-                >
-                  Скачать сертификат
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  icon={<IconShare size={18} />}
-                  onClick={() => {
-                    navigator.clipboard?.writeText(verifyUrl(cert.number));
-                    toast("Ссылка для проверки скопирована", "success");
-                  }}
-                >
-                  Поделиться
-                </Button>
-              </div>
-              <LinkButton href="/certificates" variant="ghost" block>
-                Все мои сертификаты
-              </LinkButton>
-            </>
-          )}
+          <CertificateThumb cert={cert} />
+          <div className="row g10 wrap">
+            <Button
+              block
+              size="lg"
+              icon={<IconDownload size={18} />}
+              onClick={() => toast(t.certPdfToast, "success")}
+            >
+              {t.cmpDownload}
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              icon={<IconShare size={18} />}
+              onClick={() => {
+                navigator.clipboard?.writeText(verifyUrl(cert.number));
+                toast(t.certLinkCopied, "success");
+              }}
+            >
+              {t.share}
+            </Button>
+          </div>
+          <LinkButton href="/certificates" variant="ghost" block>
+            {t.cmpAllCerts}
+          </LinkButton>
         </section>
 
         {/* Оценка курса */}
         <section style={{ maxWidth: 620, margin: "0 auto", width: "100%" }}>
           <div className="card card-pad stack g14">
-            <h2 className="h3">Оцените курс</h2>
+            <h2 className="h3">{t.cmpRate}</h2>
             {sent ? (
               /* Премодерации нет — отзыв виден на странице курса сразу */
-              <Note kind="success">
-                Спасибо! Отзыв опубликован на странице курса.
-              </Note>
+              <Note kind="success">{t.cmpReviewSent}</Note>
             ) : (
               <>
                 <div className="row g6">
@@ -157,7 +186,7 @@ export default function CompletePage() {
                       onMouseLeave={() => setHover(0)}
                       onClick={() => {
                         setStars(s);
-                        rateCourse(course.id, s);
+                        rateCourse(id, s);
                       }}
                       aria-label={`Оценка ${s}`}
                       style={{
@@ -174,7 +203,7 @@ export default function CompletePage() {
                 </div>
                 <textarea
                   className="input"
-                  placeholder="Что было полезно, чего не хватило? Ваш отзыв увидят другие учителя"
+                  placeholder={t.cmpReviewPlaceholder}
                   value={review}
                   onChange={(e) => setReview(e.target.value)}
                 />
@@ -182,10 +211,10 @@ export default function CompletePage() {
                   disabled={!stars}
                   onClick={() => {
                     setSent(true);
-                    toast("Отзыв отправлен", "success");
+                    toast(t.cmpReviewToast, "success");
                   }}
                 >
-                  Отправить отзыв
+                  {t.cmpSendReview}
                 </Button>
               </>
             )}
@@ -195,14 +224,14 @@ export default function CompletePage() {
         {/* Что дальше */}
         {next.length > 0 && (
           <section className="stack g16">
-            <h2 className="h2">Что пройти дальше</h2>
+            <h2 className="h2">{t.cmpNext}</h2>
             <div className="stack g10 next-list">
               {next.map((c) => (
                 <CourseRow key={c.id} course={c} />
               ))}
             </div>
             <LinkButton href="/courses" variant="secondary" block>
-              Открыть каталог
+              {t.openCatalog}
             </LinkButton>
           </section>
         )}
@@ -232,6 +261,68 @@ export default function CompletePage() {
           .next-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         }
       `}</style>
+    </TeacherShell>
+  );
+}
+
+/* ============ Сертификат не выдан ============ */
+
+/**
+ * Каждому отказу — своё объяснение и своя дорога дальше. Причину пишет сервер,
+ * экран добавляет заголовок и кнопку: у `conditions_not_met` — чек-лист
+ * из `details.conditions`, у `profile_incomplete` — путь в профиль.
+ */
+function IssueFailed({ courseId, error }: { courseId: string; error: ApiError | null }) {
+  const { t } = useStore();
+  const conditions =
+    isApiError(error, "conditions_not_met") && Array.isArray(error.details.conditions)
+      ? (error.details.conditions as Condition[])
+      : null;
+
+  /* Нет курса, черновик или скрытый — как на странице курса */
+  const notFound = error?.status === 404 || error?.status === 422;
+  /* Сеть не ответила (status 0) — это «не удалось загрузить», а не отказ */
+  const refusal = error && error.status > 0 ? error : null;
+
+  return (
+    <TeacherShell>
+      <div className="page section" style={{ paddingTop: 24 }}>
+        <div style={{ maxWidth: 620, margin: "0 auto" }} className="stack g16">
+          <div className="card">
+            <Empty
+              title={!refusal ? t.loadError : notFound ? t.courseNotFound : t.cmpNotIssued}
+              text={refusal ? refusal.message : t.loadErrorText}
+              action={
+                notFound ? (
+                  <LinkButton href="/courses" variant="secondary">
+                    {t.openCatalog}
+                  </LinkButton>
+                ) : isApiError(error, "profile_incomplete") ? (
+                  <LinkButton href="/profile" variant="secondary">
+                    {t.cmpFillProfile}
+                  </LinkButton>
+                ) : (
+                  <LinkButton href={`/courses/${courseId}`} variant="secondary">
+                    {t.cmpToProgram}
+                  </LinkButton>
+                )
+              }
+            />
+          </div>
+
+          {/* Чего именно не хватает — теми же строками, что на странице курса */}
+          {conditions && conditions.length > 0 && (
+            <div className="card card-pad stack g12">
+              <h2 className="h3">{t.cmpConditionsLeft}</h2>
+              <div className="stack g10">
+                {conditions.map((c) => (
+                  <ConditionRow key={c.code} condition={c} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </TeacherShell>
   );
 }

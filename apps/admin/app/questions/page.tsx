@@ -2,57 +2,30 @@
 
 /**
  * Вопросы от учителей «/questions» — раздел 5.24 брифа.
- * Сводный список по всей платформе; те же карточки стоят внутри курса,
- * и ответ, данный там, виден здесь — состояние общее.
+ *
+ * Сводная очередь по всей платформе: собрать её из вопросов по урокам нельзя,
+ * админ не знает заранее, у каких уроков есть вопросы, — для этого и есть
+ * `GET /admin/questions`. Тот же блок стоит вкладкой в карточке курса,
+ * там он привязан к `course_id`.
  */
 
-import { useState } from "react";
-import { adminQuestions } from "@lms/prototype/data";
-import { useModeration } from "@lms/prototype";
+import { api, qs, useLoad, type AdminQuestionsPage } from "@lms/api";
+import { useStore } from "@lms/prototype";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { QuestionCard } from "@/components/admin/Moderation";
-import { Button, Empty } from "@lms/ui";
-import { IconCheckCircle } from "@lms/ui/icons";
+import { QuestionsQueue } from "@/components/admin/QuestionsQueue";
 
 export default function AdminQuestionsPage() {
-  const { replyCount } = useModeration();
-  const [onlyOpen, setOnlyOpen] = useState(true);
-
-  const list = adminQuestions.filter((q) => (onlyOpen ? replyCount(q.id) === 0 : true));
-  const openCount = adminQuestions.filter((q) => replyCount(q.id) === 0).length;
+  const { t } = useStore();
+  /* Счётчик «без ответа» не зависит от фильтров списка — отдельный запрос,
+     сам список для него не нужен */
+  const open = useLoad(
+    () => api<AdminQuestionsPage>(`/admin/questions${qs({ answered: false, per_page: 1 })}`),
+    [],
+  );
 
   return (
-    <AdminShell
-      title="Вопросы от учителей"
-      subtitle={`${openCount} без ответа`}
-      actions={
-        <Button
-          variant={onlyOpen ? "primary" : "secondary"}
-          size="sm"
-          onClick={() => setOnlyOpen((v) => !v)}
-        >
-          Только без ответа
-        </Button>
-      }
-    >
-      <div className="stack g14" style={{ maxWidth: 860 }}>
-        {list.length === 0 ? (
-          <div className="card">
-            <Empty
-              icon={<IconCheckCircle size={38} />}
-              title="Все вопросы отвечены"
-              text="Вопрос — это тред: отвечать может админ и любой учитель с доступом к курсу."
-              action={
-                <Button variant="secondary" onClick={() => setOnlyOpen(false)}>
-                  Показать все вопросы
-                </Button>
-              }
-            />
-          </div>
-        ) : (
-          list.map((q) => <QuestionCard key={q.id} question={q} showCourse />)
-        )}
-      </div>
+    <AdminShell title={t.qaTitle} subtitle={t.qaUnanswered(open.data?.total ?? 0)}>
+      <QuestionsQueue onAnswered={open.reload} />
     </AdminShell>
   );
 }

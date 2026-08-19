@@ -13,15 +13,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import {
-  api,
-  qs,
-  useLoad,
-  useMe,
-  userInitials,
-  type AdminLeadsPage,
-  type AdminSubmissionsPage,
-} from "@lms/api";
+import { api, useLoad, useMe, userInitials, type AdminOverview } from "@lms/api";
 import { web } from "@/lib/urls";
 import { Avatar, Empty, Sheet } from "@lms/ui";
 import {
@@ -45,7 +37,7 @@ interface NavItem {
   label: string;
   icon: (p: { size?: number }) => React.JSX.Element;
   exact?: boolean;
-  badge?: "leads" | "queue";
+  badge?: "leads" | "queue" | "questions";
 }
 
 const NAV: { group: string; items: NavItem[] }[] = [
@@ -53,7 +45,9 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Обзор",
     items: [
       { href: "/", label: "Дашборд", icon: IconChart, exact: true },
-      { href: "/reports/digital-literacy", label: "Отчёты", icon: IconChart },
+      /* Отчёт считается по версии курса, поэтому без курса в адресе экран
+         открывается со списком версий — отсюда ссылка без id */
+      { href: "/reports", label: "Отчёты", icon: IconChart },
     ],
   },
   {
@@ -65,7 +59,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/leads", label: "Заявки", icon: IconMail, badge: "leads" },
       { href: "/submissions", label: "Проверка работ", icon: IconInbox, badge: "queue" },
-      { href: "/questions", label: "Вопросы", icon: IconMessage },
+      { href: "/questions", label: "Вопросы", icon: IconMessage, badge: "questions" },
       { href: "/reviews", label: "Отзывы", icon: IconStar },
     ],
   },
@@ -80,25 +74,21 @@ const NAV: { group: string; items: NavItem[] }[] = [
 ];
 
 /**
- * Счётчики есть только у «Заявок» и «Проверки работ» — это две очереди,
- * которые действительно кто-то ждёт. Обе считает сервер: `total` при
- * `status=new` у заявок и при `status=pending` у работ; сами списки для
- * этого не тянем — `per_page: 1`. У вопросов и отзывов счётчиков нет:
- * колокольчика в админке тоже нет, уведомления админа живут
- * в Telegram-боте (5.15).
+ * Счётчики есть у трёх очередей, которые кто-то действительно ждёт:
+ * заявки, проверка работ и вопросы без ответа. Все три считает сервер
+ * и отдаёт одним `GET /admin/overview` — тем же ответом, из которого
+ * рисуется дашборд, иначе числа меню и плиток разъезжаются.
+ *
+ * Колокольчика в админке нет: уведомления админа живут в Telegram-боте (5.15).
  */
 function useBadgeValue() {
-  const newLeads = useLoad(
-    () => api<AdminLeadsPage>(`/admin/leads${qs({ status: "new", per_page: 1 })}`),
-    [],
-  );
-  const queue = useLoad(
-    () => api<AdminSubmissionsPage>(`/admin/submissions${qs({ status: "pending", per_page: 1 })}`),
-    [],
-  );
+  const overview = useLoad(() => api<AdminOverview>("/admin/overview"), []);
   return (key?: string) => {
-    if (key === "leads") return newLeads.data?.total ?? 0;
-    if (key === "queue") return queue.data?.total ?? 0;
+    const d = overview.data;
+    if (!d) return 0;
+    if (key === "leads") return d.leads_count;
+    if (key === "queue") return d.submissions_count;
+    if (key === "questions") return d.questions_count;
     return 0;
   };
 }

@@ -17,10 +17,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { ProgramItem, ProgramModule, ProgramStatusItem } from "@lms/api";
+import type { Completion, Condition, ProgramItem, ProgramStatusItem } from "@lms/api";
 import { useStore } from "@lms/prototype";
-import { plural } from "@lms/ui/i18n";
-import { Accordion, Badge } from "@lms/ui";
+import { Accordion, Badge, Button, LinkButton, Skeleton } from "@lms/ui";
 import {
   IconCheck,
   IconEdit,
@@ -281,103 +280,139 @@ export function CourseProgram({
 /* ============ Чек-лист «Что нужно для сертификата» ============ */
 
 /**
- * Требования выводятся из программы: уроки — из `lessons_count`, задания
- * и итоговый тест — из состава `program[]`. Живых счётчиков здесь нет:
- * `access.done_count` считает все элементы вперемешку и на условия
- * не раскладывается — почленный чек-лист придёт из
- * `GET /courses/{id}/completion` в сессии 6.
+ * Строка чек-листа. Отдельным компонентом потому, что тот же список приходит
+ * в `details.conditions` отказа `409 conditions_not_met` — экран завершения
+ * курса показывает его теми же строками, что и страница курса.
+ */
+export function ConditionRow({ condition }: { condition: Condition }) {
+  const { t } = useStore();
+  const done = condition.status === "done";
+  const started = condition.status === "in_progress";
+  /* Проходной балл есть только у итогового теста: у тестов модулей он свой */
+  const pass = "pass_score" in condition ? condition.pass_score : null;
+
+  return (
+    <div className="row g10" style={{ alignItems: "flex-start" }}>
+      <span
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: 999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          marginTop: 1,
+          background: done ? "var(--success)" : started ? "var(--primary-bg)" : "#f1f5f9",
+          color: done ? "#fff" : started ? "var(--primary-pressed)" : "var(--text-3)",
+          border: done ? "none" : "1px solid var(--border)",
+        }}
+      >
+        {done ? <IconCheck size={14} /> : ""}
+      </span>
+      <span className="grow small" style={{ lineHeight: "22px" }}>
+        {condition.label}
+        {pass !== null && <span className="muted"> — {t.certPassScore(pass)}</span>}
+      </span>
+      {/* Без доступа счётчиков нет — остаётся список требований */}
+      {condition.done_count !== null && (
+        <span
+          className="caption nowrap"
+          style={{
+            color: done ? "var(--success)" : "var(--text-2)",
+            fontWeight: 700,
+            marginTop: 3,
+          }}
+        >
+          {t.ofTotal(condition.done_count, condition.total_count)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Строки чек-листа приходят готовыми из `GET /courses/{id}/completion` — вместе
+ * с подписью, статусом и счётчиками. Эндпоинт публичный: без входа и без
+ * доступа счётчиков нет (`done_count: null`), и это просто список требований.
+ *
+ * У строки итогового теста есть `pass_score`, у остальных его нет вовсе —
+ * у каждого теста модуля порог свой, и одного числа на всю строку не бывает.
  */
 export function CourseCertChecklist({
   course,
+  completion,
+  loading,
+  onRetry,
 }: {
-  course: {
-    hours: number;
-    lang: string;
-    lessons_count: number;
-    program: ProgramModule[];
-  };
+  course: { id: number; hours: number; lang: string };
+  completion: Completion | null;
+  loading?: boolean;
+  onRetry?: () => void;
 }) {
   const { t } = useStore();
-  const items = course.program.flatMap((m) => m.items);
-  const tasksTotal = items.filter((i) => i.kind === "task").length;
-  const finalQuiz = items.find((i) => i.kind === "quiz" && i.is_final);
-  const lessonsTotal = course.lessons_count;
 
-  const rows = [
-    lessonsTotal > 0 && {
-      label: `Пройти все ${lessonsTotal} ${plural(lessonsTotal, "урок", "урока", "уроков")}`,
-      value: null,
-      done: false,
-      started: false,
-    },
-    tasksTotal > 0 && {
-      label: `Сдать все ${tasksTotal} ${plural(tasksTotal, "задание", "задания", "заданий")}`,
-      value: null,
-      done: false,
-      started: false,
-    },
-    finalQuiz &&
-      finalQuiz.kind === "quiz" && {
-        label: `Сдать итоговый тест — проходной балл ${finalQuiz.pass_score}%`,
-        value: null,
-        done: false,
-        started: false,
-      },
-  ].filter(Boolean) as { label: string; value: string | null; done: boolean; started: boolean }[];
+  if (loading) {
+    return (
+      <div className="card card-pad stack g10" style={{ background: "#fbfcff" }}>
+        <Skeleton w="60%" h={18} />
+        <Skeleton w="90%" h={14} />
+        <Skeleton w="80%" h={14} />
+      </div>
+    );
+  }
 
-  if (!rows.length) return null;
+  if (!completion) {
+    return (
+      <div className="card card-pad row between g10" style={{ background: "#fbfcff" }}>
+        <span className="small muted">{t.loadError}</span>
+        <Button variant="secondary" size="sm" onClick={onRetry}>
+          {t.retry}
+        </Button>
+      </div>
+    );
+  }
+
+  const { conditions, can_issue, blocker, certificate } = completion;
+  /* Курс без единого условия и без выданного документа показывать нечем */
+  if (conditions.length === 0 && !certificate && !can_issue) return null;
 
   return (
     <div className="card card-pad stack g14" style={{ background: "#fbfcff" }}>
       <h3 className="h3">{t.secCertRequirements}</h3>
-      <div className="stack g10">
-        {rows.map((it, i) => (
-          <div key={i} className="row g10" style={{ alignItems: "flex-start" }}>
-            <span
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                marginTop: 1,
-                fontSize: 11,
-                fontWeight: 800,
-                background: it.done
-                  ? "var(--success)"
-                  : it.started
-                    ? "var(--primary-bg)"
-                    : "#f1f5f9",
-                color: it.done ? "#fff" : it.started ? "var(--primary-pressed)" : "var(--text-3)",
-                border: it.done ? "none" : "1px solid var(--border)",
-              }}
-            >
-              {it.done ? <IconCheck size={14} /> : ""}
-            </span>
-            <span className="grow small" style={{ lineHeight: "22px" }}>
-              {it.label}
-            </span>
-            {it.value && (
-              <span
-                className="caption nowrap"
-                style={{
-                  color: it.done ? "var(--success)" : "var(--text-2)",
-                  fontWeight: 700,
-                  marginTop: 3,
-                }}
-              >
-                {it.value}
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
+
+      {conditions.length > 0 && (
+        <div className="stack g10">
+          {conditions.map((c) => (
+            <ConditionRow key={c.code} condition={c} />
+          ))}
+        </div>
+      )}
+
+      {certificate ? (
+        <LinkButton href={`/certificates/${certificate.id}`} variant="secondary" block>
+          {t.certOpen}
+        </LinkButton>
+      ) : can_issue ? (
+        <div className="stack g6">
+          <LinkButton href={`/courses/${course.id}/complete`} block>
+            {t.certGet}
+          </LinkButton>
+          <span className="caption muted" style={{ textAlign: "center" }}>
+            {t.certReady}
+          </span>
+        </div>
+      ) : blocker ? (
+        /* Условия закрыты, но помеха есть — текст объясняет сервер */
+        <span className="caption" style={{ color: "#b45309" }}>
+          {blocker.message}
+        </span>
+      ) : null}
+
       <hr className="divider" />
       <span className="caption muted">
-        Сертификат на {course.hours} часов ·{" "}
-        {course.lang === "kz" ? "на казахском языке" : "на русском языке"}
+        {t.certForHours(course.hours)} ·{" "}
+        {course.lang === "kz" ? t.certLangKz : t.certLangRu}
       </span>
     </div>
   );

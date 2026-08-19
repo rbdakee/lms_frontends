@@ -2,24 +2,24 @@
 
 /**
  * Макет сертификата A4 альбомный — раздел 5.11 брифа.
- * Две версии: русская и казахская. Размеры в cqw, поэтому макет
- * одинаково читается и в миниатюре, и на всю ширину.
+ * Размеры в cqw, поэтому макет одинаково читается и в миниатюре,
+ * и на всю ширину.
+ *
+ * Документ одноязычный: язык берётся из самого сертификата (`lang` — язык
+ * версии курса), переключателя на экране нет. Казахскому написанию ФИО
+ * взяться неоткуда — у человека одно имя.
  */
 
-import type { Certificate } from "@lms/prototype/data";
+import type { MyCertificate } from "@lms/api";
+import { dayYear } from "@lms/ui/i18n";
 import { useOrigin } from "@lms/ui/useOrigin";
 import { LogoMark } from "@lms/ui/icons";
 import { QrCode } from "@/components/course/QrCode";
 
-export function CertificateSheet({
-  cert,
-  lang = "ru",
-}: {
-  cert: Certificate;
-  lang?: "ru" | "kz";
-}) {
-  const kz = lang === "kz";
+export function CertificateSheet({ cert }: { cert: MyCertificate }) {
+  const kz = cert.lang === "kz";
   const { verifyHost, verifyUrl } = useOrigin();
+  const issued = dayYear(cert.issued_at, kz ? "kz" : "ru");
 
   return (
     <div className="cert">
@@ -62,7 +62,7 @@ export function CertificateSheet({
             lineHeight: 1.1,
           }}
         >
-          {kz ? "СЕРТИФИКАТ" : "СЕРТИФИКАТ"}
+          СЕРТИФИКАТ
         </div>
         <div style={{ fontSize: "1.7cqw", color: "#64748b", marginTop: "0.8cqw" }}>
           {kz
@@ -91,7 +91,7 @@ export function CertificateSheet({
             textWrap: "balance",
           }}
         >
-          {kz ? cert.holderKz : cert.holder}
+          {cert.holder_name}
         </div>
 
         <div style={{ fontSize: "1.7cqw", color: "#64748b", margin: "1.6cqw 0 0.8cqw" }}>
@@ -108,7 +108,7 @@ export function CertificateSheet({
             textWrap: "balance",
           }}
         >
-          «{kz ? (cert.courseTitleKz ?? cert.courseTitle) : cert.courseTitle}»
+          «{cert.course_title}»
         </div>
 
         <div style={{ fontSize: "1.7cqw", color: "#64748b", marginTop: "1.2cqw" }}>
@@ -131,7 +131,7 @@ export function CertificateSheet({
         >
           <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: "1.5cqw", color: "#64748b" }}>
-              {kz ? `Берілген күні: ${cert.dateKz}` : `Дата выдачи: ${cert.date}`}
+              {kz ? `Берілген күні: ${issued}` : `Дата выдачи: ${issued}`}
             </div>
             <div
               style={{
@@ -192,7 +192,7 @@ export function CertificateSheet({
 }
 
 /** Миниатюра для списка сертификатов. */
-export function CertificateThumb({ cert }: { cert: Certificate }) {
+export function CertificateThumb({ cert }: { cert: MyCertificate }) {
   return (
     <div
       className="cert"
@@ -228,7 +228,7 @@ export function CertificateThumb({ cert }: { cert: Certificate }) {
             textWrap: "balance",
           }}
         >
-          {cert.courseTitle}
+          {cert.course_title}
         </div>
         <div
           style={{

@@ -1,62 +1,49 @@
 "use client";
 
-/** Мои сертификаты «/certificates» — раздел 5.11 брифа. */
+/**
+ * Мои сертификаты «/certificates» — раздел 5.11 брифа.
+ *
+ * Данные — `GET /me/certificates`. Пагинации нет: список заведомо короткий,
+ * и он же кормит экран одного сертификата — отдельного эндпоинта за одним
+ * документом контракт не даёт.
+ */
 
 import Link from "next/link";
-import {
-  certificates,
-  demoCertificate,
-  getCourse,
-  versionForLang,
-  type Certificate,
-} from "@lms/prototype/data";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { api, useLoad, useMe, type MyCertificates } from "@lms/api";
 import { useStore } from "@lms/prototype";
+import { dayYear } from "@lms/ui/i18n";
 import { TeacherShell } from "@/components/layout/Shell";
 import { CertificateThumb } from "@/components/course/CertificateSheet";
-import { Empty, LinkButton, Skeleton } from "@lms/ui";
+import { Button, Empty, LinkButton, Skeleton } from "@lms/ui";
 import { IconCertificate, IconChevronRight } from "@lms/ui/icons";
 
 export default function CertificatesPage() {
-  const { t, certs, ready, fullName } = useStore();
+  const { t, lang } = useStore();
+  const { me, status } = useMe();
+  const router = useRouter();
 
-  const list: Certificate[] = certs
-    .map((courseId) => {
-      const base =
-        certificates.find((c) => c.courseId === courseId) ??
-        (courseId === demoCertificate.courseId ? demoCertificate : null);
-      if (base) return { ...base, holder: fullName || base.holder };
-      const course = getCourse(courseId);
-      if (!course) return null;
-      /* Название на казахском берём из казахской версии группы, а не из пары
-         полей внутри курса: версии — два самостоятельных курса с общим groupId */
-      const kzVersion = versionForLang(course, "kz");
-      return {
-        id: `cert-${course.id}`,
-        number: `KZ-2026-00${4900 + course.title.length}`,
-        courseId: course.id,
-        courseTitle: course.title,
-        courseTitleKz: kzVersion.lang === "kz" ? kzVersion.title : undefined,
-        hours: course.hours,
-        date: "сегодня",
-        dateKz: "бүгін",
-        holder: fullName || demoCertificate.holder,
-        holderKz: demoCertificate.holderKz,
-      } as Certificate;
-    })
-    .filter(Boolean) as Certificate[];
+  useEffect(() => {
+    if (status === "guest") router.replace("/login?next=/certificates");
+  }, [status, router]);
+
+  const certs = useLoad<MyCertificates | null>(
+    () => (me ? api<MyCertificates>("/me/certificates") : Promise.resolve(null)),
+    [me?.id],
+  );
+
+  const list = certs.data?.items ?? [];
 
   return (
     <TeacherShell>
       <div className="page section stack g20" style={{ paddingTop: 20 }}>
         <div className="stack g8">
           <h1 className="h1">{t.navCerts}</h1>
-          <p className="body muted">
-            Скачивайте PDF или отправляйте ссылку для проверки — комиссия увидит запись
-            в реестре без регистрации.
-          </p>
+          <p className="body muted">{t.certsSubtitle}</p>
         </div>
 
-        {!ready ? (
+        {!me || certs.loading ? (
           <div className="grid-3">
             {[0, 1, 2].map((i) => (
               <div key={i} className="card card-pad stack g10">
@@ -65,6 +52,18 @@ export default function CertificatesPage() {
                 <Skeleton w="50%" h={12} />
               </div>
             ))}
+          </div>
+        ) : certs.error ? (
+          <div className="card">
+            <Empty
+              title={t.loadError}
+              text={t.loadErrorText}
+              action={
+                <Button variant="secondary" onClick={certs.reload}>
+                  {t.retry}
+                </Button>
+              }
+            />
           </div>
         ) : list.length === 0 ? (
           <div className="card">
@@ -93,9 +92,9 @@ export default function CertificatesPage() {
                 </div>
                 <div className="card-pad row between g10" style={{ alignItems: "flex-start" }}>
                   <div className="stack g4 grow" style={{ minWidth: 0 }}>
-                    <strong className="small pretty">{c.courseTitle}</strong>
+                    <strong className="small pretty">{c.course_title}</strong>
                     <span className="caption muted-3">
-                      Выдан {c.date} · {c.hours} часов
+                      {t.certIssuedOn(dayYear(c.issued_at, lang))} · {t.academicHours(c.hours)}
                     </span>
                     <span className="caption mono muted">{c.number}</span>
                   </div>

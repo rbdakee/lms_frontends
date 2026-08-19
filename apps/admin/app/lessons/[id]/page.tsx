@@ -9,20 +9,22 @@
  * и второго текстового блока в уроке не бывает: если материала на два урока,
  * значит это два урока.
  *
- * «Предпросмотр как учитель» включает режим предпросмотра: админ ходит
- * по кабинету учителя, но ничего не записывается — на выходе состояние
- * возвращается как было. Полоса «Предпросмотр — данные не сохраняются»
- * видна всё время, чтобы не перепутать режимы.
+ * «Предпросмотр как учитель» включает режим на сервере (`POST /admin/preview/enter`)
+ * и уводит в кабинет учителя: записи по курсу становятся no-op, доступ
+ * считается открытым, строгий порядок уроков не запирает программу. Флаг живёт
+ * в сессии, а не в адресе, поэтому режим работает и для черновика. Полоса
+ * «Предпросмотр — данные не сохраняются» рисуется клиентским приложением.
  */
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { courses, DEMO_COURSE_ID, getCourse, getLesson, moduleOfLesson } from "@lms/prototype/data";
+import { api, useLoad, type CatalogOut } from "@lms/api";
 import { useStore } from "@lms/prototype";
-import { webPreview } from "@/lib/urls";
+import { enterPreview } from "@/lib/urls";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { Badge, Breadcrumbs, Button, FileRow, Note } from "@lms/ui";
+import { Badge, Breadcrumbs, Button, Empty, FileRow, Note, Sheet } from "@lms/ui";
 import {
   IconBold,
   IconClose,
@@ -77,7 +79,7 @@ const DEMO_TEXT =
 
 export default function LessonEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { toast, findDraft, updateDraft, modulesOf } = useStore();
+  const { t, toast, findDraft, updateDraft, modulesOf } = useStore();
   /* Урок, только что добавленный в программе, лежит в состоянии прототипа */
   const draft = findDraft(id);
   /* Урок открывают из программы любого курса — ищем, кому он принадлежит */
@@ -110,6 +112,30 @@ export default function LessonEditorPage() {
   );
   /* Ошибку показываем не при первом же пустом поле, а когда попытались сохранить */
   const [touched, setTouched] = useState(false);
+
+  /**
+   * Режим предпросмотра привязан к курсу и требует его числовой `id`.
+   * Редактор урока пока живёт на прототипе, где у курса строковый id,
+   * поэтому курс выбирается вручную; выбор уйдёт вместе с переводом
+   * редактора на API.
+   */
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [entering, setEntering] = useState<number | null>(null);
+  const catalog = useLoad(
+    () => (previewOpen ? api<CatalogOut>("/courses") : Promise.resolve(null)),
+    [previewOpen],
+  );
+  const previewCourses = (catalog.data?.items ?? []).flatMap((g) => g.versions);
+
+  const startPreview = async (courseId: number) => {
+    setEntering(courseId);
+    try {
+      await enterPreview(courseId);
+    } catch {
+      setEntering(null);
+      toast(t.pvError, "error");
+    }
+  };
 
   const pickRef = useRef<HTMLInputElement>(null);
 
@@ -232,12 +258,9 @@ export default function LessonEditorPage() {
             variant="secondary"
             size="sm"
             icon={<IconEye size={16} />}
-            onClick={() => {
-              /* Предпросмотр живёт в клиентском приложении — уходим на его домен */
-              window.location.href = webPreview(`/learn/${course.id}/${id}`);
-            }}
+            onClick={() => setPreviewOpen(true)}
           >
-            <span className="hide-sm">Предпросмотр как учитель</span>
+            <span className="hide-sm">{t.pvTitle}</span>
           </Button>
           <Button size="sm" onClick={save}>
             Сохранить
@@ -418,6 +441,49 @@ export default function LessonEditorPage() {
           </span>
         </Note>
       </div>
+
+      <Sheet
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        title={t.pvPickTitle}
+      >
+        <div className="stack g12">
+          <p className="small muted pretty">{t.pvPickText}</p>
+          {catalog.loading ? (
+            <div className="row center" style={{ minHeight: 120 }}>
+              <span
+                className="spinner"
+                style={{ width: 24, height: 24, color: "var(--primary)" }}
+              />
+            </div>
+          ) : catalog.error ? (
+            <Empty
+              title={t.loadError}
+              text={t.loadErrorText}
+              action={
+                <Button variant="secondary" onClick={catalog.reload}>
+                  {t.retry}
+                </Button>
+              }
+            />
+          ) : previewCourses.length === 0 ? (
+            <Empty title={t.emptyCatalogTitle} text={t.emptyCatalogText} />
+          ) : (
+            previewCourses.map((c) => (
+              <Button
+                key={c.id}
+                variant="secondary"
+                block
+                loading={entering === c.id}
+                disabled={entering !== null}
+                onClick={() => startPreview(c.id)}
+              >
+                {c.title}
+              </Button>
+            ))
+          )}
+        </div>
+      </Sheet>
 
       <style>{`@media (max-width: 700px) { .hide-sm { display: none; } }`}</style>
     </AdminShell>

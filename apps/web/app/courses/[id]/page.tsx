@@ -23,6 +23,7 @@ import {
   useDictionaries,
   useLoad,
   useMe,
+  type Completion,
   type CoursePage,
   type Lead,
 } from "@lms/api";
@@ -71,6 +72,12 @@ export default function CoursePageScreen() {
     () => api<CoursePage>(`/courses/${encodeURIComponent(id)}`),
     /* Пока /me не отвечен, куки может не быть смысла ждать не надо: access
        для гостя и так none; после входа перезапрашиваем ради access */
+    [id, me?.id],
+  );
+  /* Чек-лист сертификата — отдельный публичный запрос: он нужен и гостю
+     (список требований), и учителю с доступом (живые счётчики) */
+  const completion = useLoad<Completion>(
+    () => api<Completion>(`/courses/${encodeURIComponent(id)}/completion`),
     [id, me?.id],
   );
   const [enrolling, setEnrolling] = useState(false);
@@ -368,7 +375,12 @@ export default function CoursePageScreen() {
 
             {/* Чек-лист сертификата — на мобильном здесь, на десктопе в боковой карточке */}
             <div className="cert-inline">
-              <CourseCertChecklist course={c} />
+              <CourseCertChecklist
+                course={c}
+                completion={completion.data}
+                loading={completion.loading}
+                onRetry={completion.reload}
+              />
             </div>
 
             {/* Полное описание */}
@@ -430,7 +442,12 @@ export default function CoursePageScreen() {
               </span>
               <ContactAdmin />
               <hr className="divider" />
-              <CourseCertChecklist course={c} />
+              <CourseCertChecklist
+                course={c}
+                completion={completion.data}
+                loading={completion.loading}
+                onRetry={completion.reload}
+              />
             </div>
           </aside>
         </div>

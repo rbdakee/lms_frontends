@@ -3,40 +3,24 @@
 /**
  * Полоса режима «Предпросмотр как учитель» — раздел 5.18 брифа.
  *
- * Админ ходит по кабинету учителя, но ничего не записывается: на входе
- * в режим снимается состояние прототипа, на выходе — возвращается.
- * Полоса видна всё время, чтобы не перепутать режимы.
+ * Админ ходит по кабинету учителя, но ничего не записывается — за это отвечает
+ * сервер: пока режим включён, записи по курсу no-op. Флаг живёт в серверной
+ * сессии, клиентское приложение узнаёт о нём из `GET /me` (`preview`), и
+ * `?preview=1` в адресе больше не нужен.
  *
- * После разделения приложений предпросмотр — переход между доменами: админка
- * открывает клиентское приложение с `?preview=1`, режим включается здесь,
- * выход возвращает в админку. Когда появится сервер, флаг переедет в сессию
- * и параметр в адресе исчезнет — `BACKEND_NOTES.md`, раздел 12.
+ * Полоса видна всё время, чтобы не перепутать режимы. «Выйти» гасит режим
+ * на сервере и возвращает в админку.
  */
 
-import { useEffect, useRef } from "react";
-import { useStore } from "@lms/prototype";
+import { useEffect, useState } from "react";
+import { api, useMe } from "@lms/api";
 import { IconClose, IconEye } from "@lms/ui/icons";
 import { admin } from "@/lib/urls";
 
 export function PreviewBar() {
-  const { preview, ready, enterPreview, exitPreview, toast } = useStore();
-  /* Флаг из адреса читается один раз за загрузку страницы */
-  const handled = useRef(false);
-
-  useEffect(() => {
-    /* Ждём состояние из localStorage: иначе загрузка затрёт включённый режим */
-    if (!ready || handled.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("preview") !== "1") return;
-
-    handled.current = true;
-    if (!preview) enterPreview();
-
-    /* Параметр убираем, чтобы обновление страницы не включало режим заново */
-    params.delete("preview");
-    const qs = params.toString();
-    window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
-  }, [ready, preview, enterPreview]);
+  const { me } = useMe();
+  const preview = Boolean(me?.preview);
+  const [leaving, setLeaving] = useState(false);
 
   /* Полоса встаёт над шапкой — сдвигаем страницу и липкий appbar */
   useEffect(() => {
@@ -48,6 +32,18 @@ export function PreviewBar() {
 
   if (!preview) return null;
 
+  const exit = async () => {
+    if (leaving) return;
+    setLeaving(true);
+    try {
+      /* Выход идемпотентен: повторное нажатие тоже 204 */
+      await api<undefined>("/admin/preview/exit", { method: "POST" });
+    } catch {
+      /* Уводим в админку в любом случае — там режим виден и его можно снять */
+    }
+    window.location.href = admin("/courses");
+  };
+
   return (
     <>
       <div className="preview-bar">
@@ -55,14 +51,7 @@ export function PreviewBar() {
           <IconEye size={16} />
           <span className="preview-bar-text">Предпросмотр — данные не сохраняются</span>
         </span>
-        <button
-          className="preview-bar-exit"
-          onClick={() => {
-            exitPreview();
-            toast("Вышли из предпросмотра — состояние вернулось как было");
-            window.location.href = admin("/courses");
-          }}
-        >
+        <button className="preview-bar-exit" disabled={leaving} onClick={exit}>
           <IconClose size={15} />
           Выйти
         </button>

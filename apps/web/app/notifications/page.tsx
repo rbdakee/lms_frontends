@@ -1,59 +1,144 @@
 "use client";
 
-/** Уведомления «/notifications» — раздел 5.14 брифа. */
+/**
+ * Уведомления «/notifications» — раздел 5.14 брифа.
+ *
+ * `GET /notifications` отдаёт готовый текст на языке читателя — собирать его
+ * здесь не надо. Адрес перехода фронт строит сам из `type` и `params`
+ * (`lib/notifications.ts`): сервер отдаёт идентификаторы, а не пути.
+ */
 
 import Link from "next/link";
-import { notifications } from "@lms/prototype/data";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { api, qs, useLoad, useMe, type Notification, type NotificationsPage } from "@lms/api";
 import { useStore } from "@lms/prototype";
+import { dayTime } from "@lms/ui/i18n";
 import { TeacherShell } from "@/components/layout/Shell";
-import { Button, Empty } from "@lms/ui";
-import type { NotifType } from "@lms/prototype/data";
 import {
-  IconBell,
-  IconCalendar,
-  IconCatalog,
-  IconCheckCircle,
-  IconChevronRight,
-  IconKey,
-  IconMail,
-  IconSparkle,
-} from "@lms/ui/icons";
+  markRead,
+  notificationHref,
+  NOTIF_ICONS,
+  NOTIF_TONES,
+  onNotificationsChanged,
+} from "@/lib/notifications";
+import { Button, Empty, RowSkeleton } from "@lms/ui";
+import { IconBell, IconChevronRight } from "@lms/ui/icons";
 
-const ICONS: Record<NotifType, (p: { size?: number }) => React.JSX.Element> = {
-  access: IconKey,
-  task: IconCheckCircle,
-  answer: IconMail,
-  certificate: IconSparkle,
-  course: IconCatalog,
-  starting: IconCalendar,
-};
-
-const TONES: Record<NotifType, { bg: string; fg: string }> = {
-  access: { bg: "var(--success-bg)", fg: "var(--success)" },
-  task: { bg: "var(--success-bg)", fg: "var(--success)" },
-  answer: { bg: "var(--primary-bg)", fg: "var(--primary)" },
-  certificate: { bg: "var(--warning-bg)", fg: "#b45309" },
-  course: { bg: "#f1f5f9", fg: "var(--text-2)" },
-  starting: { bg: "var(--primary-bg)", fg: "var(--primary)" },
-};
+const PER_PAGE = 20;
 
 export default function NotificationsPage() {
-  const { t, readNotifications, markAllRead, markRead } = useStore();
-  const unread = notifications.filter((n) => !readNotifications.includes(n.id));
+  const { t, lang } = useStore();
+  const { me, status } = useMe();
+  const router = useRouter();
+  /* Догруженные страницы: «Показать ещё» не перечитывает первую */
+  const [more, setMore] = useState<Notification[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    if (status === "guest") router.replace("/login?next=/notifications");
+  }, [status, router]);
+
+  const feed = useLoad<NotificationsPage | null>(
+    () =>
+      me
+        ? api<NotificationsPage>(`/notifications${qs({ page: 1, per_page: PER_PAGE })}`)
+        : Promise.resolve(null),
+    [me?.id],
+  );
+
+  /* Прочитали из колокольчика — счётчик и точки на экране должны совпасть */
+  useEffect(() => onNotificationsChanged(feed.reload), [feed.reload]);
+
+  if (!me || feed.loading) {
+    return (
+      <TeacherShell>
+        <div className="page section stack g20" style={{ paddingTop: 20 }}>
+          <h1 className="h1">{t.navNotifications}</h1>
+          <div className="stack g10">
+            <RowSkeleton />
+            <RowSkeleton />
+            <RowSkeleton />
+          </div>
+        </div>
+      </TeacherShell>
+    );
+  }
+
+  if (feed.error) {
+    return (
+      <TeacherShell>
+        <div className="page section stack g20" style={{ paddingTop: 20 }}>
+          <h1 className="h1">{t.navNotifications}</h1>
+          <div className="card">
+            <Empty
+              title={t.loadError}
+              text={t.loadErrorText}
+              action={
+                <Button variant="secondary" onClick={feed.reload}>
+                  {t.retry}
+                </Button>
+              }
+            />
+          </div>
+        </div>
+      </TeacherShell>
+    );
+  }
+
+  const data = feed.data!;
+  const items = [...data.items, ...more];
+  const hasMore = items.length < data.total;
+
+  /** Отметка одного: страница и колокольчик ведут себя одинаково. */
+  const readOne = (id: number) => {
+    feed.setData((d) =>
+      d
+        ? {
+            ...d,
+            unread_count: Math.max(0, d.unread_count - 1),
+            items: markOne(d.items, id),
+          }
+        : d,
+    );
+    setMore((m) => markOne(m, id));
+    void markRead({ ids: [id] });
+  };
+
+  const readAll = () => {
+    feed.setData((d) => (d ? { ...d, unread_count: 0, items: markAll(d.items) } : d));
+    setMore(markAll);
+    void markRead({ all: true });
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = await api<NotificationsPage>(
+        `/notifications${qs({
+          page: Math.floor(items.length / PER_PAGE) + 1,
+          per_page: PER_PAGE,
+        })}`,
+      );
+      setMore((m) => [...m, ...next.items]);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   return (
     <TeacherShell>
       <div className="page section stack g20" style={{ paddingTop: 20 }}>
         <div className="row between wrap g12">
           <h1 className="h1">{t.navNotifications}</h1>
-          {unread.length > 0 && (
-            <Button variant="secondary" size="sm" onClick={markAllRead}>
-              Отметить все как прочитанные
+          {data.unread_count > 0 && (
+            <Button variant="secondary" size="sm" onClick={readAll}>
+              {t.notifMarkAll}
             </Button>
           )}
         </div>
 
-        {notifications.length === 0 ? (
+        {items.length === 0 ? (
           <div className="card">
             <Empty
               icon={<IconBell size={36} />}
@@ -62,75 +147,92 @@ export default function NotificationsPage() {
             />
           </div>
         ) : (
-          <div className="card" style={{ overflow: "hidden" }}>
-            {notifications.map((n, i) => {
-              const isUnread = !readNotifications.includes(n.id);
-              const Icon = ICONS[n.type];
-              const tone = TONES[n.type];
-              return (
-                <Link
-                  key={n.id}
-                  href={n.href}
-                  onClick={() => markRead(n.id)}
-                  className="row g12"
-                  style={{
-                    padding: "16px",
-                    alignItems: "flex-start",
-                    borderTop: i > 0 ? "1px solid #f1f5f9" : undefined,
-                    background: isUnread ? "#fbfcff" : undefined,
-                    minHeight: 72,
-                  }}
-                >
-                  <span
+          <>
+            <div className="card" style={{ overflow: "hidden" }}>
+              {items.map((n, i) => {
+                const Icon = NOTIF_ICONS[n.type];
+                const tone = NOTIF_TONES[n.type];
+                const isUnread = !n.read_at;
+                return (
+                  <Link
+                    key={n.id}
+                    href={notificationHref(n)}
+                    onClick={() => isUnread && readOne(n.id)}
+                    className="row g12"
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 12,
-                      background: tone.bg,
-                      color: tone.fg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
+                      padding: "16px",
+                      alignItems: "flex-start",
+                      borderTop: i > 0 ? "1px solid #f1f5f9" : undefined,
+                      background: isUnread ? "#fbfcff" : undefined,
+                      minHeight: 72,
                     }}
                   >
-                    <Icon size={20} />
-                  </span>
-                  <span className="grow stack g4" style={{ minWidth: 0 }}>
-                    <span
-                      className="small pretty"
-                      style={{ fontWeight: isUnread ? 700 : 500, lineHeight: "21px" }}
-                    >
-                      {n.text}
-                    </span>
-                    <span className="caption muted-3">{n.time}</span>
-                  </span>
-                  {isUnread ? (
                     <span
                       style={{
-                        width: 9,
-                        height: 9,
-                        borderRadius: 999,
-                        background: "var(--primary)",
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        background: tone.bg,
+                        color: tone.fg,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         flexShrink: 0,
-                        marginTop: 8,
                       }}
-                      aria-label="Не прочитано"
-                    />
-                  ) : (
-                    <IconChevronRight size={18} className="muted-3" style={{ marginTop: 4 }} />
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+                    >
+                      <Icon size={20} />
+                    </span>
+                    <span className="grow stack g4" style={{ minWidth: 0 }}>
+                      <span
+                        className="small pretty"
+                        style={{ fontWeight: isUnread ? 700 : 500, lineHeight: "21px" }}
+                      >
+                        {n.text}
+                      </span>
+                      <span className="caption muted-3">{dayTime(n.created_at, lang)}</span>
+                    </span>
+                    {isUnread ? (
+                      <span
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: 999,
+                          background: "var(--primary)",
+                          flexShrink: 0,
+                          marginTop: 8,
+                        }}
+                        aria-label={t.notifUnread}
+                      />
+                    ) : (
+                      <IconChevronRight size={18} className="muted-3" style={{ marginTop: 4 }} />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+
+            {hasMore && (
+              <Button variant="secondary" block loading={loadingMore} onClick={loadMore}>
+                {t.showMore}
+              </Button>
+            )}
+          </>
         )}
 
-        <p className="small muted-3 pretty">
-          Колокольчик есть только у учителя. Администратор свои уведомления —
-          новые заявки и работы на проверку — получает в Telegram-бот.
-        </p>
+        <p className="small muted-3 pretty">{t.notifAdminNote}</p>
       </div>
     </TeacherShell>
   );
+}
+
+/* Отметка «прочитано» рисуется сразу: ответ сервера — 204 без тела, и ждать
+   его, чтобы погасить точку, незачем. */
+function markOne(list: Notification[], id: number): Notification[] {
+  return list.map((n) =>
+    n.id === id && !n.read_at ? { ...n, read_at: new Date().toISOString() } : n,
+  );
+}
+
+function markAll(list: Notification[]): Notification[] {
+  return list.map((n) => (n.read_at ? n : { ...n, read_at: new Date().toISOString() }));
 }

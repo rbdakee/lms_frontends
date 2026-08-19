@@ -1,121 +1,22 @@
 "use client";
 
 /**
- * Карточки вопроса и отзыва для методиста — раздел 5.24 брифа.
+ * Карточка отзыва для методиста — раздел 5.24 брифа.
  *
- * Вопрос — это тред: под ним сколько угодно ответов, у каждого автор и дата.
- * Отвечает и админ, и коллеги-учителя — часто коллега быстрее. Вложенности
- * второго уровня, лайков и редактирования чужих сообщений нет: именно они
- * превращают вопросы под уроком в форум с модерацией.
- *
- * У отзывов премодерации нет — отзыв виден сразу, админ отвечает или удаляет
+ * Премодерации у отзывов нет — отзыв виден сразу, админ отвечает или удаляет
  * постфактум. От одного человека отзывов может быть несколько, все с датами.
  *
- * Один и тот же компонент работает и в карточке курса, и в общих разделах:
- * состояние лежит в общем сторе, поэтому ответ из карточки курса виден в списке.
+ * Вопросы уехали в API и живут в `QuestionsQueue`: очередь и карточка курса
+ * показывают один и тот же `GET /admin/questions`.
  */
 
 import { useState } from "react";
-import type { adminQuestions, adminReviews, ThreadReply } from "@lms/prototype/data";
+import type { adminReviews } from "@lms/prototype/data";
 import { useModeration, useStore } from "@lms/prototype";
-import { Avatar, Badge, Button, Sheet, Stars } from "@lms/ui";
+import { Avatar, Button, Sheet, Stars } from "@lms/ui";
 import { IconMessage, IconTrash } from "@lms/ui/icons";
 
-type Question = (typeof adminQuestions)[number];
 type Review = (typeof adminReviews)[number];
-
-/* ============ Вопрос — тред ============ */
-
-export function QuestionCard({
-  question,
-  showCourse,
-}: {
-  question: Question;
-  /** В карточке курса название курса не нужно — оно уже в шапке экрана */
-  showCourse?: boolean;
-}) {
-  const { toast, addReply, repliesFor } = useStore();
-  const [draft, setDraft] = useState("");
-
-  const replies = repliesFor(question.id, question.replies);
-
-  const send = () => {
-    const text = draft.trim();
-    if (!text) return;
-    addReply(question.id, {
-      id: `${question.id}-r${replies.length + 1}`,
-      author: "Администратор",
-      initials: "АД",
-      role: "admin",
-      date: "сегодня",
-      text,
-    });
-    setDraft("");
-    toast("Ответ отправлен — учитель получит уведомление", "success");
-  };
-
-  return (
-    <div className="card card-pad stack g12">
-      <div className="row g10">
-        <Avatar initials={question.initials} size={38} tone="neutral" />
-        <div className="grow stack g2" style={{ minWidth: 0 }}>
-          <strong className="small">{question.teacher}</strong>
-          <span className="caption muted-3 pretty">
-            {question.lesson} · {question.time}
-          </span>
-        </div>
-        <Badge kind={replies.length ? "accepted" : "review"}>
-          {replies.length ? `${replies.length} в треде` : "Без ответа"}
-        </Badge>
-      </div>
-
-      <p className="body pretty">{question.text}</p>
-      {showCourse && <span className="caption muted-3">{question.course}</span>}
-
-      {replies.length > 0 && (
-        <div className="stack g12" style={{ borderLeft: "3px solid var(--border)", paddingLeft: 12 }}>
-          {replies.map((r) => (
-            <ReplyRow key={r.id} reply={r} />
-          ))}
-        </div>
-      )}
-
-      <div className="stack g10">
-        <textarea
-          className="input"
-          style={{ minHeight: 80 }}
-          placeholder="Ответ увидит автор вопроса и все, кто откроет этот урок"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-        />
-        <div className="row between wrap g10">
-          <span className="caption muted-3">
-            Отвечать может админ и любой учитель с доступом к курсу
-          </span>
-          <Button size="sm" disabled={!draft.trim()} onClick={send}>
-            Ответить
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReplyRow({ reply }: { reply: ThreadReply }) {
-  const admin = reply.role === "admin";
-  return (
-    <div className="stack g4">
-      <div className="row g8 wrap">
-        <strong className="caption" style={{ color: admin ? "var(--primary)" : "var(--text)" }}>
-          {reply.author}
-        </strong>
-        {admin && <Badge kind="new">администратор</Badge>}
-        <span className="caption muted-3">{reply.date}</span>
-      </div>
-      <p className="small pretty">{reply.text}</p>
-    </div>
-  );
-}
 
 /* ============ Отзыв — без премодерации ============ */
 

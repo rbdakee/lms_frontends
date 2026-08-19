@@ -3,31 +3,41 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
-import { fullName, useMe, userInitials } from "@lms/api";
+import {
+  api,
+  fullName,
+  qs,
+  useLoad,
+  useMe,
+  userInitials,
+  type Notification,
+  type NotificationsPage,
+} from "@lms/api";
 import { useStore } from "@lms/prototype";
-import { adminContacts, notifications, type NotifType } from "@lms/prototype/data";
-import { phoneFmt } from "@lms/ui/i18n";
+import { adminContacts } from "@lms/prototype/data";
+import { dayTime, phoneFmt } from "@lms/ui/i18n";
 import { admin } from "@/lib/urls";
-import { Avatar, Badge } from "@lms/ui";
+import {
+  markRead,
+  notificationHref,
+  NOTIF_ICONS,
+  onNotificationsChanged,
+} from "@/lib/notifications";
+import { Avatar, Badge, Skeleton } from "@lms/ui";
 import {
   IconBell,
-  IconCalendar,
   IconCatalog,
   IconCertificate,
-  IconCheckCircle,
   IconChevronDown,
   IconChevronRight,
   IconClose,
   IconGraduation,
   IconHome,
   IconInfo,
-  IconKey,
   IconLogout,
-  IconMail,
   IconMenu,
   IconSettings,
   IconShield,
-  IconSparkle,
   IconUser,
   LogoMark,
 } from "@lms/ui/icons";
@@ -73,11 +83,31 @@ export function LangSwitch() {
 
 /* ============ Колокольчик с выпадающей панелью ============ */
 
+/**
+ * `GET /notifications?per_page=4` отдаёт и четыре свежих уведомления, и
+ * `unread_count` — одним запросом на всю шапку. Счётчик нужен на каждом экране,
+ * поэтому запрос идёт при входе, а не при открытии панели.
+ *
+ * Клик по уведомлению отмечает его прочитанным и здесь, и на `/notifications` —
+ * это одно и то же действие, и вести себя оно должно одинаково.
+ */
 function NotificationsBell() {
-  const { readNotifications, markAllRead, t } = useStore();
+  const { t, lang } = useStore();
+  const { me } = useMe();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const unread = notifications.filter((n) => !readNotifications.includes(n.id));
+
+  const feed = useLoad<NotificationsPage | null>(
+    () =>
+      me
+        ? api<NotificationsPage>(`/notifications${qs({ page: 1, per_page: 4 })}`)
+        : Promise.resolve(null),
+    [me?.id],
+  );
+
+  /* Отметили прочитанным на экране уведомлений — гасим бейдж, не дожидаясь
+     перехода по страницам */
+  useEffect(() => onNotificationsChanged(feed.reload), [feed.reload]);
 
   useEffect(() => {
     if (!open) return;
@@ -88,13 +118,40 @@ function NotificationsBell() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const icons: Record<NotifType, ReactNode> = {
-    access: <IconKey size={18} />,
-    task: <IconCheckCircle size={18} />,
-    answer: <IconMail size={18} />,
-    certificate: <IconSparkle size={18} />,
-    course: <IconCatalog size={18} />,
-    starting: <IconCalendar size={18} />,
+  const items = feed.data?.items ?? [];
+  const unread = feed.data?.unread_count ?? 0;
+
+  /* Точку гасим сразу: ответ на отметку — 204 без тела, ждать его незачем */
+  const openItem = (item: Notification) => {
+    setOpen(false);
+    if (item.read_at) return;
+    feed.setData((d) =>
+      d
+        ? {
+            ...d,
+            unread_count: Math.max(0, d.unread_count - 1),
+            items: d.items.map((n) =>
+              n.id === item.id ? { ...n, read_at: new Date().toISOString() } : n,
+            ),
+          }
+        : d,
+    );
+    void markRead({ ids: [item.id] });
+  };
+
+  const readAll = () => {
+    feed.setData((d) =>
+      d
+        ? {
+            ...d,
+            unread_count: 0,
+            items: d.items.map((n) =>
+              n.read_at ? n : { ...n, read_at: new Date().toISOString() },
+            ),
+          }
+        : d,
+    );
+    void markRead({ all: true });
   };
 
   return (
@@ -102,10 +159,10 @@ function NotificationsBell() {
       <button
         className="btn btn-icon bell"
         onClick={() => setOpen((v) => !v)}
-        aria-label={`${t.navNotifications}${unread.length ? `, непрочитанных: ${unread.length}` : ""}`}
+        aria-label={`${t.navNotifications}${unread ? `, непрочитанных: ${unread}` : ""}`}
       >
         <IconBell />
-        {unread.length > 0 && <span className="bell-dot">{unread.length}</span>}
+        {unread > 0 && <span className="bell-dot">{unread}</span>}
       </button>
 
       {open && (
@@ -123,51 +180,71 @@ function NotificationsBell() {
         >
           <div className="row between g12" style={{ padding: "12px 14px" }}>
             <strong style={{ fontSize: 15 }}>{t.navNotifications}</strong>
-            {unread.length > 0 && (
-              <button className="btn btn-ghost btn-sm" onClick={markAllRead}>
-                Прочитать все
+            {unread > 0 && (
+              <button className="btn btn-ghost btn-sm" onClick={readAll}>
+                {t.notifMarkAllShort}
               </button>
             )}
           </div>
           <hr className="divider" />
           <div style={{ maxHeight: 340, overflowY: "auto" }}>
-            {notifications.slice(0, 4).map((n) => {
-              const isUnread = !readNotifications.includes(n.id);
-              return (
-                <Link
-                  key={n.id}
-                  href={n.href}
-                  onClick={() => setOpen(false)}
-                  className="row g10"
-                  style={{
-                    padding: "12px 14px",
-                    alignItems: "flex-start",
-                    borderBottom: "1px solid #f1f5f9",
-                    background: isUnread ? "var(--primary-bg)" : undefined,
-                  }}
-                >
-                  <span style={{ color: "var(--primary)", marginTop: 1 }}>{icons[n.type]}</span>
-                  <span className="grow">
-                    <span className="small" style={{ display: "block", lineHeight: "20px" }}>
-                      {n.text}
+            {feed.loading ? (
+              <div className="stack g8" style={{ padding: "14px" }}>
+                <Skeleton w="90%" h={14} />
+                <Skeleton w="60%" h={12} />
+              </div>
+            ) : feed.error ? (
+              <div className="row between g10" style={{ padding: "14px" }}>
+                <span className="small muted">{t.loadError}</span>
+                <button className="btn btn-ghost btn-sm" onClick={feed.reload}>
+                  {t.retry}
+                </button>
+              </div>
+            ) : items.length === 0 ? (
+              <div className="small muted" style={{ padding: "16px 14px" }}>
+                {t.emptyNotifTitle}
+              </div>
+            ) : (
+              items.map((n) => {
+                const Icon = NOTIF_ICONS[n.type];
+                return (
+                  <Link
+                    key={n.id}
+                    href={notificationHref(n)}
+                    onClick={() => openItem(n)}
+                    className="row g10"
+                    style={{
+                      padding: "12px 14px",
+                      alignItems: "flex-start",
+                      borderBottom: "1px solid #f1f5f9",
+                      background: n.read_at ? undefined : "var(--primary-bg)",
+                    }}
+                  >
+                    <span style={{ color: "var(--primary)", marginTop: 1 }}>
+                      <Icon size={18} />
                     </span>
-                    <span className="caption muted-3">{n.time}</span>
-                  </span>
-                  {isUnread && (
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 999,
-                        background: "var(--primary)",
-                        marginTop: 6,
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
-                </Link>
-              );
-            })}
+                    <span className="grow">
+                      <span className="small" style={{ display: "block", lineHeight: "20px" }}>
+                        {n.text}
+                      </span>
+                      <span className="caption muted-3">{dayTime(n.created_at, lang)}</span>
+                    </span>
+                    {!n.read_at && (
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 999,
+                          background: "var(--primary)",
+                          marginTop: 6,
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                  </Link>
+                );
+              })
+            )}
           </div>
           <Link
             href="/notifications"
@@ -175,7 +252,7 @@ function NotificationsBell() {
             className="row center small"
             style={{ padding: "12px", color: "var(--primary)", fontWeight: 700 }}
           >
-            Все уведомления
+            {t.notifAll}
           </Link>
         </div>
       )}

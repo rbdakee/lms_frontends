@@ -7,170 +7,183 @@
  * три списка тех же сущностей, внизу три справочных числа. Графиков по неделям,
  * периодов, дельт «+312» и «обновлено 2 минуты назад» здесь нет и не будет —
  * ради них пришлось бы хранить историю и агрегаты (раздел 9а).
+ *
+ * Всё это приходит одним `GET /admin/overview`: счётчики, по пять свежих
+ * элементов в каждом списке и справочные числа. Тем же ответом живут бейджи
+ * меню — иначе числа в меню и на плитках разъезжаются.
  */
 
 import Link from "next/link";
-import {
-  adminQuestions,
-  adminSubmissions,
-  getCourse,
-  getTeacher,
-  platformTotals,
-} from "@lms/prototype/data";
-import { fmt, price as fmtPrice } from "@lms/ui/i18n";
-import { useModeration, useStore } from "@lms/prototype";
-import { useLeads } from "@/components/admin/leads";
+import { api, useLoad, type AdminOverview } from "@lms/api";
+import { dayTime, fmt, price as fmtPrice } from "@lms/ui/i18n";
+import { useStore } from "@lms/prototype";
 import { Waiting } from "@/components/admin/Waiting";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { Avatar } from "@lms/ui";
+import { Avatar, Button, Empty } from "@lms/ui";
 import { IconChevronRight, IconInbox, IconMail, IconMessage } from "@lms/ui/icons";
 import type { ReactNode } from "react";
 
+/** Порог, после которого «ждёт N дней» краснеет: у заявок свой, у работ свой. */
+const LEAD_RED_AFTER = 2;
+const SUBMISSION_RED_AFTER = 3;
+
+/** ФИО учителя собирает фронт: сервер отдаёт его тремя полями. */
+type Teacher = { last_name: string; first_name: string; middle_name: string };
+const teacherName = (t: Teacher) =>
+  [t.last_name, t.first_name, t.middle_name].filter(Boolean).join(" ");
+const teacherInitials = (t: Teacher) =>
+  ((t.first_name[0] ?? "") + (t.last_name[0] ?? "")).toUpperCase() || "??";
+
 export default function AdminDashboard() {
-  const { lang } = useStore();
-  const { replyCount } = useModeration();
-  const leads = useLeads();
+  const { t, lang } = useStore();
+  const overview = useLoad(() => api<AdminOverview>("/admin/overview"), []);
 
-  const newLeads = leads.filter((l) => l.status === "new");
-  const queue = adminSubmissions;
-  const openQuestions = adminQuestions.filter((q) => replyCount(q.id) === 0);
+  if (overview.loading) {
+    return (
+      <AdminShell title={t.dashTitle} subtitle={t.dashSubtitle}>
+        <div className="card card-pad row center" style={{ minHeight: 240 }}>
+          <span className="spinner" style={{ width: 26, height: 26, color: "var(--primary)" }} />
+        </div>
+      </AdminShell>
+    );
+  }
 
-  /* Свежие сверху: чем меньше ждёт, тем новее */
-  const freshLeads = [...newLeads].sort((a, b) => a.waiting - b.waiting).slice(0, 4);
-  const freshQueue = [...queue].sort((a, b) => a.waiting - b.waiting).slice(0, 4);
+  if (overview.error || !overview.data) {
+    return (
+      <AdminShell title={t.dashTitle} subtitle={t.dashSubtitle}>
+        <div className="card">
+          <Empty
+            title={t.loadError}
+            text={t.loadErrorText}
+            action={
+              <Button variant="secondary" onClick={overview.reload}>
+                {t.retry}
+              </Button>
+            }
+          />
+        </div>
+      </AdminShell>
+    );
+  }
+
+  const d = overview.data;
 
   return (
-    <AdminShell title="Дашборд" subtitle="Что требует действия прямо сейчас">
+    <AdminShell title={t.dashTitle} subtitle={t.dashSubtitle}>
       <div className="stack g24">
         {/* ===== Три плитки: кликабельные, с красным счётчиком ===== */}
         <div className="dash-tiles">
           <Tile
             href="/leads"
             icon={<IconMail size={22} />}
-            count={newLeads.length}
-            label="новых заявок"
-            hint="учителя нажали «Записаться»"
+            count={d.leads_count}
+            label={t.dashLeads}
+            hint={t.dashLeadsHint}
           />
           <Tile
             href="/submissions"
             icon={<IconInbox size={22} />}
-            count={queue.length}
-            label="работ ждут проверки"
-            hint="задания с зачётом и доработкой"
+            count={d.submissions_count}
+            label={t.dashSubs}
+            hint={t.dashSubsHint}
           />
           <Tile
             href="/questions"
             icon={<IconMessage size={22} />}
-            count={openQuestions.length}
-            label="вопросов без ответа"
-            hint="под уроками курсов"
+            count={d.questions_count}
+            label={t.dashQuestions}
+            hint={t.dashQuestionsHint}
           />
         </div>
 
-        {/* ===== Три списка тех же сущностей ===== */}
+        {/* ===== Три списка тех же сущностей, по пять свежих ===== */}
         <div className="dash-three">
-          <section className="card card-pad stack g12">
-            <div className="row between g8">
-              <h2 className="h3">Новые заявки</h2>
-              <Link href="/leads" className="btn btn-ghost btn-sm">
-                Все · {newLeads.length}
-              </Link>
-            </div>
-            {freshLeads.length === 0 ? (
-              <p className="small muted">Новых заявок нет — все разобраны.</p>
+          <Panel title={t.dashLeadsList} href="/leads" total={d.leads_count}>
+            {d.leads.length === 0 ? (
+              <p className="small muted">{t.dashNoLeads}</p>
             ) : (
               <div className="stack g12">
-                {freshLeads.map((l) => {
-                  const teacher = getTeacher(l.teacherId);
-                  const course = getCourse(l.courseId);
-                  return (
-                    <Link key={l.id} href={`/leads/${l.id}`} className="row g10">
-                      <Avatar initials={teacher?.initials ?? "??"} size={36} tone="neutral" />
-                      <div className="grow stack g2" style={{ minWidth: 0, lineHeight: 1.3 }}>
-                        <span className="small clamp-2" style={{ fontWeight: 600 }}>
-                          {teacher?.name}
-                        </span>
-                        <span className="caption muted-3 clamp-2">
-                          {course?.title} · {fmtPrice(l.price ?? course?.price, lang)}
-                        </span>
-                      </div>
-                      <Waiting days={l.waiting} redAfter={2} short />
-                    </Link>
-                  );
-                })}
+                {d.leads.map((l) => (
+                  <Link key={l.id} href={`/leads/${l.id}`} className="row g10">
+                    <Avatar initials={teacherInitials(l.teacher)} size={36} tone="neutral" />
+                    <div className="grow stack g2" style={{ minWidth: 0, lineHeight: 1.3 }}>
+                      <span className="small clamp-2" style={{ fontWeight: 600 }}>
+                        {teacherName(l.teacher)}
+                      </span>
+                      <span className="caption muted-3 clamp-2">
+                        {l.course.title} · {fmtPrice(l.price_snapshot ?? undefined, lang)}
+                      </span>
+                    </div>
+                    <Waiting days={l.waiting_days} redAfter={LEAD_RED_AFTER} short />
+                  </Link>
+                ))}
               </div>
             )}
-          </section>
+          </Panel>
 
-          <section className="card card-pad stack g12">
-            <div className="row between g8">
-              <h2 className="h3">Работы на проверке</h2>
-              <Link href="/submissions" className="btn btn-ghost btn-sm">
-                Все · {queue.length}
-              </Link>
-            </div>
-            <div className="stack g12">
-              {freshQueue.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/submissions/${s.id}`}
-                  className="row between g10"
-                  style={{ alignItems: "flex-start" }}
-                >
-                  <div className="stack g2 grow" style={{ minWidth: 0, lineHeight: 1.35 }}>
-                    <span className="small clamp-2" style={{ fontWeight: 600 }}>
-                      {s.task}
-                    </span>
-                    <span className="caption muted-3 clamp-2">
-                      {s.teacher} · {s.course}
-                    </span>
-                  </div>
-                  <Waiting days={s.waiting} short />
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          <section className="card card-pad stack g12">
-            <div className="row between g8">
-              <h2 className="h3">Вопросы без ответа</h2>
-              <Link href="/questions" className="btn btn-ghost btn-sm">
-                Все · {openQuestions.length}
-              </Link>
-            </div>
-            {openQuestions.length === 0 ? (
-              <p className="small muted">Все вопросы разобраны.</p>
+          <Panel title={t.dashQueueList} href="/submissions" total={d.submissions_count}>
+            {d.submissions.length === 0 ? (
+              <p className="small muted">{t.dashNoQueue}</p>
             ) : (
               <div className="stack g12">
-                {openQuestions.map((q) => (
+                {d.submissions.map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/submissions/${s.id}`}
+                    className="row between g10"
+                    style={{ alignItems: "flex-start" }}
+                  >
+                    <div className="stack g2 grow" style={{ minWidth: 0, lineHeight: 1.35 }}>
+                      <span className="small clamp-2" style={{ fontWeight: 600 }}>
+                        {s.task.title}
+                      </span>
+                      <span className="caption muted-3 clamp-2">
+                        {teacherName(s.teacher)} · {s.course.title}
+                      </span>
+                    </div>
+                    <Waiting days={s.waiting_days} redAfter={SUBMISSION_RED_AFTER} short />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title={t.dashQuestionsList} href="/questions" total={d.questions_count}>
+            {d.questions.length === 0 ? (
+              <p className="small muted">{t.dashNoQuestions}</p>
+            ) : (
+              <div className="stack g12">
+                {d.questions.map((q) => (
                   <Link key={q.id} href="/questions" className="stack g2">
                     <span className="small pretty" style={{ fontWeight: 600 }}>
                       {q.text}
                     </span>
                     <span className="caption muted-3 clamp-2">
-                      {q.teacher} · {q.lesson} · {q.time}
+                      {teacherName(q.teacher)} · {t.qaLesson(q.lesson.number, q.lesson.title)} ·{" "}
+                      {dayTime(q.created_at, lang)}
                     </span>
                   </Link>
                 ))}
               </div>
             )}
-          </section>
+          </Panel>
         </div>
 
         {/* ===== Три справочных числа — просто строка, без оформления ===== */}
         <div className="row wrap g14 small muted" style={{ paddingTop: 4 }}>
           <span>
-            Учителей: <strong style={{ color: "var(--text)" }}>{fmt(platformTotals.teachers)}</strong>
+            {t.dashTeachers}:{" "}
+            <strong style={{ color: "var(--text)" }}>{fmt(d.totals.teachers)}</strong>
           </span>
           <span className="dot-sep">·</span>
           <span>
-            Курсов опубликовано:{" "}
-            <strong style={{ color: "var(--text)" }}>{platformTotals.publishedCourses}</strong>
+            {t.dashCourses}:{" "}
+            <strong style={{ color: "var(--text)" }}>{d.totals.courses_published}</strong>
           </span>
           <span className="dot-sep">·</span>
           <span>
-            Выдано сертификатов:{" "}
-            <strong style={{ color: "var(--text)" }}>{fmt(platformTotals.certificates)}</strong>
+            {t.dashCerts}:{" "}
+            <strong style={{ color: "var(--text)" }}>{fmt(d.totals.certificates)}</strong>
           </span>
         </div>
       </div>
@@ -182,6 +195,33 @@ export default function AdminDashboard() {
         @media (min-width: 900px) { .dash-three { grid-template-columns: repeat(3, 1fr); } }
       `}</style>
     </AdminShell>
+  );
+}
+
+/* ============ Список под плиткой ============ */
+
+function Panel({
+  title,
+  href,
+  total,
+  children,
+}: {
+  title: string;
+  href: string;
+  total: number;
+  children: ReactNode;
+}) {
+  const { t } = useStore();
+  return (
+    <section className="card card-pad stack g12">
+      <div className="row between g8">
+        <h2 className="h3">{title}</h2>
+        <Link href={href} className="btn btn-ghost btn-sm">
+          {t.dashAll(total)}
+        </Link>
+      </div>
+      {children}
+    </section>
   );
 }
 
