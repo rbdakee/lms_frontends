@@ -359,7 +359,7 @@ export function ReviewsBlock({ course_id }: { course_id: number }) {
                   <strong className="caption" style={{ color: "var(--primary)" }}>
                     Ответ администратора
                   </strong>
-                  <p className="small pretty">{r.reply}</p>
+                  <p className="small pretty">{r.reply.text}</p>
                 </div>
               )}
             </div>

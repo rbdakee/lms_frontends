@@ -388,12 +388,6 @@ export default function AdminSettingsPage() {
                 </div>
               ))}
             </div>
-
-            <div className="field" style={{ maxWidth: 320 }}>
-              <label className="label">Формат номера сертификата</label>
-              <input className="input mono" defaultValue="KZ-{ГОД}-{6 цифр}" />
-              <span className="hint">По этому номеру сертификат проверяется на /verify</span>
-            </div>
           </div>
         )}
       </div>

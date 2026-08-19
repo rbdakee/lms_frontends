@@ -414,8 +414,11 @@ export function Cover({
   glyph?: boolean;
   style?: React.CSSProperties;
 }) {
-  const [broken, setBroken] = useState(false);
-  const showImage = Boolean(src) && !broken;
+  /* Помним не «сломалось», а какой именно адрес не открылся: в редакторе курса
+     адрес обложки печатают вживую, и одна опечатка иначе навсегда оставила бы
+     градиент. Там, где src приходит готовым, поведение прежнее. */
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
+  const showImage = Boolean(src) && brokenSrc !== src;
   return (
     <div className={`cover ${tone}`} style={style}>
       {showImage && (
@@ -423,7 +426,7 @@ export function Cover({
         <img
           src={src!}
           alt=""
-          onError={() => setBroken(true)}
+          onError={() => setBrokenSrc(src!)}
           style={{
             position: "absolute",
             inset: 0,

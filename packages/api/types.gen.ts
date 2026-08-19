@@ -789,6 +789,462 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Courses */
+        get: operations["admin_courses_admin_courses_get"];
+        put?: never;
+        /** Create Course */
+        post: operations["create_course_admin_courses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/courses/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Course */
+        get: operations["admin_course_admin_courses__course_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Course */
+        delete: operations["delete_course_admin_courses__course_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Course */
+        patch: operations["patch_course_admin_courses__course_id__patch"];
+        trace?: never;
+    };
+    "/admin/courses/{course_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Version */
+        post: operations["create_version_admin_courses__course_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/courses/{course_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate Course */
+        post: operations["duplicate_course_admin_courses__course_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/courses/{course_id}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Module */
+        post: operations["create_module_admin_courses__course_id__modules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/modules/{module_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Module */
+        delete: operations["delete_module_admin_modules__module_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Module */
+        patch: operations["patch_module_admin_modules__module_id__patch"];
+        trace?: never;
+    };
+    "/admin/courses/{course_id}/program_order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Program Order */
+        put: operations["program_order_admin_courses__course_id__program_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/modules/{module_id}/lessons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Lesson */
+        post: operations["create_lesson_admin_modules__module_id__lessons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/lessons/{lesson_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Lesson */
+        get: operations["admin_lesson_admin_lessons__lesson_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Lesson */
+        delete: operations["delete_lesson_admin_lessons__lesson_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Lesson */
+        patch: operations["patch_lesson_admin_lessons__lesson_id__patch"];
+        trace?: never;
+    };
+    "/admin/lessons/{lesson_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Lesson File */
+        post: operations["add_lesson_file_admin_lessons__lesson_id__files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/lesson_files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Lesson File */
+        delete: operations["delete_lesson_file_admin_lesson_files__file_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/modules/{module_id}/quizzes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Quiz */
+        post: operations["create_quiz_admin_modules__module_id__quizzes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quizzes/{quiz_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Quiz */
+        get: operations["admin_quiz_admin_quizzes__quiz_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Quiz */
+        delete: operations["delete_quiz_admin_quizzes__quiz_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Quiz */
+        patch: operations["patch_quiz_admin_quizzes__quiz_id__patch"];
+        trace?: never;
+    };
+    "/admin/quizzes/{quiz_id}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Quiz Question */
+        post: operations["create_quiz_question_admin_quizzes__quiz_id__questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/quiz_questions/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Quiz Question */
+        delete: operations["delete_quiz_question_admin_quiz_questions__question_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Quiz Question */
+        patch: operations["patch_quiz_question_admin_quiz_questions__question_id__patch"];
+        trace?: never;
+    };
+    "/admin/modules/{module_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Task */
+        post: operations["create_task_admin_modules__module_id__tasks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Task */
+        get: operations["admin_task_admin_tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Task */
+        delete: operations["delete_task_admin_tasks__task_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Task */
+        patch: operations["patch_task_admin_tasks__task_id__patch"];
+        trace?: never;
+    };
+    "/admin/teachers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Teachers */
+        get: operations["admin_teachers_admin_teachers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/teachers/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Teacher */
+        get: operations["admin_teacher_admin_teachers__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Teacher */
+        patch: operations["patch_teacher_admin_teachers__user_id__patch"];
+        trace?: never;
+    };
+    "/admin/teachers/{user_id}/retakes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Allow Retake */
+        post: operations["allow_retake_admin_teachers__user_id__retakes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/enrollments/{enrollment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Enrollment */
+        delete: operations["revoke_enrollment_admin_enrollments__enrollment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Reviews */
+        get: operations["admin_reviews_admin_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reviews/{review_id}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reply To Review */
+        post: operations["reply_to_review_admin_reviews__review_id__reply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Review */
+        delete: operations["delete_review_admin_reviews__review_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Categories */
+        get: operations["admin_categories_admin_categories_get"];
+        put?: never;
+        /** Create Category */
+        post: operations["create_category_admin_categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Category */
+        delete: operations["delete_category_admin_categories__category_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Category */
+        patch: operations["rename_category_admin_categories__category_id__patch"];
+        trace?: never;
+    };
     "/admin/questions": {
         parameters: {
             query?: never;
@@ -801,6 +1257,23 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/thread_messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Thread Message */
+        delete: operations["delete_thread_message_admin_thread_messages__message_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -877,6 +1350,202 @@ export interface components {
             /** Waiting Days */
             waiting_days: number;
         };
+        /** AdminCategoriesOut */
+        AdminCategoriesOut: {
+            /** Items */
+            items: components["schemas"]["AdminCategoryOut"][];
+        };
+        /** AdminCategoryIn */
+        AdminCategoryIn: {
+            /** Title */
+            title: string;
+        };
+        /** AdminCategoryOut */
+        AdminCategoryOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Order Index */
+            order_index: number;
+            /** Courses Count */
+            courses_count: number;
+        };
+        /**
+         * AdminCourseCardOut
+         * @description Редактор курса целиком: четыре вкладки экрана живут этим ответом.
+         */
+        AdminCourseCardOut: {
+            /** Id */
+            id: number;
+            /** Group Id */
+            group_id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+            /** Short */
+            short: string;
+            /** Full */
+            full: string;
+            /** Cover */
+            cover: string | null;
+            /** Category Id */
+            category_id: number;
+            /** Hours */
+            hours: number;
+            /** Duration Text */
+            duration_text: string | null;
+            /** Price */
+            price: number | null;
+            /** Status */
+            status: string;
+            /** Starts At */
+            starts_at: string | null;
+            /** Strict Order */
+            strict_order: boolean;
+            /** Cert Require Lessons */
+            cert_require_lessons: boolean;
+            /** Cert Require Tasks */
+            cert_require_tasks: boolean;
+            /** Cert Require Module Quizzes */
+            cert_require_module_quizzes: boolean;
+            /** Cert Require Final Quiz */
+            cert_require_final_quiz: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Has Students */
+            has_students: boolean;
+            /** Program Minutes */
+            program_minutes: number;
+            /** Versions */
+            versions: components["schemas"]["AdminCourseVersionOut"][];
+            /** Program */
+            program: components["schemas"]["AdminProgramModuleOut"][];
+            readiness: components["schemas"]["ReadinessOut"];
+        };
+        /** AdminCourseIn */
+        AdminCourseIn: {
+            /** Title */
+            title: string;
+            /**
+             * Lang
+             * @enum {string}
+             */
+            lang: "ru" | "kz";
+            /** Category Id */
+            category_id: number;
+            /** Hours */
+            hours: number;
+        };
+        /**
+         * AdminCourseOut
+         * @description Строка списка курсов — версия, а не группа: редактируют версию.
+         */
+        AdminCourseOut: {
+            /** Id */
+            id: number;
+            /** Group Id */
+            group_id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+            /** Cover */
+            cover: string | null;
+            /** Category Id */
+            category_id: number;
+            /** Hours */
+            hours: number;
+            /** Price */
+            price: number | null;
+            /** Status */
+            status: string;
+            /** Starts At */
+            starts_at: string | null;
+            /** Modules Count */
+            modules_count: number;
+            /** Lessons Count */
+            lessons_count: number;
+            /** Open Leads Count */
+            open_leads_count: number;
+            /** Students Count */
+            students_count: number;
+            /** Completed Count */
+            completed_count: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Versions */
+            versions: components["schemas"]["AdminCourseVersionOut"][];
+        };
+        /** AdminCoursePatchIn */
+        AdminCoursePatchIn: {
+            /** Title */
+            title?: string | null;
+            /** Short */
+            short?: string | null;
+            /** Full */
+            full?: string | null;
+            /** Cover */
+            cover?: string | null;
+            /** Category Id */
+            category_id?: number | null;
+            /** Hours */
+            hours?: number | null;
+            /** Duration Text */
+            duration_text?: string | null;
+            /** Price */
+            price?: number | null;
+            /** Status */
+            status?: ("draft" | "planned" | "open" | "closed" | "hidden") | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Strict Order */
+            strict_order?: boolean | null;
+            /** Cert Require Lessons */
+            cert_require_lessons?: boolean | null;
+            /** Cert Require Tasks */
+            cert_require_tasks?: boolean | null;
+            /** Cert Require Module Quizzes */
+            cert_require_module_quizzes?: boolean | null;
+            /** Cert Require Final Quiz */
+            cert_require_final_quiz?: boolean | null;
+        };
+        /**
+         * AdminCourseVersionOut
+         * @description Соседняя языковая версия той же группы: переключатель РУС|ҚАЗ ведёт
+         *     и на черновик, поэтому статус приходит вместе с языком.
+         */
+        AdminCourseVersionOut: {
+            /** Id */
+            id: number;
+            /** Lang */
+            lang: string;
+            /** Status */
+            status: string;
+        };
+        /** AdminCoursesPageOut */
+        AdminCoursesPageOut: {
+            /** Items */
+            items: components["schemas"]["AdminCourseOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
         /** AdminLeadCourseOut */
         AdminLeadCourseOut: {
             /** Id */
@@ -921,6 +1590,93 @@ export interface components {
             /** Per Page */
             per_page: number;
         };
+        /**
+         * AdminLessonCourseOut
+         * @description Хлебная крошка шапки редактора: lang рисует метку языка курса —
+         *     переключателя языка в уроке нет.
+         */
+        AdminLessonCourseOut: {
+            /** Id */
+            id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+        };
+        /** AdminLessonIn */
+        AdminLessonIn: {
+            /** Title */
+            title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "video" | "text";
+            /** Time Required Min */
+            time_required_min: number;
+        };
+        /** AdminLessonModuleOut */
+        AdminLessonModuleOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+        };
+        /**
+         * AdminLessonOut
+         * @description Редактор урока. От учительского GET /lessons/{id} отличается тремя
+         *     вещами: приходит video_url, приходит скрытый урок и урок невидимого курса,
+         *     а вместо is_completed — админские признаки.
+         */
+        AdminLessonOut: {
+            /** Id */
+            id: number;
+            /** Module Id */
+            module_id: number;
+            course: components["schemas"]["AdminLessonCourseOut"];
+            module: components["schemas"]["AdminLessonModuleOut"];
+            /** Title */
+            title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "video" | "text";
+            /** Body */
+            body: {
+                [key: string]: unknown;
+            } | null;
+            /** Video Url */
+            video_url: string | null;
+            /** Duration Label */
+            duration_label: string | null;
+            /** Time Required Min */
+            time_required_min: number;
+            /** Is Hidden */
+            is_hidden: boolean;
+            /** Is Ready */
+            is_ready: boolean;
+            /** Has Data */
+            has_data: boolean;
+            /** Files */
+            files: components["schemas"]["LessonFileOut"][];
+        };
+        /** AdminLessonPatchIn */
+        AdminLessonPatchIn: {
+            /** Title */
+            title?: string | null;
+            /** Kind */
+            kind?: ("video" | "text") | null;
+            body?: components["schemas"]["LessonBodyIn"] | null;
+            /** Video Url */
+            video_url?: string | null;
+            /** Duration Label */
+            duration_label?: string | null;
+            /** Time Required Min */
+            time_required_min?: number | null;
+            /** Is Hidden */
+            is_hidden?: boolean | null;
+        };
         /** AdminOverviewOut */
         AdminOverviewOut: {
             /** Leads Count */
@@ -936,6 +1692,94 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["OverviewQuestionOut"][];
             totals: components["schemas"]["OverviewTotalsOut"];
+        };
+        /** AdminProgramLessonOut */
+        AdminProgramLessonOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "text" | "video";
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Time Required Min */
+            time_required_min: number;
+            /** Duration Label */
+            duration_label: string | null;
+            /** Is Hidden */
+            is_hidden: boolean;
+            /** Is Ready */
+            is_ready: boolean;
+            /** Has Data */
+            has_data: boolean;
+        };
+        /** AdminProgramModuleOut */
+        AdminProgramModuleOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Items */
+            items: (components["schemas"]["AdminProgramLessonOut"] | components["schemas"]["AdminProgramQuizOut"] | components["schemas"]["AdminProgramTaskOut"])[];
+        };
+        /** AdminProgramOut */
+        AdminProgramOut: {
+            /** Program */
+            program: components["schemas"]["AdminProgramModuleOut"][];
+            /** Program Minutes */
+            program_minutes: number;
+        };
+        /** AdminProgramQuizOut */
+        AdminProgramQuizOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "quiz";
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Time Required Min */
+            time_required_min: number;
+            /** Questions Count */
+            questions_count: number;
+            /** Time Limit Min */
+            time_limit_min: number | null;
+            /** Pass Score */
+            pass_score: number;
+            /** Is Final */
+            is_final: boolean;
+            /** Is Hidden */
+            is_hidden: boolean;
+            /** Is Ready */
+            is_ready: boolean;
+            /** Has Data */
+            has_data: boolean;
+        };
+        /** AdminProgramTaskOut */
+        AdminProgramTaskOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "task";
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Time Required Min */
+            time_required_min: number;
+            /** Submit Format */
+            submit_format: string;
+            /** Is Hidden */
+            is_hidden: boolean;
+            /** Is Ready */
+            is_ready: boolean;
+            /** Has Data */
+            has_data: boolean;
         };
         /** AdminQuestionOut */
         AdminQuestionOut: {
@@ -965,6 +1809,130 @@ export interface components {
             /** Per Page */
             per_page: number;
         };
+        /**
+         * AdminQuizCourseOut
+         * @description Хлебная крошка шапки редактора: lang рисует метку языка курса —
+         *     переключателя языка в тесте нет.
+         */
+        AdminQuizCourseOut: {
+            /** Id */
+            id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+        };
+        /** AdminQuizIn */
+        AdminQuizIn: {
+            /** Title */
+            title: string;
+            /** Time Required Min */
+            time_required_min: number;
+            /**
+             * Is Final
+             * @default false
+             */
+            is_final: boolean;
+            /** Pass Score */
+            pass_score: number;
+        };
+        /** AdminQuizModuleOut */
+        AdminQuizModuleOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+        };
+        /** AdminQuizOptionOut */
+        AdminQuizOptionOut: {
+            /** Id */
+            id: number;
+            /** Text */
+            text: string;
+            /** Is Correct */
+            is_correct: boolean;
+        };
+        /**
+         * AdminQuizOut
+         * @description Редактор теста. От учительского GET /quizzes/{id} отличается тем, что
+         *     здесь приходят правильные ответы и пояснения, приходит скрытый тест
+         *     и тест невидимого курса, а вместо состояния попытки — админские признаки.
+         */
+        AdminQuizOut: {
+            /** Id */
+            id: number;
+            /** Module Id */
+            module_id: number;
+            course: components["schemas"]["AdminQuizCourseOut"];
+            module: components["schemas"]["AdminQuizModuleOut"];
+            /** Title */
+            title: string;
+            /** Is Final */
+            is_final: boolean;
+            /** Pass Score */
+            pass_score: number;
+            /** Time Limit Min */
+            time_limit_min: number | null;
+            /** Shuffle */
+            shuffle: boolean;
+            /** Show Review */
+            show_review: boolean;
+            /** Retakable */
+            retakable: boolean;
+            /** Time Required Min */
+            time_required_min: number;
+            /** Is Hidden */
+            is_hidden: boolean;
+            /** Has Attempts */
+            has_attempts: boolean;
+            /** Max Score */
+            max_score: number;
+            /** Questions */
+            questions: components["schemas"]["AdminQuizQuestionOut"][];
+        };
+        /** AdminQuizPatchIn */
+        AdminQuizPatchIn: {
+            /** Title */
+            title?: string | null;
+            /** Is Final */
+            is_final?: boolean | null;
+            /** Pass Score */
+            pass_score?: number | null;
+            /** Time Limit Min */
+            time_limit_min?: number | null;
+            /** Shuffle */
+            shuffle?: boolean | null;
+            /** Show Review */
+            show_review?: boolean | null;
+            /** Retakable */
+            retakable?: boolean | null;
+            /** Time Required Min */
+            time_required_min?: number | null;
+            /** Is Hidden */
+            is_hidden?: boolean | null;
+        };
+        /** AdminQuizQuestionOut */
+        AdminQuizQuestionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "single" | "multi" | "bool";
+            /** Text */
+            text: string;
+            /** Explanation */
+            explanation: string | null;
+            /** Points */
+            points: number;
+            /** Is Hidden */
+            is_hidden: boolean;
+            /** Has Attempts */
+            has_attempts: boolean;
+            /** Options */
+            options: components["schemas"]["AdminQuizOptionOut"][];
+        };
         /** AdminReportOut */
         AdminReportOut: {
             course: components["schemas"]["ReportCourseOut"];
@@ -977,6 +1945,69 @@ export interface components {
             /** Funnel */
             funnel: components["schemas"]["ReportFunnelItemOut"][];
             participants: components["schemas"]["ReportParticipantsPageOut"];
+        };
+        /** AdminReviewCourseOut */
+        AdminReviewCourseOut: {
+            /** Id */
+            id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * AdminReviewOut
+         * @description Строка ленты отзывов. Премодерации нет — отзыв виден на странице курса
+         *     сразу, поэтому «неопубликованных» здесь не бывает, а удалённые в ленту
+         *     не попадают вовсе.
+         */
+        AdminReviewOut: {
+            /** Id */
+            id: number;
+            /** Rating */
+            rating: number;
+            /** Text */
+            text: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Updated At */
+            updated_at: string | null;
+            course: components["schemas"]["AdminReviewCourseOut"];
+            teacher: components["schemas"]["AdminReviewTeacherOut"];
+            reply: components["schemas"]["ReviewReplyOut"] | null;
+        };
+        /**
+         * AdminReviewTeacherOut
+         * @description Автор отзыва: ФИО тремя полями, как в заявках и очереди работ,
+         *     плюс школа и город — по ним админ узнаёт человека в ленте.
+         */
+        AdminReviewTeacherOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+            /** School */
+            school: string;
+            /** City */
+            city: string;
+        };
+        /** AdminReviewsPageOut */
+        AdminReviewsPageOut: {
+            /** Items */
+            items: components["schemas"]["AdminReviewOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
         };
         /** AdminSubmissionCardOut */
         AdminSubmissionCardOut: {
@@ -1060,6 +2091,322 @@ export interface components {
         AdminSubmissionsPageOut: {
             /** Items */
             items: components["schemas"]["AdminSubmissionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /** AdminTaskCourseOut */
+        AdminTaskCourseOut: {
+            /** Id */
+            id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+        };
+        /** AdminTaskIn */
+        AdminTaskIn: {
+            /** Title */
+            title: string;
+            /** Time Required Min */
+            time_required_min: number;
+        };
+        /** AdminTaskModuleOut */
+        AdminTaskModuleOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+        };
+        /**
+         * AdminTaskOut
+         * @description Редактор задания. От учительского GET /tasks/{id} отличается тем же,
+         *     чем редактор урока: приходит задание невидимого курса, а вместо истории
+         *     сдач — админские признаки.
+         */
+        AdminTaskOut: {
+            /** Id */
+            id: number;
+            /** Module Id */
+            module_id: number;
+            course: components["schemas"]["AdminTaskCourseOut"];
+            module: components["schemas"]["AdminTaskModuleOut"];
+            /** Title */
+            title: string;
+            /** Statement */
+            statement: {
+                [key: string]: unknown;
+            };
+            template_file: components["schemas"]["TemplateFileOut"] | null;
+            /**
+             * Submit Format
+             * @enum {string}
+             */
+            submit_format: "text" | "file" | "both";
+            /** Allowed Ext */
+            allowed_ext: string[];
+            /** Max Size Mb */
+            max_size_mb: number;
+            /** Time Required Min */
+            time_required_min: number;
+            /** Is Hidden */
+            is_hidden: boolean;
+            /** Is Ready */
+            is_ready: boolean;
+            /** Has Data */
+            has_data: boolean;
+        };
+        /** AdminTaskPatchIn */
+        AdminTaskPatchIn: {
+            /** Title */
+            title?: string | null;
+            statement?: components["schemas"]["TaskStatementIn"] | null;
+            template_file?: components["schemas"]["TaskTemplateIn"] | null;
+            /** Submit Format */
+            submit_format?: ("text" | "file" | "both") | null;
+            /** Allowed Ext */
+            allowed_ext?: string[] | null;
+            /** Max Size Mb */
+            max_size_mb?: number | null;
+            /** Time Required Min */
+            time_required_min?: number | null;
+            /** Is Hidden */
+            is_hidden?: boolean | null;
+        };
+        /** AdminTeacherAttemptOut */
+        AdminTeacherAttemptOut: {
+            /** Id */
+            id: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Score */
+            score: number | null;
+            /** Passed */
+            passed: boolean | null;
+            /** Is Counted */
+            is_counted: boolean;
+            /** Uncounted Reason */
+            uncounted_reason: string | null;
+            /** Uncounted At */
+            uncounted_at: string | null;
+        };
+        /**
+         * AdminTeacherCardOut
+         * @description Карточка учителя: профиль и четыре вкладки одним ответом. Пагинации
+         *     здесь нет — у одного человека курсов, тестов, работ и документов заведомо
+         *     немного, и экран её не рисует.
+         */
+        AdminTeacherCardOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+            /** Phone */
+            phone: string;
+            /** Email */
+            email: string;
+            /** School */
+            school: string;
+            /** Position */
+            position: string;
+            /** Region */
+            region: string;
+            /** City */
+            city: string;
+            /** Subject */
+            subject: string;
+            /** Experience */
+            experience: number | null;
+            /** Lang */
+            lang: string;
+            /** Is Admin */
+            is_admin: boolean;
+            /** Is Blocked */
+            is_blocked: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Courses */
+            courses: components["schemas"]["AdminTeacherEnrollmentOut"][];
+            /** Quizzes */
+            quizzes: components["schemas"]["AdminTeacherQuizOut"][];
+            /** Submissions */
+            submissions: components["schemas"]["AdminTeacherSubmissionOut"][];
+            /** Certificates */
+            certificates: components["schemas"]["AdminTeacherCertificateOut"][];
+        };
+        /** AdminTeacherCertificateOut */
+        AdminTeacherCertificateOut: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: string;
+            /** Course Id */
+            course_id: number;
+            /** Course Title */
+            course_title: string;
+            /** Hours */
+            hours: number;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
+        };
+        /** AdminTeacherCourseOut */
+        AdminTeacherCourseOut: {
+            /** Id */
+            id: number;
+            /** Lang */
+            lang: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * AdminTeacherEnrollmentOut
+         * @description Строка вкладки «Курсы» — по строке на доступ, включая отозванные:
+         *     прогресс и результаты при закрытии доступа не удаляются.
+         */
+        AdminTeacherEnrollmentOut: {
+            /** Enrollment Id */
+            enrollment_id: number;
+            course: components["schemas"]["AdminTeacherCourseOut"];
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            /** Granted By Admin */
+            granted_by_admin: boolean;
+            /** Paid Note */
+            paid_note: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Lessons Done */
+            lessons_done: number;
+            /** Lessons Total */
+            lessons_total: number;
+            /** Progress Percent */
+            progress_percent: number;
+        };
+        /**
+         * AdminTeacherOut
+         * @description Строка списка учителей. Столбцов «последний вход» и «активность» здесь
+         *     нет: чтобы они были правдой, пришлось бы писать в базу на каждое движение
+         *     учителя (DESIGN_BRIEF, 5.22).
+         */
+        AdminTeacherOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+            /** Phone */
+            phone: string;
+            /** School */
+            school: string;
+            /** Region */
+            region: string;
+            /** City */
+            city: string;
+            /** Subject */
+            subject: string;
+            /** Courses Count */
+            courses_count: number;
+            /** Completed Count */
+            completed_count: number;
+            /** Certificates Count */
+            certificates_count: number;
+            /** Is Blocked */
+            is_blocked: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminTeacherPatchIn */
+        AdminTeacherPatchIn: {
+            /** Is Blocked */
+            is_blocked?: boolean | null;
+            /** Phone */
+            phone?: string | null;
+        };
+        /**
+         * AdminTeacherQuizOut
+         * @description Строка вкладки «Тесты»: тест и все попытки человека по нему.
+         *
+         *     `retake_blocker` объясняет отказ заранее, чтобы экран не показывал живую
+         *     кнопку, которая ответит 409; коды те же, что у ошибок пересдачи.
+         */
+        AdminTeacherQuizOut: {
+            /** Quiz Id */
+            quiz_id: number;
+            /** Title */
+            title: string;
+            /** Course Id */
+            course_id: number;
+            /** Course Title */
+            course_title: string;
+            /** Retakable */
+            retakable: boolean;
+            /** Pass Score */
+            pass_score: number;
+            /** Can Allow Retake */
+            can_allow_retake: boolean;
+            /** Retake Blocker */
+            retake_blocker: ("quiz_retakable" | "no_attempt" | "attempt_in_progress" | "certificate_issued") | null;
+            /** Attempts */
+            attempts: components["schemas"]["AdminTeacherAttemptOut"][];
+        };
+        /** AdminTeacherSubmissionOut */
+        AdminTeacherSubmissionOut: {
+            /** Id */
+            id: number;
+            /** Task Id */
+            task_id: number;
+            /** Task Title */
+            task_title: string;
+            /** Course Id */
+            course_id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "accepted" | "rework";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Reviewed At */
+            reviewed_at: string | null;
+        };
+        /** AdminTeachersPageOut */
+        AdminTeachersPageOut: {
+            /** Items */
+            items: components["schemas"]["AdminTeacherOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -1271,6 +2618,19 @@ export interface components {
             /** Access */
             access: components["schemas"]["AccessNoneOut"] | components["schemas"]["AccessRequestedOut"] | components["schemas"]["AccessGrantedOut"];
         };
+        /** CourseVersionIn */
+        CourseVersionIn: {
+            /**
+             * Lang
+             * @enum {string}
+             */
+            lang: "ru" | "kz";
+            /**
+             * Copy Program
+             * @default false
+             */
+            copy_program: boolean;
+        };
         /** DictionariesOut */
         DictionariesOut: {
             /** Regions */
@@ -1389,6 +2749,11 @@ export interface components {
             /** Subject */
             subject: string;
         };
+        /** LessonBodyIn */
+        LessonBodyIn: {
+            /** Html */
+            html: string;
+        };
         /** LessonCompleteOut */
         LessonCompleteOut: {
             /** Is Completed */
@@ -1400,6 +2765,13 @@ export interface components {
             /** Progress Percent */
             progress_percent: number;
             next_lesson: components["schemas"]["NextLessonOut"] | null;
+        };
+        /** LessonFileIn */
+        LessonFileIn: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
         };
         /** LessonFileOut */
         LessonFileOut: {
@@ -1442,6 +2814,11 @@ export interface components {
         LogoutOthersOut: {
             /** Revoked Count */
             revoked_count: number;
+        };
+        /** ModuleIn */
+        ModuleIn: {
+            /** Title */
+            title: string;
         };
         /**
          * MyCertificateOut
@@ -1555,7 +2932,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "access_granted" | "submission_reviewed" | "answer_posted" | "certificate_issued";
+            type: "access_granted" | "submission_reviewed" | "answer_posted" | "certificate_issued" | "retake_allowed";
             /** Text */
             text: string;
             /** Params */
@@ -1743,6 +3120,28 @@ export interface components {
             title: string;
             /** Items */
             items: (components["schemas"]["ProgramLessonOut"] | components["schemas"]["ProgramQuizOut"] | components["schemas"]["ProgramTaskOut"])[];
+        };
+        /** ProgramOrderIn */
+        ProgramOrderIn: {
+            /** Modules */
+            modules: components["schemas"]["ProgramOrderModuleIn"][];
+        };
+        /** ProgramOrderItemIn */
+        ProgramOrderItemIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "video" | "text" | "quiz" | "task";
+            /** Id */
+            id: number;
+        };
+        /** ProgramOrderModuleIn */
+        ProgramOrderModuleIn: {
+            /** Id */
+            id: number;
+            /** Items */
+            items: components["schemas"]["ProgramOrderItemIn"][];
         };
         /** ProgramOut */
         ProgramOut: {
@@ -1936,6 +3335,16 @@ export interface components {
             /** Answers */
             answers: components["schemas"]["QuizAnswerOut"][];
         };
+        /** QuizOptionIn */
+        QuizOptionIn: {
+            /** Text */
+            text: string;
+            /**
+             * Is Correct
+             * @default false
+             */
+            is_correct: boolean;
+        };
         /**
          * QuizOptionOut
          * @description Вариант внутри идущей попытки: is_correct здесь нет и быть не может.
@@ -1975,6 +3384,25 @@ export interface components {
             /** Attempts */
             attempts: components["schemas"]["QuizAttemptHistoryOut"][];
         };
+        /** QuizQuestionIn */
+        QuizQuestionIn: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "single" | "multi" | "bool";
+            /** Text */
+            text: string;
+            /** Explanation */
+            explanation?: string | null;
+            /**
+             * Points
+             * @default 1
+             */
+            points: number;
+            /** Options */
+            options: components["schemas"]["QuizOptionIn"][];
+        };
         /** QuizQuestionOut */
         QuizQuestionOut: {
             /** Id */
@@ -1990,6 +3418,21 @@ export interface components {
             points: number;
             /** Options */
             options: components["schemas"]["QuizOptionOut"][];
+        };
+        /** QuizQuestionPatchIn */
+        QuizQuestionPatchIn: {
+            /** Type */
+            type?: ("single" | "multi" | "bool") | null;
+            /** Text */
+            text?: string | null;
+            /** Explanation */
+            explanation?: string | null;
+            /** Points */
+            points?: number | null;
+            /** Is Hidden */
+            is_hidden?: boolean | null;
+            /** Options */
+            options?: components["schemas"]["QuizOptionIn"][] | null;
         };
         /**
          * QuizResultOut
@@ -2085,6 +3528,30 @@ export interface components {
             status: "not_started";
             /** Can Start */
             can_start: boolean;
+        };
+        /**
+         * ReadinessCheckOut
+         * @description Пункт чек-листа «Публикация»: `code` — для ветвления, `text` — готовая
+         *     строка по-русски, `items` — названия, которых не хватает.
+         */
+        ReadinessCheckOut: {
+            /** Code */
+            code: string;
+            /** Ok */
+            ok: boolean;
+            /** Text */
+            text: string;
+            /** Items */
+            items: string[];
+        };
+        /** ReadinessOut */
+        ReadinessOut: {
+            /** Can Open */
+            can_open: boolean;
+            /** Can Plan */
+            can_plan: boolean;
+            /** Items */
+            items: components["schemas"]["ReadinessCheckOut"][];
         };
         /** ReportCourseOut */
         ReportCourseOut: {
@@ -2227,8 +3694,26 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            /** Reply */
-            reply?: null;
+            reply?: components["schemas"]["ReviewReplyOut"] | null;
+        };
+        /** ReviewReplyIn */
+        ReviewReplyIn: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * ReviewReplyOut
+         * @description Ответ администратора на отзыв. Имени отвечающего здесь нет —
+         *     на экране он подписан просто «Администратор».
+         */
+        ReviewReplyOut: {
+            /** Text */
+            text: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** ReviewsPageOut */
         ReviewsPageOut: {
@@ -2399,6 +3884,25 @@ export interface components {
             can_submit: boolean;
             /** Submissions */
             submissions: components["schemas"]["SubmissionOut"][];
+        };
+        /** TaskStatementIn */
+        TaskStatementIn: {
+            /** Html */
+            html: string;
+        };
+        /** TaskTemplateIn */
+        TaskTemplateIn: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+        };
+        /** TeacherRetakeIn */
+        TeacherRetakeIn: {
+            /** Quiz Id */
+            quiz_id: number;
+            /** Reason */
+            reason: string;
         };
         /**
          * TemplateFileOut
@@ -4068,6 +5572,1303 @@ export interface operations {
             };
         };
     };
+    admin_courses_admin_courses_get: {
+        parameters: {
+            query?: {
+                status?: ("draft" | "planned" | "open" | "closed" | "hidden") | null;
+                lang?: ("ru" | "kz") | null;
+                q?: string | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCoursesPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_course_admin_courses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCourseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCourseCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_course_admin_courses__course_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCourseCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_course_admin_courses__course_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_course_admin_courses__course_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCoursePatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCourseCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_version_admin_courses__course_id__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseVersionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCourseCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    duplicate_course_admin_courses__course_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCourseCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_module_admin_courses__course_id__modules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProgramModuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_module_admin_modules__module_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_module_admin_modules__module_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProgramModuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    program_order_admin_courses__course_id__program_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramOrderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProgramOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_lesson_admin_modules__module_id__lessons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminLessonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLessonOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_lesson_admin_lessons__lesson_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lesson_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLessonOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_lesson_admin_lessons__lesson_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lesson_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_lesson_admin_lessons__lesson_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lesson_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminLessonPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLessonOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_lesson_file_admin_lessons__lesson_id__files_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lesson_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonFileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonFileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_lesson_file_admin_lesson_files__file_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_quiz_admin_modules__module_id__quizzes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminQuizIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminQuizOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_quiz_admin_quizzes__quiz_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quiz_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminQuizOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_quiz_admin_quizzes__quiz_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quiz_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_quiz_admin_quizzes__quiz_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quiz_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminQuizPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminQuizOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_quiz_question_admin_quizzes__quiz_id__questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quiz_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizQuestionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminQuizQuestionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_quiz_question_admin_quiz_questions__question_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_quiz_question_admin_quiz_questions__question_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizQuestionPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminQuizQuestionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_task_admin_modules__module_id__tasks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminTaskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_task_admin_tasks__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_task_admin_tasks__task_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_task_admin_tasks__task_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminTaskPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_teachers_admin_teachers_get: {
+        parameters: {
+            query?: {
+                region?: string | null;
+                school?: string | null;
+                course_id?: number | null;
+                q?: string | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTeachersPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_teacher_admin_teachers__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTeacherCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_teacher_admin_teachers__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminTeacherPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTeacherCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    allow_retake_admin_teachers__user_id__retakes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeacherRetakeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTeacherCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_enrollment_admin_enrollments__enrollment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_reviews_admin_reviews_get: {
+        parameters: {
+            query?: {
+                course_id?: number | null;
+                rating?: number | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReviewsPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reply_to_review_admin_reviews__review_id__reply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewReplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_review_admin_reviews__review_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_categories_admin_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategoriesOut"];
+                };
+            };
+        };
+    };
+    create_category_admin_categories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCategoryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_category_admin_categories__category_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_category_admin_categories__category_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCategoryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCategoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_questions_admin_questions_get: {
         parameters: {
             query?: {
@@ -4091,6 +6892,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AdminQuestionsPageOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_thread_message_admin_thread_messages__message_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -9,6 +9,16 @@
  * и второго текстового блока в уроке не бывает: если материала на два урока,
  * значит это два урока.
  *
+ * **Проверяет сервер, а не экран.** Присланный вид складывается с присланным
+ * содержимым, и проверяется пара — поэтому смена вида вместе с новым
+ * содержимым проходит одним запросом, а смена вида в одиночку отбивается
+ * `422` с полем, которое осталось незаполненным. Тексты ошибок приходят
+ * готовыми, экран их только раскладывает по полям.
+ *
+ * Ссылку на YouTube сервер приводит к одному написанию, а разметку чистит
+ * по белому списку — поэтому после сохранения в поля кладётся то, что
+ * вернулось, а не то, что было набрано.
+ *
  * «Предпросмотр как учитель» включает режим на сервере (`POST /admin/preview/enter`)
  * и уводит в кабинет учителя: записи по курсу становятся no-op, доступ
  * считается открытым, строгий порядок уроков не запирает программу. Флаг живёт
@@ -18,40 +28,40 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useRef, useState } from "react";
-import { courses, DEMO_COURSE_ID, getCourse, getLesson, moduleOfLesson } from "@lms/prototype/data";
-import { api, useLoad, type CatalogOut } from "@lms/api";
+import { useEffect, useRef, useState } from "react";
+import {
+  api,
+  isApiError,
+  useLoad,
+  type AdminLesson,
+  type AdminLessonPatch,
+  type LessonFile,
+  type LessonKind,
+  type UploadedFile,
+} from "@lms/api";
+import { fileSize } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { enterPreview } from "@/lib/urls";
+import { fieldErrors } from "@/lib/fieldErrors";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { Badge, Breadcrumbs, Button, Empty, FileRow, Note, Sheet } from "@lms/ui";
+import { htmlOf, isEmptyHtml, RichEditor } from "@/components/admin/RichEditor";
 import {
-  IconBold,
-  IconClose,
-  IconEye,
-  IconHeading,
-  IconItalic,
-  IconLink,
-  IconList,
-  IconPlus,
-  IconQuote,
-  IconTable,
-  IconText,
-  IconVideo,
-} from "@lms/ui/icons";
-
-type Kind = "video" | "text";
-
-interface Attachment {
-  id: string;
-  name: string;
-  size: string;
-  type: string;
-}
+  Badge,
+  Breadcrumbs,
+  Button,
+  Empty,
+  FileRow,
+  fileType,
+  LinkButton,
+  Note,
+  Sheet,
+} from "@lms/ui";
+import { IconClose, IconEye, IconPlus, IconText, IconVideo } from "@lms/ui/icons";
 
 /**
- * Пока принимаем только YouTube: другого видеохостинга у курсов нет,
- * а «любая ссылка» превращается в неработающий плеер у учителя.
+ * Пока принимаем только YouTube: другого видеохостинга у курсов нет.
+ * Разбор нужен превью и подсказке «видео распознано» — источник правды
+ * всё равно ответ сервера, он же приводит ссылку к одному написанию.
  */
 function youtubeId(url: string): string | null {
   const m = url
@@ -62,207 +72,248 @@ function youtubeId(url: string): string | null {
   return m ? m[1] : null;
 }
 
-function fileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} Б`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${Math.round(kb)} КБ`;
-  return `${(kb / 1024).toFixed(1).replace(".", ",")} МБ`;
+interface Form {
+  title: string;
+  kind: LessonKind;
+  html: string;
+  video_url: string;
+  duration_label: string;
+  time_required_min: string;
+  is_hidden: boolean;
 }
 
-function fileType(name: string) {
-  const ext = name.includes(".") ? name.split(".").pop()! : "";
-  return (ext || "файл").toUpperCase().slice(0, 4);
+function formOf(l: AdminLesson): Form {
+  return {
+    title: l.title,
+    kind: l.kind,
+    html: htmlOf(l.body),
+    video_url: l.video_url ?? "",
+    duration_label: l.duration_label ?? "",
+    time_required_min: String(l.time_required_min),
+    is_hidden: l.is_hidden,
+  };
 }
 
-const DEMO_TEXT =
-  "Google Формы позволяют собрать проверочный тест за несколько минут. В этом уроке создадим тест из пяти вопросов с автоматической проверкой и посмотрим, как ученики видят его на телефоне.";
+function patchBody(f: Form): AdminLessonPatch {
+  return {
+    title: f.title.trim(),
+    kind: f.kind,
+    /* У видеоурока пустая заметка — это `null`, так она стирается. У текстового
+       пустое уходит как есть: отбить его должен сервер, а не экран */
+    body: f.kind === "text" || !isEmptyHtml(f.html) ? { html: f.html } : null,
+    /* Текстовый урок ссылку не хранит: поля на экране нет, стереть её было бы
+       нечем, а прежняя ссылка у текстового урока однажды уже уехала в плеер */
+    video_url: f.kind === "video" ? f.video_url.trim() || null : null,
+    /* Длительность — то же самое: поля у текстового урока нет, и оставленное
+       от прежней жизни «14:20» показывалось бы у урока без видео */
+    duration_label: f.kind === "video" ? f.duration_label.trim() || null : null,
+    time_required_min: Number(f.time_required_min),
+    is_hidden: f.is_hidden,
+  };
+}
+
+/**
+ * Обязательные числа проверяем до отправки. `null` сервер читает как
+ * «не прислано» и возвращает прежнее значение, форма пересобирается ответом,
+ * и стёртое число молча возвращается на место при зелёном тосте.
+ */
+function validate(f: Form): Record<string, string> {
+  const wrong: Record<string, string> = {};
+  if (f.time_required_min === "") wrong.time_required_min = "Укажите минуты";
+  return wrong;
+}
+
+const digits = (v: string) => v.replace(/\D/g, "");
 
 export default function LessonEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { t, toast, findDraft, updateDraft, modulesOf } = useStore();
-  /* Урок, только что добавленный в программе, лежит в состоянии прототипа */
-  const draft = findDraft(id);
-  /* Урок открывают из программы любого курса — ищем, кому он принадлежит */
-  const course = draft
-    ? (getCourse(draft.courseId) ?? getCourse(DEMO_COURSE_ID)!)
-    : (courses.find((c) => getLesson(c, id)) ?? getCourse(DEMO_COURSE_ID)!);
-  const lesson = getLesson(course, id);
-  const mod = draft
-    ? ((course.modulesList ?? []).find((m) => m.id === draft.moduleId) ??
-      modulesOf(course.id).find((m) => m.id === draft.moduleId))
-    : lesson
-      ? moduleOfLesson(course, lesson.id)
-      : undefined;
+  const { t, toast } = useStore();
 
-  const [title, setTitle] = useState(draft?.title ?? lesson?.title ?? "Новый урок");
-  /* Вид урока выбран ещё при добавлении в программу, здесь его можно поменять */
-  const [kind, setKind] = useState<Kind>(
-    (draft?.kind ?? lesson?.kind) === "text" ? "text" : "video",
-  );
+  const lesson = useLoad(() => api<AdminLesson>(`/admin/lessons/${id}`), [id]);
+  const data = lesson.data;
 
-  const [videoUrl, setVideoUrl] = useState(
-    draft ? "" : lesson?.kind === "video" ? "https://youtu.be/dQw4w9WgXcQ" : "",
-  );
-  const [videoTime, setVideoTime] = useState(draft ? "" : (lesson?.duration ?? ""));
-  const [text, setText] = useState(draft ? "" : DEMO_TEXT);
-  const [files, setFiles] = useState<Attachment[]>(
-    draft
-      ? []
-      : [{ id: "f1", name: "Чек-лист создания теста.pdf", size: "0,4 МБ", type: "PDF" }],
-  );
-  /* Ошибку показываем не при первом же пустом поле, а когда попытались сохранить */
-  const [touched, setTouched] = useState(false);
+  const [form, setForm] = useState<Form | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const [removing, setRemoving] = useState<LessonFile | null>(null);
+  const [removingBusy, setRemovingBusy] = useState(false);
+  const pickRef = useRef<HTMLInputElement>(null);
 
-  /**
-   * Режим предпросмотра привязан к курсу и требует его числовой `id`.
-   * Редактор урока пока живёт на прототипе, где у курса строковый id,
-   * поэтому курс выбирается вручную; выбор уйдёт вместе с переводом
-   * редактора на API.
-   */
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [entering, setEntering] = useState<number | null>(null);
-  const catalog = useLoad(
-    () => (previewOpen ? api<CatalogOut>("/courses") : Promise.resolve(null)),
-    [previewOpen],
-  );
-  const previewCourses = (catalog.data?.items ?? []).flatMap((g) => g.versions);
+  /* Форма пересобирается только при смене урока: материалы ходят на сервер
+     своими запросами и не должны стирать набранное */
+  const seeded = useRef<number | null>(null);
+  useEffect(() => {
+    if (data && seeded.current !== data.id) {
+      seeded.current = data.id;
+      setForm(formOf(data));
+      setErrors({});
+    }
+  }, [data]);
 
-  const startPreview = async (courseId: number) => {
-    setEntering(courseId);
+  const save = async () => {
+    if (!form || saving) return;
+    const wrong = validate(form);
+    if (Object.keys(wrong).length) {
+      setErrors(wrong);
+      return;
+    }
+    setSaving(true);
+    setErrors({});
     try {
-      await enterPreview(courseId);
+      const updated = await api<AdminLesson>(`/admin/lessons/${id}`, {
+        method: "PATCH",
+        json: patchBody(form),
+      });
+      lesson.setData(updated);
+      /* Сервер нормализовал ссылку и почистил разметку — показываем его
+         значения, иначе автор не увидит, что с его текстом стало */
+      setForm(formOf(updated));
+      toast("Урок сохранён", "success");
+    } catch (e) {
+      const fields = fieldErrors(e);
+      if (Object.keys(fields).length) setErrors(fields);
+      else toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* Файл сначала уезжает в хранилище, и только потом ключ привязывается
+     к уроку: сам по себе загруженный файл ни к чему не относится */
+  const addFiles = async (picked: FileList | null) => {
+    if (!picked || picked.length === 0 || uploading) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(picked)) {
+        try {
+          const body = new FormData();
+          body.append("file", file);
+          /* Content-Type ставит браузер сам — вместе с boundary,
+             без него сервер тело не разберёт */
+          const up = await api<UploadedFile>("/files", { method: "POST", body });
+          const row = await api<LessonFile>(`/admin/lessons/${id}/files`, {
+            method: "POST",
+            json: { key: up.key, name: up.name },
+          });
+          lesson.setData((d) => (d ? { ...d, files: [...d.files, row] } : d));
+        } catch (e) {
+          /* 413 file_too_large приходит готовой строкой — её и показываем */
+          toast(
+            isApiError(e) && e.status > 0 ? e.message : "Не удалось загрузить файл",
+            "error",
+          );
+        }
+      }
+    } finally {
+      setUploading(false);
+      if (pickRef.current) pickRef.current.value = "";
+    }
+  };
+
+  /* Материал убирается с подтверждением и по одному запросу за раз: промах
+     мимо кнопки стоил бы файла, а второй `DELETE` по той же строке вернул бы
+     `404` поверх удачного удаления */
+  const removeFile = async () => {
+    const file = removing;
+    if (!file || removingBusy) return;
+    setRemovingBusy(true);
+    try {
+      await api(`/admin/lesson_files/${file.id}`, { method: "DELETE" });
+      lesson.setData((d) =>
+        d ? { ...d, files: d.files.filter((f) => f.id !== file.id) } : d,
+      );
+      toast("Материал убран", "success");
+    } catch (e) {
+      toast(
+        isApiError(e) && e.status > 0 ? e.message : "Не удалось убрать материал",
+        "error",
+      );
+    } finally {
+      setRemovingBusy(false);
+      setRemoving(null);
+    }
+  };
+
+  const startPreview = async () => {
+    if (!data || entering) return;
+    setEntering(true);
+    try {
+      await enterPreview(data.course.id);
     } catch {
-      setEntering(null);
+      setEntering(false);
       toast(t.pvError, "error");
     }
   };
 
-  const pickRef = useRef<HTMLInputElement>(null);
-
-  const vid = youtubeId(videoUrl);
-  const videoFilled = videoUrl.trim().length > 0;
-  const textFilled = text.trim().length > 0;
-  const ready = kind === "video" ? !!vid : textFilled;
-
-  const addFiles = (list: FileList | null) => {
-    if (!list || list.length === 0) return;
-    const added: Attachment[] = Array.from(list).map((f, i) => ({
-      id: `f${Date.now()}-${i}`,
-      name: f.name,
-      size: fileSize(f.size),
-      type: fileType(f.name),
-    }));
-    setFiles((prev) => [...prev, ...added]);
-    toast(
-      added.length === 1 ? `Файл «${added[0].name}» прикреплён` : `Прикреплено файлов: ${added.length}`,
-      "success",
-    );
-  };
-
-  const save = () => {
-    setTouched(true);
-    if (!ready) {
-      toast(
-        kind === "video"
-          ? "Нужна ссылка на YouTube — без неё видеоурок не сохранить"
-          : "Нужен текст урока — без него текстовый урок не сохранить",
-        "error",
-      );
-      return;
-    }
-    if (draft) updateDraft(id, { title: title.trim() || draft.title, kind });
-    toast("Урок сохранён", "success");
-  };
-
-  const toolbar = (
-    <div
-      className="row wrap g4"
-      style={{ paddingBottom: 8, borderBottom: "1px solid var(--border)" }}
-    >
-      {[IconBold, IconItalic, IconHeading, IconList, IconQuote, IconLink, IconTable].map(
-        (Icon, i) => (
-          <button
-            key={i}
-            className="btn btn-icon"
-            style={{ minHeight: 34, width: 34 }}
-            aria-label="Форматирование"
-          >
-            <Icon size={17} />
-          </button>
-        ),
-      )}
-    </div>
-  );
-
-  const attachments = (
-    <div className="card card-pad stack g12">
-      <div className="stack g2">
-        <div className="row g8" style={{ alignItems: "center" }}>
-          <strong className="small">Файлы к уроку</strong>
-          <Badge kind="neutral">по желанию</Badge>
+  if (lesson.loading && !data) {
+    return (
+      <AdminShell title="Редактор урока">
+        <div className="card card-pad row center" style={{ minHeight: 240 }}>
+          <span className="spinner" style={{ width: 26, height: 26, color: "var(--primary)" }} />
         </div>
-        <span className="caption muted-3 pretty">
-          Любые файлы: презентация, шаблон, изображение, таблица. Учитель увидит их
-          под уроком и сможет скачать.
-        </span>
-      </div>
+      </AdminShell>
+    );
+  }
 
-      {files.map((f) => (
-        <FileRow
-          key={f.id}
-          type={f.type}
-          name={f.name}
-          size={f.size}
-          action={
-            <button
-              className="btn btn-icon"
-              style={{ minHeight: 34, width: 34 }}
-              aria-label={`Удалить файл ${f.name}`}
-              onClick={() => setFiles((prev) => prev.filter((x) => x.id !== f.id))}
-            >
-              <IconClose size={16} />
-            </button>
-          }
-        />
-      ))}
+  if (isApiError(lesson.error, "not_found")) {
+    return (
+      <AdminShell title="Урок не найден">
+        <div className="card">
+          <Empty
+            title="Урок не найден"
+            action={
+              <LinkButton href="/courses" variant="secondary">
+                К списку курсов
+              </LinkButton>
+            }
+          />
+        </div>
+      </AdminShell>
+    );
+  }
 
-      <input
-        ref={pickRef}
-        type="file"
-        multiple
-        hidden
-        onChange={(e) => {
-          addFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
-      <Button
-        variant="secondary"
-        size="sm"
-        icon={<IconPlus size={15} />}
-        onClick={() => pickRef.current?.click()}
-        style={{ alignSelf: "flex-start" }}
-      >
-        Добавить файлы
-      </Button>
-    </div>
-  );
+  if (lesson.error || !data || !form) {
+    return (
+      <AdminShell title="Редактор урока">
+        <div className="card">
+          <Empty
+            title="Не удалось загрузить"
+            text="Проверьте интернет и попробуйте ещё раз."
+            action={
+              <Button variant="secondary" onClick={lesson.reload}>
+                Повторить
+              </Button>
+            }
+          />
+        </div>
+      </AdminShell>
+    );
+  }
+
+  const set = <K extends keyof Form>(key: K, value: Form[K]) =>
+    setForm((f) => (f ? { ...f, [key]: value } : f));
+
+  const vid = youtubeId(form.video_url);
+  const emptyText = isEmptyHtml(form.html);
 
   return (
     <AdminShell
-      title={title || "Редактор урока"}
-      subtitle={`${course.title} · ${mod?.title ?? ""}`}
+      title={form.title || "Редактор урока"}
+      subtitle={`${data.course.title} · ${data.module.title}`}
       actions={
         <div className="row g8">
           <Button
             variant="secondary"
             size="sm"
             icon={<IconEye size={16} />}
-            onClick={() => setPreviewOpen(true)}
+            loading={entering}
+            onClick={startPreview}
           >
             <span className="hide-sm">{t.pvTitle}</span>
           </Button>
-          <Button size="sm" onClick={save}>
+          <Button size="sm" loading={saving} onClick={save}>
             Сохранить
           </Button>
         </div>
@@ -272,17 +323,18 @@ export default function LessonEditorPage() {
         <Breadcrumbs
           items={[
             { label: "Курсы", href: "/courses" },
-            { label: course.title, href: `/courses/${course.id}` },
-            { label: "Программа", href: `/courses/${course.id}/edit` },
-            { label: mod?.title ?? "" },
+            { label: data.course.title, href: `/courses/${data.course.id}` },
+            { label: "Программа", href: `/courses/${data.course.id}/edit?tab=program` },
+            { label: data.module.title },
           ]}
         />
 
-        {draft && (
+        {!data.is_ready && (
           <Note kind="muted">
-            <span className="small">
-              Новый урок в модуле «{mod?.title ?? ""}». Выберите вид урока и заполните
-              обязательное поле — остальное по желанию.
+            <span className="small pretty">
+              Урок ещё не наполнен и потому скрыт от учителей. Заполните обязательное
+              поле вида урока и снимите «Скрыт от учителей» — иначе он не появится
+              в программе.
             </span>
           </Note>
         )}
@@ -290,14 +342,15 @@ export default function LessonEditorPage() {
         {/* Вид урока и название */}
         <div className="card card-pad stack g14">
           {/* Язык у урока не выбирается: он наследуется от курса, а вторая
-              языковая версия — отдельный курс с тем же groupId */}
+              языковая версия — отдельный курс с тем же group_id */}
           <div className="row wrap g8" style={{ alignItems: "center" }}>
-            <Badge kind="neutral">{course.lang === "ru" ? "Русский курс" : "Қазақ курсы"}</Badge>
+            <Badge kind="neutral">
+              {data.course.lang === "ru" ? "Русский курс" : "Қазақ курсы"}
+            </Badge>
             <span className="caption muted-3 pretty">
-              Язык берётся у курса.{" "}
-              {course.lang === "ru" ? "Казахская" : "Русская"} версия — отдельный курс
-              со своей программой, он переключается{" "}
-              <Link href={`/courses/${course.id}/edit`}>в редакторе курса</Link>.
+              Язык берётся у курса. {data.course.lang === "ru" ? "Казахская" : "Русская"}{" "}
+              версия — отдельный курс со своей программой, он переключается{" "}
+              <Link href={`/courses/${data.course.id}/edit`}>в редакторе курса</Link>.
             </span>
           </div>
 
@@ -308,12 +361,12 @@ export default function LessonEditorPage() {
                 [
                   ["video", "Видеоурок", <IconVideo key="v" size={16} />],
                   ["text", "Текстовый урок", <IconText key="t" size={16} />],
-                ] as [Kind, string, React.ReactNode][]
+                ] as [LessonKind, string, React.ReactNode][]
               ).map(([v, label, icon]) => (
                 <button
                   key={v}
-                  data-active={kind === v}
-                  onClick={() => setKind(v)}
+                  data-active={form.kind === v}
+                  onClick={() => set("kind", v)}
                   style={{ flex: 1 }}
                 >
                   {icon}
@@ -322,20 +375,34 @@ export default function LessonEditorPage() {
               ))}
             </div>
             <span className="hint">
-              {kind === "video"
+              {form.kind === "video"
                 ? "Обязательна ссылка на YouTube. Текст под видео и файлы — по желанию."
                 : "Обязателен текст урока. Файлы — по желанию, видео в таком уроке нет."}
             </span>
+            {form.kind === "text" &&
+              (form.video_url.trim() !== "" || form.duration_label.trim() !== "") && (
+                <Note kind="warning">
+                  <span className="small pretty">
+                    В уроке сохранены ссылка на видео и длительность. У текстового
+                    урока их нет — при сохранении они сотрутся.
+                  </span>
+                </Note>
+              )}
           </div>
 
           <div className="field">
             <label className="label">Название урока</label>
-            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input
+              className={`input${errors.title ? " input-error" : ""}`}
+              value={form.title}
+              onChange={(e) => set("title", e.target.value)}
+            />
+            {errors.title && <span className="error-text">{errors.title}</span>}
           </div>
         </div>
 
         {/* Видеоурок: одно видео, обязательное */}
-        {kind === "video" && (
+        {form.kind === "video" && (
           <div className="card card-pad stack g12">
             <div className="row g8" style={{ alignItems: "center" }}>
               <strong className="small">Видео урока</strong>
@@ -345,20 +412,17 @@ export default function LessonEditorPage() {
             <div className="field">
               <label className="label">Ссылка на YouTube</label>
               <input
-                className={`input${touched && !vid ? " input-error" : ""}`}
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
+                className={`input${errors.video_url ? " input-error" : ""}`}
+                value={form.video_url}
+                onChange={(e) => set("video_url", e.target.value)}
                 placeholder="https://youtu.be/… или https://www.youtube.com/watch?v=…"
               />
-              {touched && !vid ? (
-                <span className="error-text">
-                  {videoFilled
-                    ? "Не похоже на ссылку YouTube — проверьте адрес"
-                    : "Без ссылки видеоурок не сохранится"}
-                </span>
+              {errors.video_url ? (
+                <span className="error-text">{errors.video_url}</span>
               ) : (
                 <span className="hint">
                   Пока только YouTube: другие хостинги и загрузка своих файлов — позже.
+                  Любое написание ссылки сервер приведёт к одному виду.
                   {vid && ` Видео распознано: ${vid}`}
                 </span>
               )}
@@ -367,23 +431,25 @@ export default function LessonEditorPage() {
             <div className="field" style={{ maxWidth: 220 }}>
               <label className="label">Длительность</label>
               <input
-                className="input"
-                value={videoTime}
-                onChange={(e) => setVideoTime(e.target.value)}
+                className={`input${errors.duration_label ? " input-error" : ""}`}
+                value={form.duration_label}
+                onChange={(e) => set("duration_label", e.target.value)}
                 placeholder="12:40"
               />
-              <span className="hint">
-                Вводится руками: определять её по чужой ссылке ненадёжно.
-              </span>
+              {errors.duration_label ? (
+                <span className="error-text">{errors.duration_label}</span>
+              ) : (
+                <span className="hint">
+                  Вводится руками: определять её по чужой ссылке ненадёжно.
+                </span>
+              )}
             </div>
 
             <div
               style={{
                 aspectRatio: "16/9",
                 borderRadius: 12,
-                background: vid
-                  ? "linear-gradient(135deg,#1e293b,#0f172a)"
-                  : "#f1f5f9",
+                background: vid ? "linear-gradient(135deg,#1e293b,#0f172a)" : "#f1f5f9",
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
@@ -405,84 +471,171 @@ export default function LessonEditorPage() {
         <div className="card card-pad stack g12">
           <div className="row g8" style={{ alignItems: "center" }}>
             <strong className="small">
-              {kind === "video" ? "Текст под видео" : "Текст урока"}
+              {form.kind === "video" ? "Текст под видео" : "Текст урока"}
             </strong>
-            {kind === "video" ? (
+            {form.kind === "video" ? (
               <Badge kind="neutral">по желанию</Badge>
             ) : (
               <Badge kind="review">обязательно</Badge>
             )}
           </div>
 
-          {toolbar}
-          <textarea
-            className={`input${touched && kind === "text" && !textFilled ? " input-error" : ""}`}
-            style={{ minHeight: 160, fontSize: 16 }}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
+          <RichEditor
+            value={form.html}
+            onChange={(html) => set("html", html)}
+            invalid={!!errors.body}
+            ariaLabel={form.kind === "video" ? "Текст под видео" : "Текст урока"}
             placeholder={
-              kind === "video"
+              form.kind === "video"
                 ? "Краткий конспект, шаги из видео, ссылки — что пригодится после просмотра…"
                 : "Текст урока…"
             }
           />
-          {touched && kind === "text" && !textFilled && (
-            <span className="error-text">Без текста текстовый урок не сохранится</span>
+          {errors.body ? (
+            <span className="error-text">{errors.body}</span>
+          ) : (
+            <span className="hint">
+              Разметку чистит сервер: из вставки из Word останутся только жирный,
+              курсив, заголовок, список, цитата, ссылка и таблица — остальное
+              исчезнет молча.
+              {form.kind === "text" &&
+                emptyText &&
+                " Сейчас пусто, и неразрывный пробел сервер считает такой же пустотой."}
+            </span>
           )}
         </div>
 
-        {attachments}
+        {/* Материалы урока */}
+        <div className="card card-pad stack g12">
+          <div className="stack g2">
+            <div className="row g8" style={{ alignItems: "center" }}>
+              <strong className="small">Файлы к уроку</strong>
+              <Badge kind="neutral">по желанию</Badge>
+            </div>
+            <span className="caption muted-3 pretty">
+              Любые файлы: презентация, шаблон, изображение, таблица. Учитель увидит их
+              под уроком и сможет скачать.
+            </span>
+          </div>
+
+          {data.files.map((f) => (
+            <FileRow
+              key={f.id}
+              type={fileType(f.mime)}
+              name={f.name}
+              size={fileSize(f.size_bytes)}
+              action={
+                <button
+                  className="btn btn-icon"
+                  style={{ minHeight: 34, width: 34 }}
+                  aria-label={`Убрать файл ${f.name}`}
+                  disabled={removingBusy}
+                  onClick={() => setRemoving(f)}
+                >
+                  <IconClose size={16} />
+                </button>
+              }
+            />
+          ))}
+
+          <input
+            ref={pickRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => addFiles(e.target.files)}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<IconPlus size={15} />}
+            loading={uploading}
+            onClick={() => pickRef.current?.click()}
+            style={{ alignSelf: "flex-start" }}
+          >
+            Добавить файлы
+          </Button>
+        </div>
+
+        {/* Время и видимость */}
+        <div className="card card-pad stack g14">
+          <div className="field" style={{ maxWidth: 260 }}>
+            <label className="label">Требует времени, минут</label>
+            <input
+              className={`input${errors.time_required_min ? " input-error" : ""}`}
+              inputMode="numeric"
+              value={form.time_required_min}
+              onChange={(e) => set("time_required_min", digits(e.target.value))}
+            />
+            {errors.time_required_min ? (
+              <span className="error-text">{errors.time_required_min}</span>
+            ) : (
+              <span className="hint">Складывается в сумму по программе курса</span>
+            )}
+          </div>
+
+          <div className="row g12 between" style={{ alignItems: "flex-start" }}>
+            <div className="stack g2">
+              <span className="small" style={{ fontWeight: 700 }}>
+                Скрыт от учителей
+              </span>
+              <span className="caption muted-3 pretty">
+                Скрытый урок у учителя исчезает целиком — он не открывается и по прямой
+                ссылке. У того, кто уже прошёл его, пройденное не отбирается.
+              </span>
+            </div>
+            <button
+              className="switch"
+              data-on={form.is_hidden}
+              onClick={() => set("is_hidden", !form.is_hidden)}
+              aria-pressed={form.is_hidden}
+              aria-label="Скрыт от учителей"
+            />
+          </div>
+        </div>
 
         <Note kind="muted">
           <span className="small">
-            Учитель увидит урок в этом же порядке: {kind === "video" ? "видео, текст, файлы" : "текст, файлы"}.
-            Если материала хватает на два урока — заведите второй урок в программе,
-            внутри одного второго видео или второго текста не бывает.
+            Учитель увидит урок в этом же порядке:{" "}
+            {form.kind === "video" ? "видео, текст, файлы" : "текст, файлы"}. Если
+            материала хватает на два урока — заведите второй урок в программе, внутри
+            одного второго видео или второго текста не бывает.
           </span>
         </Note>
       </div>
 
       <Sheet
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        title={t.pvPickTitle}
+        open={removing !== null}
+        onClose={() => {
+          if (!removingBusy) setRemoving(null);
+        }}
+        title="Убрать материал?"
+        footer={
+          <div className="stack g8">
+            <Button
+              variant="danger"
+              block
+              size="lg"
+              loading={removingBusy}
+              onClick={removeFile}
+            >
+              Убрать
+            </Button>
+            <Button
+              variant="secondary"
+              block
+              disabled={removingBusy}
+              onClick={() => setRemoving(null)}
+            >
+              Отмена
+            </Button>
+          </div>
+        }
       >
-        <div className="stack g12">
-          <p className="small muted pretty">{t.pvPickText}</p>
-          {catalog.loading ? (
-            <div className="row center" style={{ minHeight: 120 }}>
-              <span
-                className="spinner"
-                style={{ width: 24, height: 24, color: "var(--primary)" }}
-              />
-            </div>
-          ) : catalog.error ? (
-            <Empty
-              title={t.loadError}
-              text={t.loadErrorText}
-              action={
-                <Button variant="secondary" onClick={catalog.reload}>
-                  {t.retry}
-                </Button>
-              }
-            />
-          ) : previewCourses.length === 0 ? (
-            <Empty title={t.emptyCatalogTitle} text={t.emptyCatalogText} />
-          ) : (
-            previewCourses.map((c) => (
-              <Button
-                key={c.id}
-                variant="secondary"
-                block
-                loading={entering === c.id}
-                disabled={entering !== null}
-                onClick={() => startPreview(c.id)}
-              >
-                {c.title}
-              </Button>
-            ))
-          )}
-        </div>
+        <p className="body muted pretty">
+          {removing ? `«${removing.name}»` : "Материал"} пропадёт из урока, и учитель
+          его больше не скачает. Вернуть можно только загрузкой файла заново.
+        </p>
       </Sheet>
 
       <style>{`@media (max-width: 700px) { .hide-sm { display: none; } }`}</style>

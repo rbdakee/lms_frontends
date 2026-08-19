@@ -11,7 +11,7 @@
 
 import type { ReactElement } from "react";
 import { api, type Notification, type NotificationType } from "@lms/api";
-import { IconCheckCircle, IconKey, IconMail, IconSparkle } from "@lms/ui/icons";
+import { IconCheckCircle, IconKey, IconMail, IconRefresh, IconSparkle } from "@lms/ui/icons";
 
 /** `params` приходят свободным объектом — числа достаём по имени поля. */
 function num(params: Notification["params"], key: string): number | null {
@@ -34,6 +34,10 @@ export function notificationHref(n: Notification): string {
     }
     case "certificate_issued":
       return "/certificates";
+    case "retake_allowed": {
+      const quiz = num(n.params, "quiz_id");
+      return course && quiz ? `/learn/${course}/quiz/${quiz}` : "/my";
+    }
   }
 }
 
@@ -45,6 +49,7 @@ export const NOTIF_ICONS: Record<
   submission_reviewed: IconCheckCircle,
   answer_posted: IconMail,
   certificate_issued: IconSparkle,
+  retake_allowed: IconRefresh,
 };
 
 export const NOTIF_TONES: Record<NotificationType, { bg: string; fg: string }> = {
@@ -52,6 +57,7 @@ export const NOTIF_TONES: Record<NotificationType, { bg: string; fg: string }> =
   submission_reviewed: { bg: "var(--success-bg)", fg: "var(--success)" },
   answer_posted: { bg: "var(--primary-bg)", fg: "var(--primary)" },
   certificate_issued: { bg: "var(--warning-bg)", fg: "#b45309" },
+  retake_allowed: { bg: "var(--primary-bg)", fg: "var(--primary)" },
 };
 
 /**

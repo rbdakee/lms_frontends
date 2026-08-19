@@ -122,6 +122,81 @@ export type ReportFunnelItem = S["ReportFunnelItemOut"];
 export type ReportParticipant = S["ReportParticipantOut"];
 export type ReportCertificateState = ReportParticipant["certificate"];
 
+/* ============ Админские редакторы содержания (сессия 7а) ============
+
+   Список курсов, редактор курса с четырьмя вкладками и редакторы урока,
+   теста и задания. Это единственное место, где `GET` отдаёт черновик,
+   скрытый элемент и правильные ответы теста.
+
+   Ловушка в именах схемы — читается наоборот, чем ожидается:
+   `AdminCourse` это ОДНА СТРОКА списка `GET /admin/courses`, а весь
+   редактор курса (`GET/PATCH /admin/courses/{id}`, `POST /admin/courses`,
+   `/versions`, `/duplicate`) отдаёт `AdminCourseCard`. */
+
+export type AdminCoursesPage = S["AdminCoursesPageOut"];
+export type AdminCourse = S["AdminCourseOut"];
+export type AdminCourseCard = S["AdminCourseCardOut"];
+export type AdminCourseIn = S["AdminCourseIn"];
+export type AdminCoursePatch = S["AdminCoursePatchIn"];
+export type AdminCourseVersion = S["AdminCourseVersionOut"];
+export type CourseVersionIn = S["CourseVersionIn"];
+/* Статус набора: пять значений. В ответах сервера `status` приходит просто
+   строкой, поэтому подписи ищутся по литеральному типу из тела PATCH. */
+export type CourseStatus = NonNullable<AdminCoursePatch["status"]>;
+/* Язык версии курса. У курса он один: вторая версия — отдельный курс. */
+export type CourseLang = AdminCourseIn["lang"];
+
+/* Чек-лист вкладки «Публикация» считает сервер: `text` — готовая строка,
+   `items` — названия, которых не хватает. Свой чек-лист не считаем. */
+export type Readiness = S["ReadinessOut"];
+export type ReadinessCheck = S["ReadinessCheckOut"];
+
+/* Дерево программы в админке: те же модули, что у учителя, но со скрытыми
+   элементами и без статуса прохождения. `AdminProgram` — ответ
+   `PUT /program_order`, дерево целиком плюс пересчитанные минуты. */
+export type AdminProgramModule = S["AdminProgramModuleOut"];
+export type AdminProgramLesson = S["AdminProgramLessonOut"];
+export type AdminProgramQuiz = S["AdminProgramQuizOut"];
+export type AdminProgramTask = S["AdminProgramTaskOut"];
+/** Элемент дерева — размеченное объединение по `kind`. */
+export type AdminProgramItem = AdminProgramModule["items"][number];
+export type AdminProgram = S["AdminProgramOut"];
+export type ModuleIn = S["ModuleIn"];
+export type ProgramOrderIn = S["ProgramOrderIn"];
+export type ProgramOrderModuleIn = S["ProgramOrderModuleIn"];
+export type ProgramOrderItemIn = S["ProgramOrderItemIn"];
+
+/* Редактор урока (`GET/PATCH /admin/lessons/{id}`). */
+export type AdminLesson = S["AdminLessonOut"];
+export type AdminLessonIn = S["AdminLessonIn"];
+export type AdminLessonPatch = S["AdminLessonPatchIn"];
+export type LessonBodyIn = S["LessonBodyIn"];
+export type LessonFileIn = S["LessonFileIn"];
+/** Вид урока: видео или текст. Кнопка добавления одна, вид — переключатель. */
+export type LessonKind = AdminLesson["kind"];
+
+/* Редактор теста (`GET/PATCH /admin/quizzes/{id}`) — с правильными
+   ответами и пояснениями, которых нет в учительском `QuizOut`. */
+export type AdminQuiz = S["AdminQuizOut"];
+export type AdminQuizIn = S["AdminQuizIn"];
+export type AdminQuizPatch = S["AdminQuizPatchIn"];
+export type AdminQuizQuestion = S["AdminQuizQuestionOut"];
+export type AdminQuizOption = S["AdminQuizOptionOut"];
+export type QuizQuestionIn = S["QuizQuestionIn"];
+export type QuizQuestionPatch = S["QuizQuestionPatchIn"];
+export type QuizOptionIn = S["QuizOptionIn"];
+/** Тип вопроса: один ответ, несколько или «да/нет». */
+export type QuestionType = AdminQuizQuestion["type"];
+
+/* Редактор задания (`GET/PATCH /admin/tasks/{id}`). */
+export type AdminTask = S["AdminTaskOut"];
+export type AdminTaskIn = S["AdminTaskIn"];
+export type AdminTaskPatch = S["AdminTaskPatchIn"];
+export type TaskStatementIn = S["TaskStatementIn"];
+export type TaskTemplateIn = S["TaskTemplateIn"];
+/** Формат сдачи: текстом, файлом или и тем и другим. */
+export type SubmitFormat = AdminTask["submit_format"];
+
 /* Предпросмотр как учитель: флаг живёт в сессии, экраны узнают о нём из /me. */
 export type Preview = S["PreviewOut"];
 export type PreviewEnterIn = S["PreviewEnterIn"];

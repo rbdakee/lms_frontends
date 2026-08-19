@@ -1,12 +1,17 @@
 "use client";
 
 /**
- * Редактор содержимого курса «/courses/:id/edit» — раздел 5.17 брифа.
+ * Редактор курса «/courses/:id/edit» — раздел 5.17 брифа.
  * Четыре вкладки: Основное · Программа · Условия сертификата · Публикация.
  *
- * Языковой версии внутри курса нет: русская и казахская версии — два
- * самостоятельных курса с общим groupId, поэтому переключатель «РУС | ҚАЗ»
- * в шапке редактора не меняет поля формы, а открывает другой курс.
+ * Все четыре живут одним ответом `GET /admin/courses/{id}`. Чек-лист
+ * готовности и сумму по программе считает сервер, поэтому после каждой правки
+ * в состояние кладётся то, что он вернул: свой чек-лист здесь не считается
+ * нигде, иначе экран и сервер разошлись бы в том, готов ли курс.
+ *
+ * Языковой версии внутри курса нет: русская и казахская — два самостоятельных
+ * курса с общим `group_id`, поэтому переключатель «РУС | ҚАЗ» открывает другой
+ * курс, а не переключает поля формы.
  *
  * Правка контента вынесена из карточки курса отдельным экраном: в самой
  * карточке методист работает с людьми — участниками, проверкой, отзывами,
@@ -14,21 +19,35 @@
  */
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
-  allLessons,
-  categories,
-  courseParticipants,
-  getCourse,
-  groupVersions,
-  programMinutes,
+  api,
+  ApiError,
+  categoryTitle,
+  isApiError,
+  useDictionaries,
+  useLoad,
+  type AdminCourseCard,
+  type AdminLesson,
+  type AdminProgram,
+  type AdminProgramItem,
+  type AdminProgramModule,
+  type AdminQuiz,
+  type AdminTask,
+  type CourseLang,
   type CourseStatus,
   type LessonKind,
-} from "@lms/prototype/data";
+  type ProgramOrderIn,
+} from "@lms/api";
 import { day, duration, price as fmtPrice, plural } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
-import { COURSE_STATUS_LABEL, COURSE_STATUS_ORDER } from "@/components/admin/courseStatus";
+import {
+  courseLangs,
+  COURSE_STATUS_LABEL,
+  COURSE_STATUS_ORDER,
+} from "@/components/admin/courseStatus";
+import { fieldErrors } from "@/lib/fieldErrors";
 import { AdminShell } from "@/components/layout/AdminShell";
 import {
   Badge,
@@ -48,7 +67,7 @@ import {
   IconEdit,
   IconEye,
   IconEyeOff,
-  IconImage,
+  IconLayers,
   IconMore,
   IconPlus,
   IconQuiz,
@@ -61,12 +80,39 @@ import {
 type Tab = "main" | "program" | "cert" | "publish";
 
 /**
+ * Какой вкладке принадлежит поле формы. Кнопка «Сохранить» живёт в шапке
+ * и нажимается с любой вкладки, а подписи полей — только на «Основном»
+ * и «Условиях»: без этой таблицы `422` с «Программы» и «Публикации»
+ * выглядел бы удавшимся сохранением.
+ */
+const FIELD_TAB: Record<string, Tab> = {
+  title: "main",
+  short: "main",
+  full: "main",
+  cover: "main",
+  category_id: "main",
+  hours: "main",
+  duration_text: "main",
+  price: "main",
+  status: "main",
+  starts_at: "main",
+  strict_order: "cert",
+  cert_require_lessons: "cert",
+  cert_require_tasks: "cert",
+  cert_require_module_quizzes: "cert",
+  cert_require_final_quiz: "cert",
+};
+
+/** Вид элемента дерева: урок приходит двумя видами, тест и задание — своими. */
+type ItemKind = AdminProgramItem["kind"];
+
+/**
  * Из чего собирается модуль. Видеоурок и текстовый — это два вида одного
  * элемента «урок», поэтому кнопка добавления у них одна, а вид выбирается
  * переключателем; тест и задание живут в своих редакторах.
  */
 const KIND_META: Record<
-  LessonKind,
+  ItemKind,
   { label: string; hint: string; title: string; time: number }
 > = {
   video: {
@@ -110,23 +156,16 @@ const GROUP_META: Record<AddGroup, { label: string; hint: string }> = {
 const GROUP_ORDER: AddGroup[] = ["lesson", "quiz", "task"];
 
 /** Два вида урока — переключатель внутри окна добавления */
-const LESSON_KINDS: Extract<LessonKind, "video" | "text">[] = ["video", "text"];
+const LESSON_KINDS: LessonKind[] = ["video", "text"];
 
-const groupOf = (kind: LessonKind): AddGroup =>
+const groupOf = (kind: ItemKind): AddGroup =>
   kind === "quiz" ? "quiz" : kind === "task" ? "task" : "lesson";
 
 function groupIcon(group: AddGroup) {
   return group === "lesson" ? IconBook : group === "quiz" ? IconQuiz : IconTask;
 }
 
-/** Куда ведёт элемент программы: урок, тест и задание редактируются по-разному */
-function editorHref(kind: LessonKind, itemId: string) {
-  if (kind === "quiz") return `/quizzes/${itemId}`;
-  if (kind === "task") return `/tasks/${itemId}`;
-  return `/lessons/${itemId}`;
-}
-
-function kindIcon(kind: LessonKind) {
+function kindIcon(kind: ItemKind) {
   return kind === "video"
     ? IconVideo
     : kind === "text"
@@ -136,73 +175,296 @@ function kindIcon(kind: LessonKind) {
         : IconTask;
 }
 
+/**
+ * Хвост адреса элемента: он один и у экрана редактора («/lessons/12»),
+ * и у ручки («/admin/lessons/12») — разводить их в два справочника незачем.
+ */
+function itemPath(kind: ItemKind, itemId: number) {
+  if (kind === "quiz") return `/quizzes/${itemId}`;
+  if (kind === "task") return `/tasks/${itemId}`;
+  return `/lessons/${itemId}`;
+}
+
+/** Чем элемент держится, когда его нельзя удалить: у каждого вида это своё. */
+function keepsReason(kind: ItemKind): string {
+  if (kind === "quiz") return "тест уже проходили — у него есть попытки";
+  if (kind === "task") return "по заданию есть чьи-то сдачи";
+  return "по уроку есть чей-то прогресс";
+}
+
+const digits = (v: string) => v.replace(/\D/g, "");
+
+/* ============ Форма вкладок «Основное» и «Условия сертификата» ============ */
+
+interface Form {
+  title: string;
+  short: string;
+  full: string;
+  cover: string;
+  category_id: number;
+  hours: string;
+  duration_text: string;
+  price: string;
+  status: CourseStatus;
+  starts_at: string;
+  strict_order: boolean;
+  cert_require_lessons: boolean;
+  cert_require_tasks: boolean;
+  cert_require_module_quizzes: boolean;
+  cert_require_final_quiz: boolean;
+}
+
+/** Четыре флага условий сертификата — рисуются одним списком чекбоксов. */
+type CertKey =
+  | "cert_require_lessons"
+  | "cert_require_tasks"
+  | "cert_require_module_quizzes"
+  | "cert_require_final_quiz";
+
+function formOf(c: AdminCourseCard): Form {
+  return {
+    title: c.title,
+    short: c.short,
+    full: c.full,
+    cover: c.cover ?? "",
+    category_id: c.category_id,
+    hours: String(c.hours),
+    duration_text: c.duration_text ?? "",
+    price: c.price === null ? "" : String(c.price),
+    status: c.status as CourseStatus,
+    starts_at: c.starts_at ?? "",
+    strict_order: c.strict_order,
+    cert_require_lessons: c.cert_require_lessons,
+    cert_require_tasks: c.cert_require_tasks,
+    cert_require_module_quizzes: c.cert_require_module_quizzes,
+    cert_require_final_quiz: c.cert_require_final_quiz,
+  };
+}
+
+/** Пустое поле — это `null`, а не пустая строка: «цены нет» и «цена 0» разное. */
+function patchBody(f: Form) {
+  return {
+    title: f.title.trim(),
+    short: f.short,
+    full: f.full,
+    cover: f.cover.trim() || null,
+    category_id: f.category_id,
+    hours: Number(f.hours),
+    duration_text: f.duration_text.trim() || null,
+    price: f.price.trim() === "" ? null : Number(f.price),
+    status: f.status,
+    starts_at: f.starts_at || null,
+    strict_order: f.strict_order,
+    cert_require_lessons: f.cert_require_lessons,
+    cert_require_tasks: f.cert_require_tasks,
+    cert_require_module_quizzes: f.cert_require_module_quizzes,
+    cert_require_final_quiz: f.cert_require_final_quiz,
+  };
+}
+
+/* ============ Экран ============ */
+
 export default function CourseEditorPage() {
+  /* Вкладка читается из ?tab=, а useSearchParams требует границы Suspense —
+     так же обёрнут экран /verify в клиентском приложении */
+  return (
+    <Suspense fallback={null}>
+      <CourseEditor />
+    </Suspense>
+  );
+}
+
+function CourseEditor() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const {
-    toast,
-    isStrict,
-    setStrict,
-    lang: uiLang,
-    addModule,
-    addItem,
-    draftsOf,
-    modulesOf,
-    removeDraft,
-  } = useStore();
-  const course = getCourse(id);
+  const { toast, lang: uiLang } = useStore();
+  const dicts = useDictionaries();
+
+  /* Карточка курса «/courses/{слаг}» осталась на прототипе и уводит в редактор
+     слагом — «/courses/digital-literacy/edit». Сервер знает только числовые id:
+     на слаг он ответил бы ошибкой типа, а не `not_found`, и экран навсегда
+     остался бы на «Не удалось загрузить». Такой id разбираем сами, без запроса */
+  const numericId = /^\d+$/.test(id);
+
+  const course = useLoad(
+    () =>
+      numericId
+        ? api<AdminCourseCard>(`/admin/courses/${id}`)
+        : Promise.reject(
+            new ApiError(404, { code: "not_found", message: "Курс не найден" }),
+          ),
+    [id],
+  );
+  const data = course.data;
 
   const [tab, setTab] = useState<Tab>("main");
-  const [createVersion, setCreateVersion] = useState(false);
+  const [form, setForm] = useState<Form | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [versionOpen, setVersionOpen] = useState(false);
   const [copyProgram, setCopyProgram] = useState(true);
-  const [menuFor, setMenuFor] = useState<string | null>(null);
 
-  /* Добавление элемента программы: тип → модуль → название и время.
-     У урока тип двухуровневый: сначала «урок», потом видео или текст */
-  const [addOpen, setAddOpen] = useState(false);
-  const [addKind, setAddKind] = useState<LessonKind>("video");
-  const [addModuleId, setAddModuleId] = useState("");
-  const [addTitle, setAddTitle] = useState("");
-  const [addTime, setAddTime] = useState("12");
-  /* Новый модуль — отдельным шагом, внутрь него сразу предлагаем добавить элемент */
-  const [moduleOpen, setModuleOpen] = useState(false);
-  const [moduleTitle, setModuleTitle] = useState("");
-
-  /* Из карточки курса приходят сразу в программу: /edit?tab=program */
+  /* Форма пересобирается только при смене курса: пока админ печатает, дерево
+     программы ходит на сервер своими запросами и не должно стирать поля */
+  const seeded = useRef<number | null>(null);
+  /* Номер чтения курса: ответ устаревшего refresh не должен затереть свежий */
+  const refreshSeq = useRef(0);
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get("tab");
-    if (t === "program" || t === "cert" || t === "publish") setTab(t);
-  }, []);
+    if (data && seeded.current !== data.id) {
+      seeded.current = data.id;
+      setForm(formOf(data));
+      setErrors({});
+    }
+  }, [data]);
 
-  /* Условия сертификата — управляют живым превью справа */
-  const [cAll, setCAll] = useState(true);
-  const [cTasks, setCTasks] = useState(true);
-  const [cModuleTests, setCModuleTests] = useState(false);
-  const [cFinal, setCFinal] = useState(true);
-  const [moduleScore, setModuleScore] = useState("70");
-  const [finalScore, setFinalScore] = useState("70");
-  const [hours, setHours] = useState(String(course?.hours ?? 36));
+  /* Из списка приходят сразу в программу: /edit?tab=program. Читаем параметр
+     маршрута, а не адрес один раз: иначе переход на тот же маршрут с другим
+     ?tab= и кнопки браузера «назад/вперёд» вкладку бы не меняли */
+  const tabParam = useSearchParams().get("tab");
+  useEffect(() => {
+    if (
+      tabParam === "main" ||
+      tabParam === "program" ||
+      tabParam === "cert" ||
+      tabParam === "publish"
+    )
+      setTab(tabParam);
+  }, [tabParam]);
 
-  const [form, setForm] = useState({
-    title: course?.title ?? "",
-    short: course?.short ?? "",
-    full: course?.full ?? "",
-    category: course?.category ?? categories[0],
-    hours: String(course?.hours ?? 36),
-    weeks: course?.weeks ?? "",
-    price: course?.price ? String(course.price) : "",
-    status: (course?.status ?? "draft") as CourseStatus,
-    startsAt: course?.startsAt ?? "",
-  });
+  /**
+   * Тихо перечитать курс. После правки элемента программы сумма минут
+   * и чек-лист пересчитаны сервером, а показывать ради этого спиннер
+   * на весь экран незачем — форму такое чтение не трогает.
+   */
+  const refresh = async () => {
+    const my = ++refreshSeq.current;
+    try {
+      const fresh = await api<AdminCourseCard>(`/admin/courses/${id}`);
+      /* Быстрый Tab между двумя полями времени даёт два чтения подряд:
+         пришедший последним старый ответ показал бы значение до правки */
+      if (refreshSeq.current === my) course.setData(fresh);
+    } catch {
+      if (refreshSeq.current === my)
+        toast("Не удалось обновить программу — перезагрузите страницу", "error");
+    }
+  };
 
-  /* «Требует времени» у каждого элемента — вручную, суммируется внизу дерева */
-  const [times, setTimes] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      (course ? allLessons(course) : []).map((l) => [l.id, String(l.timeMin)]),
-    ),
-  );
+  const applyProgram = (program: AdminProgramModule[], minutes?: number) =>
+    course.setData((d) =>
+      d ? { ...d, program, program_minutes: minutes ?? d.program_minutes } : d,
+    );
 
-  if (!course) {
+  /**
+   * `422` от «Сохранить»: кнопка живёт в шапке и нажимается с любой вкладки.
+   * Подписи у полей остаются, но с «Программы» и «Публикации» их не видно —
+   * поэтому уводим на вкладку поля и повторяем причину тостом.
+   */
+  const showFieldErrors = (fields: Record<string, string>) => {
+    setErrors(fields);
+    const first = Object.entries(fields)[0];
+    if (!first) return;
+    const target = FIELD_TAB[first[0]];
+    if (target) setTab(target);
+    toast(first[1] || "Проверьте заполнение полей", "error");
+  };
+
+  /** «Сохранить» в шапке — поля «Основного» и «Условий сертификата» одним PATCH */
+  const save = async () => {
+    if (!form || saving) return;
+    setSaving(true);
+    setErrors({});
+    try {
+      const updated = await api<AdminCourseCard>(`/admin/courses/${id}`, {
+        method: "PATCH",
+        json: patchBody(form),
+      });
+      course.setData(updated);
+      /* Сервер мог поправить присланное — показываем его значения, а не свои */
+      setForm(formOf(updated));
+      toast("Сохранено", "success");
+    } catch (e) {
+      const fields = fieldErrors(e);
+      if (Object.keys(fields).length) showFieldErrors(fields);
+      else toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** Три кнопки «Публикации» — это тот же PATCH со сменой статуса */
+  const setStatus = async (status: CourseStatus, message: string) => {
+    if (busy) return;
+    setBusy(true);
+    setErrors({});
+    try {
+      const updated = await api<AdminCourseCard>(`/admin/courses/${id}`, {
+        method: "PATCH",
+        json: { status },
+      });
+      course.setData(updated);
+      /* Форму целиком не пересобираем: несохранённые правки полей — работа
+         админа, и кнопка публикации не должна её выбрасывать */
+      setForm((f) => (f ? { ...f, status: updated.status as CourseStatus } : f));
+      toast(message, "success");
+    } catch (e) {
+      const fields = fieldErrors(e);
+      if (Object.keys(fields).length) showFieldErrors(fields);
+      else toast(isApiError(e) ? e.message : "Не удалось поменять статус", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const duplicate = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const copy = await api<AdminCourseCard>(`/admin/courses/${id}/duplicate`, {
+        method: "POST",
+      });
+      toast("Копия создана — черновик, в каталоге её пока нет", "success");
+      router.push(`/courses/${copy.id}/edit`);
+    } catch (e) {
+      toast(isApiError(e) ? e.message : "Не удалось скопировать курс", "error");
+      setBusy(false);
+    }
+  };
+
+  const createVersion = async (lang: CourseLang) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const version = await api<AdminCourseCard>(`/admin/courses/${id}/versions`, {
+        method: "POST",
+        json: { lang, copy_program: copyProgram },
+      });
+      setVersionOpen(false);
+      toast(
+        copyProgram
+          ? "Версия создана — структура программы скопирована как заготовка"
+          : "Версия создана — программа пустая",
+        "success",
+      );
+      router.push(`/courses/${version.id}/edit`);
+    } catch (e) {
+      /* 409 version_exists приходит с готовой русской строкой — показываем её */
+      toast(isApiError(e) ? e.message : "Не удалось создать версию", "error");
+      setBusy(false);
+    }
+  };
+
+  if (course.loading && !data) {
+    return (
+      <AdminShell title="Редактор курса">
+        <div className="card card-pad row center" style={{ minHeight: 240 }}>
+          <span className="spinner" style={{ width: 26, height: 26, color: "var(--primary)" }} />
+        </div>
+      </AdminShell>
+    );
+  }
+
+  if (isApiError(course.error, "not_found")) {
     return (
       <AdminShell title="Курс не найден">
         <div className="card">
@@ -219,142 +481,67 @@ export default function CourseEditorPage() {
     );
   }
 
-  const versions = groupVersions(course);
-  const other = versions.find((c) => c.id !== course.id);
-  const missingLang = course.lang === "ru" ? "kz" : "ru";
-
-  /** Уроки, по которым у кого-то уже есть прогресс: их можно только скрыть */
-  const maxDone = Math.max(0, ...courseParticipants(course.id).map((p) => p.lessonsDone));
-  const lessons = allLessons(course);
-  const hasProgress = (lessonId: string) => {
-    const i = lessons.findIndex((l) => l.id === lessonId);
-    return i >= 0 && i < maxDone;
-  };
-
-  /* Дерево программы: модули курса и добавленные админом, внутри — их элементы */
-  const program = [
-    ...(course.modulesList ?? []).map((m) => ({
-      id: m.id,
-      title: m.title,
-      rows: [
-        ...m.lessons.map((l) => ({
-          id: l.id,
-          title: l.title,
-          kind: l.kind,
-          timeMin: l.timeMin ?? 0,
-          isNew: false,
-        })),
-        ...draftsOf(course.id, m.id).map((d) => ({
-          id: d.id,
-          title: d.title,
-          kind: d.kind,
-          timeMin: d.timeMin,
-          isNew: true,
-        })),
-      ],
-    })),
-    ...modulesOf(course.id).map((m) => ({
-      id: m.id,
-      title: m.title,
-      rows: draftsOf(course.id, m.id).map((d) => ({
-        id: d.id,
-        title: d.title,
-        kind: d.kind,
-        timeMin: d.timeMin,
-        isNew: true,
-      })),
-    })),
-  ];
-
-  const minutesOf = (row: { id: string; timeMin: number }) =>
-    Number(times[row.id] ?? row.timeMin) || 0;
-
-  const byElements = programMinutes(course);
-  const currentSum = program.reduce(
-    (s, m) => s + m.rows.reduce((ms, r) => ms + minutesOf(r), 0),
-    0,
-  );
-
-  const addGroup = groupOf(addKind);
-
-  /** Открыть окно добавления с выбранным типом и, если известно, модулем */
-  const openAdd = (kind: LessonKind, moduleId?: string) => {
-    setAddKind(kind);
-    setAddTime(String(KIND_META[kind].time));
-    setAddTitle("");
-    setAddModuleId(moduleId ?? program[0]?.id ?? "");
-    setAddOpen(true);
-  };
-
-  const pickKind = (kind: LessonKind) => {
-    setAddKind(kind);
-    setAddTime(String(KIND_META[kind].time));
-  };
-
-  /** Урок открывается видеоуроком: он у методистов чаще */
-  const pickGroup = (group: AddGroup) =>
-    pickKind(group === "lesson" ? "video" : group);
-
-  /** Добавить элемент в модуль и, если нужно, сразу открыть его редактор */
-  const submitAdd = (openEditor: boolean) => {
-    const meta = KIND_META[addKind];
-    const moduleId = addModuleId || program[0]?.id || "";
-    const created = addItem({
-      courseId: course.id,
-      moduleId,
-      title: addTitle.trim() || meta.title,
-      kind: addKind,
-      timeMin: Number(addTime) || meta.time,
-    });
-    setTimes((t) => ({ ...t, [created.id]: String(created.timeMin) }));
-    setAddOpen(false);
-    if (openEditor) {
-      router.push(editorHref(created.kind, created.id));
-      return;
-    }
-    const modTitle = program.find((m) => m.id === moduleId)?.title ?? "";
-    toast(`Добавили «${created.title}» в модуль «${modTitle}» — пока черновик`, "success");
-  };
-
-  const submitModule = () => {
-    const created = addModule(
-      course.id,
-      moduleTitle.trim() || `Модуль ${program.length + 1}`,
+  if (course.error || !data || !form) {
+    return (
+      <AdminShell title="Редактор курса">
+        <div className="card">
+          <Empty
+            title="Не удалось загрузить"
+            text="Проверьте интернет и попробуйте ещё раз."
+            action={
+              <Button variant="secondary" onClick={course.reload}>
+                Повторить
+              </Button>
+            }
+          />
+        </div>
+      </AdminShell>
     );
-    setModuleOpen(false);
-    setModuleTitle("");
-    openAdd("video", created.id);
+  }
+
+  /* Себя сервер в versions не включает — склеиваем, чтобы нарисовать переключатель */
+  const versions = [
+    { id: data.id, lang: data.lang },
+    ...data.versions.map((v) => ({ id: v.id, lang: v.lang })),
+  ].sort((a, b) => (a.lang === "ru" ? 0 : 1) - (b.lang === "ru" ? 0 : 1));
+  const other = data.versions[0];
+  const missingLang: CourseLang = data.lang === "ru" ? "kz" : "ru";
+  const missingLabel = missingLang === "kz" ? "казахскую" : "русскую";
+
+  const categories = dicts.data?.categories ?? [];
+  const visible = data.program.flatMap((m) => m.items).filter((i) => !i.is_hidden);
+  const lessonsCount = visible.filter((i) => i.kind === "video" || i.kind === "text").length;
+  const tasksCount = visible.filter((i) => i.kind === "task").length;
+  const moduleQuizCount = visible.filter((i) => i.kind === "quiz" && !i.is_final).length;
+  const finalQuizCount = visible.filter((i) => i.kind === "quiz" && i.is_final).length;
+  const anyCondition =
+    form.cert_require_lessons ||
+    form.cert_require_tasks ||
+    form.cert_require_module_quizzes ||
+    form.cert_require_final_quiz;
+  /* Условие, под которым не осталось ни одного видимого элемента, сервер
+     выполненным не считает — сертификата по нему не будет ни у кого */
+  const emptyCondition =
+    (form.cert_require_lessons && lessonsCount === 0) ||
+    (form.cert_require_tasks && tasksCount === 0) ||
+    (form.cert_require_module_quizzes && moduleQuizCount === 0) ||
+    (form.cert_require_final_quiz && finalQuizCount === 0);
+
+  const set = <K extends keyof Form>(key: K, value: Form[K]) => {
+    setForm((f) => (f ? { ...f, [key]: value } : f));
+    /* Правка поля снимает его ошибку: красная рамка до следующего сохранения
+       говорит о запрете, которого уже нет */
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
   };
 
-  const anyCondition = cAll || cTasks || cModuleTests || cFinal;
-
-  const readiness = [
-    { ok: Boolean(form.title.trim()), text: "Название и описание заполнены" },
-    { ok: true, text: "Обложка загружена" },
-    {
-      ok: false,
-      text: "У 2 уроков нет контента — «Безопасность в интернете», «Совместные документы»",
-    },
-    { ok: false, text: "В итоговом тесте 0 вопросов" },
-    { ok: Boolean(form.hours.trim()), text: "Объём курса в часах заполнен" },
-    {
-      ok: form.status !== "planned" || Boolean(form.startsAt),
-      text: "У запланированного курса задана дата старта",
-    },
-  ];
-  const problems = readiness.filter((r) => !r.ok).length;
-
-  const publish = (status: CourseStatus, message: string) => {
-    setForm((f) => ({ ...f, status }));
-    toast(message, "success");
-  };
+  const notOk = data.readiness.items.filter((r) => !r.ok).length;
 
   return (
     <AdminShell
-      title={course.title}
+      title={data.title || "Курс без названия"}
       subtitle="Редактирование содержимого"
       actions={
-        <Button variant="secondary" size="sm" onClick={() => toast("Черновик сохранён", "success")}>
+        <Button variant="secondary" size="sm" loading={saving} onClick={save}>
           Сохранить
         </Button>
       }
@@ -367,8 +554,8 @@ export default function CourseEditorPage() {
               {versions.map((v) => (
                 <button
                   key={v.id}
-                  data-active={v.id === course.id}
-                  onClick={() => router.push(`/courses/${v.id}/edit`)}
+                  data-active={v.id === data.id}
+                  onClick={() => v.id !== data.id && router.push(`/courses/${v.id}/edit`)}
                 >
                   {v.lang === "ru" ? "РУС" : "ҚАЗ"}
                 </button>
@@ -376,23 +563,35 @@ export default function CourseEditorPage() {
             </div>
             {other ? (
               <span className="caption muted-3 pretty" style={{ maxWidth: 340 }}>
-                Переключатель открывает другой курс: «{other.title}». Версии живут своей
+                Переключатель открывает другой курс той же группы. Версии живут своей
                 жизнью — своя программа, цена и дата старта.
               </span>
             ) : (
-              <Button variant="secondary" size="sm" onClick={() => setCreateVersion(true)}>
+              <Button variant="secondary" size="sm" onClick={() => setVersionOpen(true)}>
                 <IconPlus size={15} />
-                Создать {missingLang === "kz" ? "казахскую" : "русскую"} версию
+                Создать {missingLabel} версию
               </Button>
             )}
           </div>
           <div className="row g8">
-            <StatusBadge status={COURSE_STATUS_LABEL[form.status]} />
-            <LinkButton href={`/courses/${course.id}`} variant="ghost" size="sm">
-              К карточке курса
-            </LinkButton>
+            <StatusBadge status={COURSE_STATUS_LABEL[data.status as CourseStatus]} />
+            <Button variant="ghost" size="sm" loading={busy} onClick={duplicate}>
+              <IconCopy size={15} />
+              Дублировать курс
+            </Button>
           </div>
         </div>
+
+        {data.has_students && (
+          <Note kind="warning">
+            <span className="small pretty">
+              На курсе уже учатся — правки идут с ограничениями. Элемент, по которому есть
+              чужие данные, не удаляется, а скрывается: иначе у людей «12 из 18»
+              превратится в «12 из 17», а у кого-то условия сертификата выполнятся сами
+              собой.
+            </span>
+          </Note>
+        )}
 
         <div className="tabs">
           {(
@@ -417,46 +616,63 @@ export default function CourseEditorPage() {
                 <div className="field">
                   <label className="label">Название курса</label>
                   <input
-                    className="input"
+                    className={`input${errors.title ? " input-error" : ""}`}
                     value={form.title}
-                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                    placeholder={course.lang === "kz" ? "Курс атауы" : "Название курса"}
+                    onChange={(e) => set("title", e.target.value)}
+                    placeholder={data.lang === "kz" ? "Курс атауы" : "Название курса"}
                   />
+                  {errors.title && <span className="error-text">{errors.title}</span>}
                 </div>
 
                 <div className="field">
                   <label className="label">Короткое описание</label>
                   <textarea
-                    className="input"
+                    className={`input${errors.short ? " input-error" : ""}`}
                     style={{ minHeight: 80 }}
                     value={form.short}
-                    onChange={(e) => setForm((f) => ({ ...f, short: e.target.value }))}
+                    onChange={(e) => set("short", e.target.value)}
                     placeholder="Одно предложение — показывается в карточке каталога"
                   />
+                  {errors.short && <span className="error-text">{errors.short}</span>}
                 </div>
 
                 <div className="field">
                   <label className="label">Полное описание</label>
                   <textarea
-                    className="input"
+                    className={`input${errors.full ? " input-error" : ""}`}
                     style={{ minHeight: 120 }}
                     value={form.full}
-                    onChange={(e) => setForm((f) => ({ ...f, full: e.target.value }))}
+                    onChange={(e) => set("full", e.target.value)}
                   />
+                  {errors.full && <span className="error-text">{errors.full}</span>}
                 </div>
 
                 <div className="edit-row">
                   <div className="field">
                     <label className="label">Категория</label>
                     <select
-                      className="input"
-                      value={form.category}
-                      onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                      className={`input${errors.category_id ? " input-error" : ""}`}
+                      value={form.category_id}
+                      onChange={(e) => set("category_id", Number(e.target.value))}
+                      disabled={dicts.loading}
                     >
                       {categories.map((c) => (
-                        <option key={c}>{c}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.title}
+                        </option>
                       ))}
                     </select>
+                    {dicts.error && (
+                      <div className="row g8" style={{ marginTop: 4 }}>
+                        <span className="error-text">Справочник категорий не загрузился</span>
+                        <Button variant="ghost" size="sm" onClick={dicts.reload}>
+                          Повторить
+                        </Button>
+                      </div>
+                    )}
+                    {errors.category_id && (
+                      <span className="error-text">{errors.category_id}</span>
+                    )}
                   </div>
 
                   {/* Объём — обязательное поле, рядом серая подсказка по программе */}
@@ -466,16 +682,17 @@ export default function CourseEditorPage() {
                       <span style={{ color: "var(--danger)" }}>· обязательно</span>
                     </label>
                     <input
-                      className="input"
+                      className={`input${errors.hours ? " input-error" : ""}`}
                       inputMode="numeric"
                       value={form.hours}
-                      onChange={(e) => setForm((f) => ({ ...f, hours: e.target.value }))}
+                      onChange={(e) => set("hours", digits(e.target.value))}
                     />
                     <span className="hint">
-                      По элементам курса набирается {duration(byElements)}. Это подсказка,
-                      а не значение поля: в сертификате пишут учебный объём вместе
-                      с самостоятельной работой.
+                      По элементам курса набирается {duration(data.program_minutes)}. Это
+                      подсказка, а не значение поля: в сертификате пишут учебный объём
+                      вместе с самостоятельной работой.
                     </span>
+                    {errors.hours && <span className="error-text">{errors.hours}</span>}
                   </div>
                 </div>
 
@@ -485,12 +702,15 @@ export default function CourseEditorPage() {
                     <span className="label-optional">· необязательно</span>
                   </label>
                   <input
-                    className="input"
-                    value={form.weeks}
-                    onChange={(e) => setForm((f) => ({ ...f, weeks: e.target.value }))}
+                    className={`input${errors.duration_text ? " input-error" : ""}`}
+                    value={form.duration_text}
+                    onChange={(e) => set("duration_text", e.target.value)}
                     placeholder="≈ 6 недель"
                   />
                   <span className="hint">Показывается в карточке каталога рядом с объёмом</span>
+                  {errors.duration_text && (
+                    <span className="error-text">{errors.duration_text}</span>
+                  )}
                 </div>
               </div>
 
@@ -501,25 +721,24 @@ export default function CourseEditorPage() {
                   <div className="field">
                     <label className="label">Цена, ₸</label>
                     <input
-                      className="input"
+                      className={`input${errors.price ? " input-error" : ""}`}
                       inputMode="numeric"
                       value={form.price}
-                      onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                      onChange={(e) => set("price", digits(e.target.value))}
                       placeholder="45000"
                     />
                     <span className="hint">
                       Пусто — в каталоге «Цена по запросу». Деньги принимает администратор
                       вне платформы, платёжных форм в продукте нет.
                     </span>
+                    {errors.price && <span className="error-text">{errors.price}</span>}
                   </div>
                   <div className="field">
                     <label className="label">Статус набора</label>
                     <select
-                      className="input"
+                      className={`input${errors.status ? " input-error" : ""}`}
                       value={form.status}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, status: e.target.value as CourseStatus }))
-                      }
+                      onChange={(e) => set("status", e.target.value as CourseStatus)}
                     >
                       {COURSE_STATUS_ORDER.map((s) => (
                         <option key={s} value={s}>
@@ -527,6 +746,7 @@ export default function CourseEditorPage() {
                         </option>
                       ))}
                     </select>
+                    {errors.status && <span className="error-text">{errors.status}</span>}
                   </div>
                 </div>
 
@@ -540,316 +760,70 @@ export default function CourseEditorPage() {
                     )}
                   </label>
                   <input
-                    className="input"
+                    className={`input${errors.starts_at ? " input-error" : ""}`}
                     type="date"
-                    value={form.startsAt}
-                    onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
+                    value={form.starts_at}
+                    onChange={(e) => set("starts_at", e.target.value)}
                   />
                   <span className="hint">
-                    Именно она рисует бейдж «Старт {day(form.startsAt || "2026-09-01", uiLang)}»
+                    Именно она рисует бейдж «Старт {day(form.starts_at || "2026-09-01", uiLang)}»
                     в каталоге.
                   </span>
+                  {errors.starts_at && <span className="error-text">{errors.starts_at}</span>}
                 </div>
 
-                {form.status === "planned" && !form.startsAt && (
+                {form.status === "planned" && !form.starts_at && (
                   <Note kind="warning">
                     <span className="small">
                       У запланированного курса дата старта обязательна — без неё
-                      в каталоге нечего показать.
+                      в каталоге нечего показать, и сервер такой статус не примет.
                     </span>
                   </Note>
                 )}
               </div>
             </div>
 
+            {/* Обложка — адресом: ручки, которая делает публичный адрес
+                из загруженного файла, в контракте пока нет */}
             <div className="card card-pad stack g12">
               <h2 className="h3">Обложка</h2>
-              <Cover tone={course.cover} style={{ borderRadius: 12 }} />
-              <Button
-                variant="secondary"
-                block
-                icon={<IconImage size={17} />}
-                onClick={() => toast("Открылся бы выбор файла")}
-              >
-                Заменить обложку
-              </Button>
-              <span className="caption muted-3">
-                Формат 16:9, минимум 640×360. Показывается в каталоге и на странице курса.
-              </span>
+              <Cover src={form.cover || null} style={{ borderRadius: 12 }} />
+              <div className="field">
+                <label className="label">Адрес картинки</label>
+                <input
+                  className={`input${errors.cover ? " input-error" : ""}`}
+                  value={form.cover}
+                  maxLength={500}
+                  onChange={(e) => set("cover", e.target.value)}
+                  placeholder="https://cdn.example.kz/covers/course.jpg"
+                />
+                <span className="hint">
+                  Формат 16:9, минимум 640×360. Показывается в каталоге и на странице курса.
+                  Пусто — останется градиент.
+                </span>
+                {errors.cover && <span className="error-text">{errors.cover}</span>}
+              </div>
+              <Note kind="muted">
+                <span className="caption pretty">
+                  Загрузки файла обложки на сервере пока нет: ссылку берут у того, кто
+                  выкладывает картинку, и вставляют сюда. Превью выше обновляется живо
+                  и покажет, открывается ли адрес.
+                </span>
+              </Note>
             </div>
           </div>
         )}
 
         {/* ===== Вкладка «Программа» ===== */}
         {tab === "program" && (
-          <div className="stack g16">
-            <div className="row wrap g8">
-              <Button size="sm" icon={<IconPlus size={15} />} onClick={() => setModuleOpen(true)}>
-                Модуль
-              </Button>
-              {GROUP_ORDER.map((g) => {
-                const Icon = groupIcon(g);
-                return (
-                  <Button
-                    key={g}
-                    variant="secondary"
-                    size="sm"
-                    icon={<Icon size={15} />}
-                    disabled={program.length === 0}
-                    onClick={() => openAdd(g === "lesson" ? "video" : g)}
-                  >
-                    {GROUP_META[g].label}
-                  </Button>
-                );
-              })}
-            </div>
-
-            <span className="caption muted-3 pretty">
-              Урок бывает двух видов — видеоурок и текстовый, вид выбирается при
-              добавлении и меняется в редакторе урока. У теста и задания свои редакторы.
-            </span>
-
-            {program.length === 0 ? (
-              <div className="card">
-                <Empty
-                  title="Программа пока пустая"
-                  text="Добавьте модуль, а внутрь — уроки, тесты и задания."
-                  action={
-                    <Button icon={<IconPlus size={16} />} onClick={() => setModuleOpen(true)}>
-                      Добавить модуль
-                    </Button>
-                  }
-                />
-              </div>
-            ) : (
-              <div className="stack g12">
-                {program.map((m) => (
-                  <div key={m.id} className="card" style={{ overflow: "hidden" }}>
-                    <div
-                      className="row g10"
-                      style={{
-                        padding: "14px 16px",
-                        background: "#fbfcfe",
-                        borderBottom: "1px solid var(--border)",
-                      }}
-                    >
-                      <span className="muted-3" style={{ cursor: "grab" }}>
-                        <IconDrag size={18} />
-                      </span>
-                      <div className="grow stack g2" style={{ minWidth: 0 }}>
-                        <strong className="small">{m.title}</strong>
-                        <span className="caption muted-3">
-                          {m.rows.length}{" "}
-                          {plural(m.rows.length, "элемент", "элемента", "элементов")} ·{" "}
-                          {duration(m.rows.reduce((s, r) => s + minutesOf(r), 0))}
-                        </span>
-                      </div>
-                      <button
-                        className="btn btn-icon"
-                        style={{ minHeight: 34, width: 34 }}
-                        aria-label="Действия"
-                      >
-                        <IconMore size={17} />
-                      </button>
-                    </div>
-
-                    {m.rows.length === 0 && (
-                      <p
-                        className="small muted pretty"
-                        style={{ padding: "14px 16px", margin: 0 }}
-                      >
-                        В модуле пока ничего нет — добавьте первый элемент кнопками ниже.
-                      </p>
-                    )}
-
-                    {m.rows.map((l) => {
-                      const Icon = kindIcon(l.kind);
-                      const href = editorHref(l.kind, l.id);
-                      const draft = l.isNew || l.id === "l2" || l.id === "l8";
-                      const locked = hasProgress(l.id);
-                      return (
-                        <div
-                          key={l.id}
-                          className="row wrap g10 program-row"
-                          style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}
-                        >
-                          <span className="muted-3" style={{ cursor: "grab" }}>
-                            <IconDrag size={16} />
-                          </span>
-                          <span
-                            className="lesson-icon"
-                            style={{ width: 30, height: 30, borderRadius: 9 }}
-                          >
-                            <Icon size={16} />
-                          </span>
-                          <Link href={href} className="grow" style={{ minWidth: 120 }}>
-                            <span className="small" style={{ fontWeight: 600 }}>
-                              {l.title}
-                            </span>
-                          </Link>
-
-                          {/* Требует времени — вручную у урока, теста и задания */}
-                          <label className="row g6 nowrap caption muted">
-                            требует времени
-                            <input
-                              className="input"
-                              inputMode="numeric"
-                              aria-label={`Требуемое время: ${l.title}`}
-                              value={times[l.id] ?? String(l.timeMin)}
-                              onChange={(e) =>
-                                setTimes((t) => ({ ...t, [l.id]: e.target.value }))
-                              }
-                              style={{ width: 64, height: 38, textAlign: "center" }}
-                            />
-                            мин
-                          </label>
-
-                          <Badge kind={draft ? "neutral" : "accepted"}>
-                            {draft ? "черновик" : "готов"}
-                          </Badge>
-
-                          <div style={{ position: "relative" }}>
-                            <button
-                              className="btn btn-icon"
-                              style={{ minHeight: 32, width: 32 }}
-                              aria-label="Действия"
-                              onClick={() => setMenuFor(menuFor === l.id ? null : l.id)}
-                            >
-                              <IconMore size={16} />
-                            </button>
-                            {menuFor === l.id && (
-                              <>
-                                <div
-                                  style={{ position: "fixed", inset: 0, zIndex: 40 }}
-                                  onClick={() => setMenuFor(null)}
-                                />
-                                <div
-                                  className="card"
-                                  style={{
-                                    position: "absolute",
-                                    right: 0,
-                                    top: "calc(100% + 4px)",
-                                    zIndex: 50,
-                                    minWidth: 230,
-                                    padding: 6,
-                                    boxShadow: "var(--shadow-lg)",
-                                  }}
-                                >
-                                  <Link href={href} className="admin-nav-item">
-                                    <IconEdit size={17} />
-                                    Редактировать
-                                  </Link>
-                                  <button
-                                    className="admin-nav-item"
-                                    style={{
-                                      width: "100%",
-                                      border: "none",
-                                      background: "none",
-                                      cursor: "pointer",
-                                    }}
-                                    onClick={() => {
-                                      setMenuFor(null);
-                                      toast("Элемент продублирован");
-                                    }}
-                                  >
-                                    <IconCopy size={17} />
-                                    Дублировать
-                                  </button>
-                                  {locked ? (
-                                    <>
-                                      <button
-                                        className="admin-nav-item"
-                                        style={{
-                                          width: "100%",
-                                          border: "none",
-                                          background: "none",
-                                          cursor: "pointer",
-                                        }}
-                                        onClick={() => {
-                                          setMenuFor(null);
-                                          toast("Урок скрыт — у тех, кто его прошёл, всё осталось");
-                                        }}
-                                      >
-                                        <IconEyeOff size={17} />
-                                        Скрыть
-                                      </button>
-                                      <p
-                                        className="caption muted-3 pretty"
-                                        style={{ padding: "6px 12px 8px", margin: 0 }}
-                                      >
-                                        Удалить нельзя: по уроку есть чей-то прогресс.
-                                        Иначе «12 из 18» превратится в «12 из 17», а у кого-то
-                                        условия сертификата выполнятся сами собой.
-                                      </p>
-                                    </>
-                                  ) : (
-                                    <button
-                                      className="admin-nav-item"
-                                      style={{
-                                        width: "100%",
-                                        border: "none",
-                                        background: "none",
-                                        cursor: "pointer",
-                                        color: "var(--danger)",
-                                      }}
-                                      onClick={() => {
-                                        setMenuFor(null);
-                                        if (l.isNew) removeDraft(l.id);
-                                        toast("Элемент удалён");
-                                      }}
-                                    >
-                                      <IconTrash size={17} />
-                                      Удалить
-                                    </button>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Добавление прямо в этот модуль — тип виден сразу */}
-                    <div
-                      className="row wrap g8"
-                      style={{ padding: "10px 16px", background: "#fbfcfe" }}
-                    >
-                      <span className="caption muted-3" style={{ alignSelf: "center" }}>
-                        Добавить в модуль:
-                      </span>
-                      {GROUP_ORDER.map((g) => {
-                        const Icon = groupIcon(g);
-                        return (
-                          <Button
-                            key={g}
-                            variant="ghost"
-                            size="sm"
-                            icon={<Icon size={15} />}
-                            onClick={() => openAdd(g === "lesson" ? "video" : g, m.id)}
-                          >
-                            {GROUP_META[g].label}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Сумма по программе */}
-            <div className="card card-pad row between wrap g10">
-              <span className="small muted">Всего по программе</span>
-              <strong style={{ fontSize: 18, letterSpacing: "-0.01em" }}>
-                {duration(currentSum)}
-              </strong>
-            </div>
-            <span className="caption muted-3 pretty">
-              Объём курса в сертификате задаётся отдельно, на вкладке «Основное»:
-              сейчас там {form.hours} часов.
-            </span>
-          </div>
+          <ProgramTab
+            courseId={id}
+            program={data.program}
+            programMinutes={data.program_minutes}
+            hours={form.hours}
+            onProgram={applyProgram}
+            refresh={refresh}
+          />
         )}
 
         {/* ===== Вкладка «Условия сертификата» ===== */}
@@ -860,80 +834,34 @@ export default function CourseEditorPage() {
                 <h2 className="h3">Условия получения</h2>
 
                 <div className="stack g4">
-                  <label className="check">
-                    <input type="checkbox" checked={cAll} onChange={(e) => setCAll(e.target.checked)} />
-                    <span className="check-box">
-                      <IconCheck size={14} />
-                    </span>
-                    <span className="check-label">Пройти все уроки</span>
-                  </label>
-
-                  <label className="check">
-                    <input
-                      type="checkbox"
-                      checked={cTasks}
-                      onChange={(e) => setCTasks(e.target.checked)}
-                    />
-                    <span className="check-box">
-                      <IconCheck size={14} />
-                    </span>
-                    <span className="check-label">
-                      Сдать все задания <span className="muted-3">(принято админом)</span>
-                    </span>
-                  </label>
-
-                  <div className="row g10 wrap" style={{ alignItems: "center" }}>
-                    <label className="check grow">
+                  {(
+                    [
+                      ["cert_require_lessons", "Пройти все уроки", null],
+                      ["cert_require_tasks", "Сдать все задания", "(принято админом)"],
+                      ["cert_require_module_quizzes", "Сдать все тесты модулей", null],
+                      ["cert_require_final_quiz", "Сдать итоговый тест", null],
+                    ] as [CertKey, string, string | null][]
+                  ).map(([key, label, note]) => (
+                    <label key={key} className="check">
                       <input
                         type="checkbox"
-                        checked={cModuleTests}
-                        onChange={(e) => setCModuleTests(e.target.checked)}
+                        checked={form[key]}
+                        onChange={(e) => set(key, e.target.checked)}
                       />
                       <span className="check-box">
                         <IconCheck size={14} />
                       </span>
-                      <span className="check-label">Сдать все тесты модулей</span>
-                    </label>
-                    <div className="row g6 nowrap">
-                      <input
-                        className="input"
-                        style={{ width: 68, height: 40, textAlign: "center" }}
-                        value={moduleScore}
-                        onChange={(e) => setModuleScore(e.target.value)}
-                        disabled={!cModuleTests}
-                        inputMode="numeric"
-                        aria-label="Проходной балл тестов модулей"
-                      />
-                      <span className="small muted">%</span>
-                    </div>
-                  </div>
-
-                  <div className="row g10 wrap" style={{ alignItems: "center" }}>
-                    <label className="check grow">
-                      <input
-                        type="checkbox"
-                        checked={cFinal}
-                        onChange={(e) => setCFinal(e.target.checked)}
-                      />
-                      <span className="check-box">
-                        <IconCheck size={14} />
+                      <span className="check-label">
+                        {label} {note && <span className="muted-3">{note}</span>}
                       </span>
-                      <span className="check-label">Сдать итоговый тест</span>
                     </label>
-                    <div className="row g6 nowrap">
-                      <input
-                        className="input"
-                        style={{ width: 68, height: 40, textAlign: "center" }}
-                        value={finalScore}
-                        onChange={(e) => setFinalScore(e.target.value)}
-                        disabled={!cFinal}
-                        inputMode="numeric"
-                        aria-label="Проходной балл итогового теста"
-                      />
-                      <span className="small muted">%</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
+
+                <span className="caption muted-3 pretty">
+                  Проходной балл живёт у теста, а не у курса: он задаётся в редакторе
+                  теста и там же показывается учителю в результате попытки.
+                </span>
 
                 {!anyCondition && (
                   <Note kind="warning">
@@ -948,23 +876,24 @@ export default function CourseEditorPage() {
                 <div className="stack g4">
                   {(
                     [
-                      ["free", "Свободный порядок", "можно открывать уроки в любой последовательности"],
-                      ["strict", "Строго по порядку", "следующий урок откроется после завершения текущего"],
-                    ] as ["free" | "strict", string, string][]
+                      [
+                        false,
+                        "Свободный порядок",
+                        "можно открывать уроки в любой последовательности",
+                      ],
+                      [
+                        true,
+                        "Строго по порядку",
+                        "следующий урок откроется после завершения текущего",
+                      ],
+                    ] as [boolean, string, string][]
                   ).map(([v, label, hint]) => (
-                    <label key={v} className="check">
+                    <label key={String(v)} className="check">
                       <input
                         type="radio"
                         name="order"
-                        checked={(isStrict(course.id) ? "strict" : "free") === v}
-                        onChange={() => {
-                          setStrict(course.id, v === "strict");
-                          toast(
-                            v === "strict"
-                              ? "Строгий порядок включён — уроки откроются по очереди"
-                              : "Свободный порядок — уроки открываются в любой последовательности",
-                          );
-                        }}
+                        checked={form.strict_order === v}
+                        onChange={() => set("strict_order", v)}
                       />
                       <span className="check-box round">
                         <IconCheck size={13} />
@@ -980,28 +909,27 @@ export default function CourseEditorPage() {
 
               <div className="card card-pad stack g14">
                 <h2 className="h3">Сертификат</h2>
-                <div className="edit-row">
-                  <div className="field">
-                    <label className="label">Шаблон</label>
-                    <select className="input" defaultValue="Стандартный">
-                      <option>Стандартный</option>
-                      <option>С печатью института</option>
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label className="label">Объём курса, часов</label>
-                    <input
-                      className="input"
-                      inputMode="numeric"
-                      value={hours}
-                      onChange={(e) => setHours(e.target.value)}
-                    />
-                  </div>
+                <div className="field" style={{ maxWidth: 260 }}>
+                  <label className="label">Объём курса, часов</label>
+                  <input
+                    className={`input${errors.hours ? " input-error" : ""}`}
+                    inputMode="numeric"
+                    value={form.hours}
+                    onChange={(e) => set("hours", digits(e.target.value))}
+                  />
+                  <span className="hint">
+                    То же поле, что на вкладке «Основное»: в сертификате и в каталоге
+                    число одно.
+                  </span>
+                  {errors.hours && <span className="error-text">{errors.hours}</span>}
                 </div>
+                <span className="caption muted-3 pretty">
+                  Шаблон сертификата один и свёрстан в коде — выбирать нечего.
+                </span>
               </div>
             </div>
 
-            {/* Живое превью */}
+            {/* Живое превью — по видимым элементам программы */}
             <div className="stack g10" style={{ position: "sticky", top: 88 }}>
               <div className="row g8 caption muted">
                 <IconEye size={16} />
@@ -1011,10 +939,13 @@ export default function CourseEditorPage() {
                 <h3 className="h3">Что нужно для сертификата</h3>
                 <div className="stack g10">
                   {[
-                    cAll && `Пройти все ${course.lessons} уроков`,
-                    cTasks && `Сдать все ${course.tasksCount} задания`,
-                    cModuleTests && `Сдать все тесты модулей — проходной балл ${moduleScore}%`,
-                    cFinal && `Сдать итоговый тест — проходной балл ${finalScore}%`,
+                    form.cert_require_lessons &&
+                      `Пройти все ${lessonsCount} ${plural(lessonsCount, "урок", "урока", "уроков")}`,
+                    form.cert_require_tasks &&
+                      `Сдать все ${tasksCount} ${plural(tasksCount, "задание", "задания", "заданий")}`,
+                    form.cert_require_module_quizzes &&
+                      `Сдать все ${moduleQuizCount} ${plural(moduleQuizCount, "тест", "теста", "тестов")} модулей`,
+                    form.cert_require_final_quiz && "Сдать итоговый тест",
                   ]
                     .filter(Boolean)
                     .map((label, i) => (
@@ -1041,10 +972,19 @@ export default function CourseEditorPage() {
                 </div>
                 <hr className="divider" />
                 <span className="caption muted">
-                  Сертификат на {hours} часов ·{" "}
-                  {isStrict(course.id) ? "строго по порядку" : "свободный порядок уроков"}
+                  Сертификат на {form.hours || "—"} часов ·{" "}
+                  {form.strict_order ? "строго по порядку" : "свободный порядок уроков"}
                 </span>
               </div>
+              {emptyCondition && (
+                <Note kind="warning">
+                  <span className="caption pretty">
+                    Под одним из условий нет ни одного видимого элемента. Такое условие
+                    выполненным не считается — сертификат по нему не получит никто, пока
+                    в программе не появится хотя бы один элемент.
+                  </span>
+                </Note>
+              )}
             </div>
           </div>
         )}
@@ -1055,8 +995,8 @@ export default function CourseEditorPage() {
             <div className="card card-pad stack g16">
               <h2 className="h3">Готовность к публикации</h2>
               <div className="stack g12">
-                {readiness.map((r, i) => (
-                  <div key={i} className="row g10" style={{ alignItems: "flex-start" }}>
+                {data.readiness.items.map((r) => (
+                  <div key={r.code} className="row g10" style={{ alignItems: "flex-start" }}>
                     <span
                       style={{
                         width: 22,
@@ -1075,7 +1015,12 @@ export default function CourseEditorPage() {
                     >
                       {r.ok ? <IconCheck size={13} /> : "!"}
                     </span>
-                    <span className="small grow pretty">{r.text}</span>
+                    <span className="stack g2 grow">
+                      <span className="small pretty">{r.text}</span>
+                      {r.items.length > 0 && (
+                        <span className="caption muted-3 pretty">{r.items.join(" · ")}</span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1086,18 +1031,24 @@ export default function CourseEditorPage() {
                 <Button
                   variant="secondary"
                   block
-                  onClick={() => publish("draft", "Черновик сохранён — курса в каталоге нет")}
+                  loading={busy}
+                  onClick={() => setStatus("draft", "Черновик сохранён — курса в каталоге нет")}
                 >
                   Сохранить черновик
                 </Button>
                 <Button
                   variant="secondary"
                   block
-                  disabled={!form.startsAt}
+                  loading={busy}
+                  disabled={!data.readiness.can_plan}
                   onClick={() =>
-                    publish(
+                    setStatus(
                       "planned",
-                      `Курс опубликован как запланированный — старт ${day(form.startsAt, uiLang)}`,
+                      /* Дату берём с сервера: в форме её могли стереть и не
+                         сохранить, а `day("")` дал бы «старт » без даты */
+                      data.starts_at
+                        ? `Курс опубликован как запланированный — старт ${day(data.starts_at, uiLang)}`
+                        : "Курс опубликован как запланированный",
                     )
                   }
                 >
@@ -1106,7 +1057,9 @@ export default function CourseEditorPage() {
                 <Button
                   block
                   size="lg"
-                  onClick={() => publish("open", "Набор открыт — курс принимает заявки")}
+                  loading={busy}
+                  disabled={!data.readiness.can_open}
+                  onClick={() => setStatus("open", "Набор открыт — курс принимает заявки")}
                 >
                   Открыть набор
                 </Button>
@@ -1115,11 +1068,18 @@ export default function CourseEditorPage() {
               <span className="caption muted-3 pretty">
                 Запланированный курс можно публиковать с незаполненными уроками — он попадает
                 в каталог собирать заявки, а чек-лист показывает, что осталось доделать
-                к старту{problems > 0 ? `: осталось ${problems}` : ""}.
+                к старту.
               </span>
-              {!form.startsAt && (
+              {!data.readiness.can_plan && (
                 <span className="caption" style={{ color: "var(--warning)" }}>
-                  Чтобы опубликовать запланированным, задайте дату старта во вкладке «Основное».
+                  Чтобы опубликовать запланированным, задайте дату старта на вкладке
+                  «Основное» и сохраните.
+                </span>
+              )}
+              {!data.readiness.can_open && (
+                <span className="caption" style={{ color: "var(--warning)" }}>
+                  Открыть набор можно, когда в чек-листе не осталось незакрытых пунктов:
+                  сейчас их {notOk}.
                 </span>
               )}
             </div>
@@ -1130,30 +1090,29 @@ export default function CourseEditorPage() {
                 Превью карточки в каталоге
               </div>
               <div className="card" style={{ overflow: "hidden", maxWidth: 340 }}>
-                <Cover tone={course.cover}>
+                <Cover src={form.cover || null}>
                   <div className="cover-badges">
-                    <span className="badge badge-lang">
-                      {versions.map((v) => (v.lang === "ru" ? "RU" : "KZ")).join(" · ")}
-                    </span>
+                    <span className="badge badge-lang">{courseLangs(data)}</span>
                   </div>
                 </Cover>
                 <div className="stack g8 card-pad">
                   <span className="caption" style={{ color: "var(--primary)" }}>
-                    {form.category}
+                    {categoryTitle(categories, form.category_id)}
                   </span>
                   <h3 className="h3 pretty">{form.title}</h3>
                   <div className="row wrap g8">
                     <StatusBadge status={COURSE_STATUS_LABEL[form.status]} />
-                    {form.status === "planned" && form.startsAt && (
-                      <span className="caption muted">старт {day(form.startsAt, uiLang)}</span>
+                    {form.status === "planned" && form.starts_at && (
+                      <span className="caption muted">старт {day(form.starts_at, uiLang)}</span>
                     )}
                   </div>
                   <div className="row between wrap g8">
                     <span className="small muted">
-                      {course.lessons} уроков · {form.hours} часов
+                      {lessonsCount} {plural(lessonsCount, "урок", "урока", "уроков")} ·{" "}
+                      {form.hours || "—"} часов
                     </span>
                     <strong className="small">
-                      {fmtPrice(Number(form.price) || undefined, uiLang)}
+                      {fmtPrice(form.price === "" ? undefined : Number(form.price), uiLang)}
                     </strong>
                   </div>
                 </div>
@@ -1163,6 +1122,856 @@ export default function CourseEditorPage() {
         )}
       </div>
 
+      {/* Создание второй языковой версии */}
+      <Sheet
+        open={versionOpen}
+        /* Пока запрос идёт, шторка не закрывается: версия всё равно создастся,
+           и человек об этом уже не узнает */
+        onClose={() => !busy && setVersionOpen(false)}
+        title={`Создать ${missingLabel} версию`}
+        footer={
+          <div className="stack g8">
+            <Button block size="lg" loading={busy} onClick={() => createVersion(missingLang)}>
+              Создать версию
+            </Button>
+            <Button variant="secondary" block disabled={busy} onClick={() => setVersionOpen(false)}>
+              Отмена
+            </Button>
+          </div>
+        }
+      >
+        <div className="stack g14">
+          <p className="small muted pretty">
+            Заведём новый курс с тем же group_id. В каталоге он останется одной карточкой
+            с бейджами языков, а дальше содержимое живёт своей жизнью: своя программа,
+            цена, дата старта и сертификат. Совпадать один в один версии не обязаны.
+          </p>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={copyProgram}
+              onChange={(e) => setCopyProgram(e.target.checked)}
+            />
+            <span className="check-box">
+              <IconCheck size={14} />
+            </span>
+            <span className="check-label">Скопировать структуру программы как заготовку</span>
+          </label>
+          <p className="caption muted-3 pretty">
+            Копируются модули, уроки, тесты и задания вместе с содержимым. Материалы
+            уроков и файлы-шаблоны не копируются: файл в хранилище один, и удаление
+            из одной версии сломало бы вторую.
+          </p>
+        </div>
+      </Sheet>
+
+      <style>{`
+        .edit-two { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+        .edit-row { display: grid; grid-template-columns: 1fr; gap: 14px; }
+        .program-row { row-gap: 8px; }
+        .kind-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        .kind-card {
+          display: flex; gap: 10px; align-items: flex-start; text-align: left;
+          padding: 12px; border: 1px solid var(--border); border-radius: 12px;
+          background: #fff; cursor: pointer; transition: border-color .15s, background .15s;
+        }
+        .kind-card:hover { border-color: var(--border-strong); }
+        .kind-card[data-active="true"] { border-color: var(--primary); background: #f6f9ff; }
+        .drag-handle { cursor: grab; color: var(--muted-3); display: flex; }
+        .drag-handle:active { cursor: grabbing; }
+        .program-module[data-drop="in"] { border-color: var(--primary); }
+        .drop-row[data-drop="before"] { box-shadow: inset 0 2px 0 0 var(--primary); }
+        .drop-row[data-drop="after"] { box-shadow: inset 0 -2px 0 0 var(--primary); }
+        @media (min-width: 640px) { .edit-row { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1100px) { .edit-two { grid-template-columns: 1.4fr 1fr; gap: 24px; } }
+      `}</style>
+    </AdminShell>
+  );
+}
+
+/* ============ Вкладка «Программа» ============ */
+
+/** Что тащат: модуль целиком или элемент внутри модуля. */
+type Drag =
+  | { type: "module"; id: number }
+  | { type: "item"; kind: ItemKind; id: number };
+
+/** Куда целятся: ключ строки и половина, в которую попал курсор. */
+interface Over {
+  key: string;
+  after: boolean;
+}
+
+const itemKey = (i: { kind: ItemKind; id: number }) => `${i.kind}:${i.id}`;
+
+/** Курсор в нижней половине строки — значит «после неё», а не «перед». */
+function isAfter(e: React.DragEvent<HTMLElement>): boolean {
+  const box = e.currentTarget.getBoundingClientRect();
+  return e.clientY > box.top + box.height / 2;
+}
+
+/**
+ * Дерево после переноса элемента. Позиция считается по соседу, а не по индексу
+ * исходного массива: элемент сначала вынимается, и индексы за ним съезжают.
+ */
+function moveItem(
+  program: AdminProgramModule[],
+  drag: { kind: ItemKind; id: number },
+  toModuleId: number,
+  near: { kind: ItemKind; id: number } | null,
+  after: boolean,
+): AdminProgramModule[] {
+  const moved = program
+    .flatMap((m) => m.items)
+    .find((i) => i.kind === drag.kind && i.id === drag.id);
+  if (!moved) return program;
+  return program.map((m) => {
+    const items = m.items.filter((i) => !(i.kind === moved.kind && i.id === moved.id));
+    if (m.id !== toModuleId) return { ...m, items };
+    const at = near ? items.findIndex((i) => i.kind === near.kind && i.id === near.id) : -1;
+    const pos = at < 0 ? items.length : at + (after ? 1 : 0);
+    return { ...m, items: [...items.slice(0, pos), moved, ...items.slice(pos)] };
+  });
+}
+
+/** Дерево после перестановки модулей — тем же способом, по соседу. */
+function moveModule(
+  program: AdminProgramModule[],
+  fromId: number,
+  toId: number,
+  after: boolean,
+): AdminProgramModule[] {
+  if (fromId === toId) return program;
+  const moved = program.find((m) => m.id === fromId);
+  if (!moved) return program;
+  const rest = program.filter((m) => m.id !== fromId);
+  const at = rest.findIndex((m) => m.id === toId);
+  const pos = at < 0 ? rest.length : at + (after ? 1 : 0);
+  return [...rest.slice(0, pos), moved, ...rest.slice(pos)];
+}
+
+function ProgramTab({
+  courseId,
+  program,
+  programMinutes,
+  hours,
+  onProgram,
+  refresh,
+}: {
+  courseId: string;
+  program: AdminProgramModule[];
+  programMinutes: number;
+  hours: string;
+  onProgram: (program: AdminProgramModule[], minutes?: number) => void;
+  refresh: () => Promise<void>;
+}) {
+  const router = useRouter();
+  const { toast } = useStore();
+
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [moduleMenu, setModuleMenu] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /* Удаление элемента — с подтверждением, как у модуля: урок с набранным
+     текстом, видео и материалами уходит необратимо, а `has_data` защищает
+     только от чужих данных */
+  const [deletingItem, setDeletingItem] = useState<AdminProgramItem | null>(null);
+
+  /* Номер запроса и точка отката у порядка: два перетаскивания подряд идут
+     двумя PUT, и ответ устаревшего перерисовал бы дерево без уже применённой
+     перестановки. Образец нумерации — useLoad в @lms/api */
+  const orderSeq = useRef(0);
+  const orderPending = useRef(0);
+  const orderRollback = useRef<AdminProgramModule[]>(program);
+  /* То же по каждому элементу у времени: правку могли отправить дважды подряд */
+  const timeSeq = useRef<Record<string, number>>({});
+
+  /* Перетаскивание: что тащим и над чем висим */
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const [over, setOver] = useState<Over | null>(null);
+
+  /* Требуемое время правится на месте: program_order времени не несёт,
+     поэтому каждая строка сохраняется PATCH-ем своего элемента */
+  const [times, setTimes] = useState<Record<string, string>>({});
+  const [timeErrors, setTimeErrors] = useState<Record<string, string>>({});
+
+  /* Добавление элемента: тип → вид урока → модуль → название → время */
+  const [addOpen, setAddOpen] = useState(false);
+  const [addKind, setAddKind] = useState<ItemKind>("video");
+  const [addModuleId, setAddModuleId] = useState<number | "">("");
+  const [addTitle, setAddTitle] = useState("");
+  const [addTime, setAddTime] = useState("12");
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+
+  /* Модуль: создание и переименование живут одной шторкой */
+  const [moduleOpen, setModuleOpen] = useState(false);
+  const [moduleId, setModuleId] = useState<number | null>(null);
+  const [moduleTitle, setModuleTitle] = useState("");
+  const [moduleError, setModuleError] = useState("");
+
+  /* Удаление модуля: 409 приходит со списком того, что держит */
+  const [deleting, setDeleting] = useState<AdminProgramModule | null>(null);
+  const [blockers, setBlockers] = useState<
+    { kind?: string; title?: string; reason?: string }[]
+  >([]);
+  const [blockMessage, setBlockMessage] = useState("");
+
+  const hiddenCount = program.flatMap((m) => m.items).filter((i) => i.is_hidden).length;
+  const addGroup = groupOf(addKind);
+
+  const endDrag = () => {
+    setDrag(null);
+    setOver(null);
+  };
+
+  /* dragover прилетает непрерывно — перерисовываем дерево только когда
+     цель действительно сменилась */
+  const hover = (key: string, after: boolean) =>
+    setOver((o) => (o && o.key === key && o.after === after ? o : { key, after }));
+
+  /**
+   * Порядок уходит деревом целиком: на неполное дерево сервер отвечает 422
+   * и не меняет ничего. Ответ заменяет состояние — перерисовываем им, а не
+   * своей оптимистичной перестановкой.
+   */
+  const saveOrder = async (next: AdminProgramModule[]) => {
+    const my = ++orderSeq.current;
+    /* Откат — к дереву до всей цепочки: неполное дерево сервер не применяет,
+       и возвращаться к чужой неподтверждённой перестановке незачем */
+    if (orderPending.current === 0) orderRollback.current = program;
+    orderPending.current += 1;
+    onProgram(next);
+    const body: ProgramOrderIn = {
+      modules: next.map((m) => ({
+        id: m.id,
+        items: m.items.map((i) => ({ kind: i.kind, id: i.id })),
+      })),
+    };
+    try {
+      const res = await api<AdminProgram>(`/admin/courses/${courseId}/program_order`, {
+        method: "PUT",
+        json: body,
+      });
+      if (orderSeq.current === my) onProgram(res.program, res.program_minutes);
+    } catch (e) {
+      if (orderSeq.current === my) {
+        onProgram(orderRollback.current);
+        /* Весь смысл 422 здесь в `details.fields` — «В дереве не хватает
+           элементов курса: 2»; `message` у него общий, показывать нечего */
+        const fields = fieldErrors(e);
+        toast(
+          Object.values(fields)[0] ||
+            (isApiError(e) ? e.message : "Не удалось сохранить порядок"),
+          "error",
+        );
+      }
+    } finally {
+      orderPending.current -= 1;
+    }
+  };
+
+  /** Бросили на модуль: свой модуль переставляем, чужой элемент кладём в конец */
+  const dropOnModule = (m: AdminProgramModule, after: boolean, onHeader: boolean) => {
+    if (!drag) return;
+    const next =
+      drag.type === "module"
+        ? onHeader
+          ? moveModule(program, drag.id, m.id, after)
+          : program
+        : moveItem(program, drag, m.id, null, false);
+    endDrag();
+    if (next !== program) saveOrder(next);
+  };
+
+  const dropOnItem = (m: AdminProgramModule, item: AdminProgramItem, after: boolean) => {
+    if (!drag || drag.type !== "item") return;
+    if (drag.kind === item.kind && drag.id === item.id) {
+      endDrag();
+      return;
+    }
+    const next = moveItem(program, drag, m.id, item, after);
+    endDrag();
+    saveOrder(next);
+  };
+
+  /** Требуемое время сохраняется у своего элемента, сумму пересчитывает сервер */
+  const saveTime = async (item: AdminProgramItem) => {
+    const key = itemKey(item);
+    const raw = times[key];
+    if (raw === undefined) return;
+    const clear = () =>
+      setTimes((t) => {
+        const { [key]: _, ...rest } = t;
+        return rest;
+      });
+    if (raw === "" || Number(raw) === item.time_required_min) {
+      clear();
+      setTimeErrors((t) => ({ ...t, [key]: "" }));
+      return;
+    }
+    const my = (timeSeq.current[key] ?? 0) + 1;
+    timeSeq.current[key] = my;
+    try {
+      await api(`/admin${itemPath(item.kind, item.id)}`, {
+        method: "PATCH",
+        json: { time_required_min: Number(raw) },
+      });
+      if (timeSeq.current[key] !== my) return;
+      setTimeErrors((t) => ({ ...t, [key]: "" }));
+      clear();
+      await refresh();
+    } catch (e) {
+      if (timeSeq.current[key] !== my) return;
+      const fields = fieldErrors(e);
+      const other = Object.entries(fields).find(([f]) => f !== "time_required_min");
+      if (fields.time_required_min) {
+        setTimeErrors((t) => ({ ...t, [key]: fields.time_required_min }));
+      } else if (other) {
+        /* Пустую заготовку сервер отбивает по своему полю — видеоурок без
+           ссылки. Под полем времени этот текст читался бы как «время
+           не сохранилось из-за времени», поэтому причину называем тостом
+           и уводим в редактор элемента, где её и чинят */
+        setTimeErrors((t) => ({ ...t, [key]: "не сохранилось — дело в другом поле" }));
+        toast(
+          `«${item.title}»: ${other[1]} Откройте элемент — время сохранится вместе с ним.`,
+          "error",
+        );
+      } else {
+        setTimeErrors((t) => ({
+          ...t,
+          [key]: isApiError(e) ? e.message : "Не удалось сохранить время",
+        }));
+      }
+    }
+  };
+
+  /** Скрыть можно всегда — даже то, что нельзя удалить */
+  const toggleHidden = async (item: AdminProgramItem) => {
+    if (busy) return;
+    setBusy(true);
+    setMenuFor(null);
+    try {
+      await api(`/admin${itemPath(item.kind, item.id)}`, {
+        method: "PATCH",
+        json: { is_hidden: !item.is_hidden },
+      });
+      await refresh();
+      toast(
+        item.is_hidden
+          ? "Элемент показан — он снова в программе у учителей"
+          : "Элемент скрыт — у тех, кто его прошёл, всё осталось",
+        "success",
+      );
+    } catch (e) {
+      toast(isApiError(e) ? e.message : "Не удалось поменять видимость", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeItem = async (item: AdminProgramItem) => {
+    if (busy) return;
+    setBusy(true);
+    setMenuFor(null);
+    try {
+      await api(`/admin${itemPath(item.kind, item.id)}`, { method: "DELETE" });
+      await refresh();
+      toast("Элемент удалён", "success");
+    } catch (e) {
+      /* 409 приходит с готовой русской строкой и числом — показываем её */
+      toast(isApiError(e) ? e.message : "Не удалось удалить элемент", "error");
+    } finally {
+      setBusy(false);
+      setDeletingItem(null);
+    }
+  };
+
+  const openAdd = (kind: ItemKind, target?: number) => {
+    setAddKind(kind);
+    setAddTime(String(KIND_META[kind].time));
+    setAddTitle("");
+    setAddErrors({});
+    setAddModuleId(target ?? program[0]?.id ?? "");
+    setAddOpen(true);
+  };
+
+  const pickKind = (kind: ItemKind) => {
+    setAddKind(kind);
+    setAddTime(String(KIND_META[kind].time));
+  };
+
+  /** Урок открывается видеоуроком: он у методистов чаще */
+  const pickGroup = (group: AddGroup) => pickKind(group === "lesson" ? "video" : group);
+
+  /**
+   * Все три ручки отвечают объектом своего редактора целиком — у него есть id,
+   * поэтому «добавить и открыть» уходит туда сразу.
+   */
+  const submitAdd = async (openEditor: boolean) => {
+    if (busy || addModuleId === "") return;
+    setBusy(true);
+    setAddErrors({});
+    const meta = KIND_META[addKind];
+    const title = addTitle.trim() || meta.title;
+    /* Ноль — это «времени не требует», а не пустое поле: подставляем своё
+       значение только когда поле стёрли */
+    const time = addTime === "" ? meta.time : Number(addTime);
+    const base = `/admin/modules/${addModuleId}`;
+    try {
+      const created = await api<AdminLesson | AdminQuiz | AdminTask>(
+        addKind === "quiz"
+          ? `${base}/quizzes`
+          : addKind === "task"
+            ? `${base}/tasks`
+            : `${base}/lessons`,
+        {
+          method: "POST",
+          json:
+            addKind === "quiz"
+              ? { title, time_required_min: time, is_final: false, pass_score: 70 }
+              : addKind === "task"
+                ? { title, time_required_min: time }
+                : { title, kind: addKind, time_required_min: time },
+        },
+      );
+      setAddOpen(false);
+      if (openEditor) {
+        router.push(itemPath(addKind, created.id));
+        return;
+      }
+      await refresh();
+      toast(`Добавили «${title}» — заготовка скрыта, пока не наполнена`, "success");
+    } catch (e) {
+      const fields = fieldErrors(e);
+      if (Object.keys(fields).length) setAddErrors(fields);
+      else toast(isApiError(e) ? e.message : "Не удалось добавить элемент", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openModuleSheet = (m?: AdminProgramModule) => {
+    setModuleId(m?.id ?? null);
+    setModuleTitle(m?.title ?? "");
+    setModuleError("");
+    setModuleOpen(true);
+    setModuleMenu(null);
+  };
+
+  const submitModule = async () => {
+    if (busy) return;
+    setBusy(true);
+    setModuleError("");
+    const title = moduleTitle.trim() || `Модуль ${program.length + 1}`;
+    try {
+      if (moduleId === null) {
+        const created = await api<AdminProgramModule>(
+          `/admin/courses/${courseId}/modules`,
+          { method: "POST", json: { title } },
+        );
+        setModuleOpen(false);
+        await refresh();
+        /* Пустой модуль никому не нужен — сразу предлагаем первый элемент */
+        openAdd("video", created.id);
+      } else {
+        await api<AdminProgramModule>(`/admin/modules/${moduleId}`, {
+          method: "PATCH",
+          json: { title },
+        });
+        setModuleOpen(false);
+        await refresh();
+        toast("Модуль переименован", "success");
+      }
+    } catch (e) {
+      const fields = fieldErrors(e);
+      setModuleError(
+        fields.title ?? (isApiError(e) ? e.message : "Не удалось сохранить модуль"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeModule = async (m: AdminProgramModule) => {
+    if (busy) return;
+    setBusy(true);
+    setBlockers([]);
+    setBlockMessage("");
+    try {
+      await api(`/admin/modules/${m.id}`, { method: "DELETE" });
+      setDeleting(null);
+      await refresh();
+      toast("Модуль удалён вместе со своими элементами", "success");
+    } catch (e) {
+      /* 409 module_in_use несёт список того, что держит удаление: без него
+         непонятно, куда идти разбираться */
+      if (isApiError(e, "module_in_use")) {
+        setBlockMessage(e.message);
+        setBlockers(
+          Array.isArray(e.details.items)
+            ? (e.details.items as { kind?: string; title?: string; reason?: string }[])
+            : [],
+        );
+      } else {
+        setDeleting(null);
+        toast(isApiError(e) ? e.message : "Не удалось удалить модуль", "error");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="stack g16">
+      <div className="row wrap g8">
+        <Button size="sm" icon={<IconPlus size={15} />} onClick={() => openModuleSheet()}>
+          Модуль
+        </Button>
+        {GROUP_ORDER.map((g) => {
+          const Icon = groupIcon(g);
+          return (
+            <Button
+              key={g}
+              variant="secondary"
+              size="sm"
+              icon={<Icon size={15} />}
+              disabled={program.length === 0}
+              onClick={() => openAdd(g === "lesson" ? "video" : g)}
+            >
+              {GROUP_META[g].label}
+            </Button>
+          );
+        })}
+      </div>
+
+      <span className="caption muted-3 pretty">
+        Урок бывает двух видов — видеоурок и текстовый, вид выбирается при добавлении
+        и меняется в редакторе урока. У теста и задания свои редакторы. Порядок
+        меняется перетаскиванием за ручку слева: и элементы внутри модуля, и модули
+        между собой, и элемент из одного модуля в другой.
+      </span>
+
+      {program.length === 0 ? (
+        <div className="card">
+          <Empty
+            icon={<IconLayers size={34} />}
+            title="Программа пока пустая"
+            text="Добавьте модуль, а внутрь — уроки, тесты и задания."
+            action={
+              <Button icon={<IconPlus size={16} />} onClick={() => openModuleSheet()}>
+                Добавить модуль
+              </Button>
+            }
+          />
+        </div>
+      ) : (
+        <div className="stack g12">
+          {program.map((m) => {
+            const mKey = `m${m.id}`;
+            const visibleMinutes = m.items
+              .filter((i) => !i.is_hidden)
+              .reduce((s, i) => s + i.time_required_min, 0);
+            return (
+              <div
+                key={m.id}
+                className="card program-module"
+                style={{ overflow: "hidden" }}
+                data-drop={over?.key === mKey && drag?.type === "item" ? "in" : undefined}
+                onDragOver={(e) => {
+                  if (drag?.type !== "item") return;
+                  e.preventDefault();
+                  hover(mKey, false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  dropOnModule(m, false, false);
+                }}
+              >
+                <div
+                  className="row g10 drop-row"
+                  style={{
+                    padding: "14px 16px",
+                    background: "#fbfcfe",
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                  data-drop={
+                    over?.key === mKey && drag?.type === "module"
+                      ? over.after
+                        ? "after"
+                        : "before"
+                      : undefined
+                  }
+                  onDragOver={(e) => {
+                    if (!drag) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    hover(mKey, isAfter(e));
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropOnModule(m, isAfter(e), true);
+                  }}
+                >
+                  <span
+                    className="drag-handle"
+                    draggable
+                    aria-label={`Перетащить модуль: ${m.title}`}
+                    onDragStart={(e) => {
+                      /* Firefox не начинает перетаскивание без setData */
+                      e.dataTransfer.setData("text/plain", m.title);
+                      e.dataTransfer.effectAllowed = "move";
+                      setDrag({ type: "module", id: m.id });
+                    }}
+                    onDragEnd={endDrag}
+                  >
+                    <IconDrag size={18} />
+                  </span>
+                  <div className="grow stack g2" style={{ minWidth: 0 }}>
+                    <strong className="small">{m.title}</strong>
+                    <span className="caption muted-3">
+                      {m.items.length}{" "}
+                      {plural(m.items.length, "элемент", "элемента", "элементов")} ·{" "}
+                      {duration(visibleMinutes)}
+                    </span>
+                  </div>
+                  <div style={{ position: "relative" }}>
+                    <button
+                      className="btn btn-icon"
+                      style={{ minHeight: 34, width: 34 }}
+                      aria-label="Действия с модулем"
+                      onClick={() => setModuleMenu(moduleMenu === m.id ? null : m.id)}
+                    >
+                      <IconMore size={17} />
+                    </button>
+                    {moduleMenu === m.id && (
+                      <>
+                        <div
+                          style={{ position: "fixed", inset: 0, zIndex: 40 }}
+                          onClick={() => setModuleMenu(null)}
+                        />
+                        <div className="row-menu">
+                          <MenuButton icon={IconEdit} onClick={() => openModuleSheet(m)}>
+                            Переименовать
+                          </MenuButton>
+                          <MenuButton
+                            icon={IconTrash}
+                            danger
+                            onClick={() => {
+                              setModuleMenu(null);
+                              setBlockers([]);
+                              setBlockMessage("");
+                              setDeleting(m);
+                            }}
+                          >
+                            Удалить модуль
+                          </MenuButton>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {m.items.length === 0 && (
+                  <p className="small muted pretty" style={{ padding: "14px 16px", margin: 0 }}>
+                    В модуле пока ничего нет — добавьте первый элемент кнопками ниже.
+                  </p>
+                )}
+
+                {m.items.map((item) => {
+                  const key = itemKey(item);
+                  const Icon = kindIcon(item.kind);
+                  const href = itemPath(item.kind, item.id);
+                  return (
+                    <div
+                      key={key}
+                      className="row wrap g10 program-row drop-row"
+                      style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}
+                      data-drop={
+                        over?.key === key && drag?.type === "item"
+                          ? over.after
+                            ? "after"
+                            : "before"
+                          : undefined
+                      }
+                      onDragOver={(e) => {
+                        if (drag?.type !== "item") return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        hover(key, isAfter(e));
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropOnItem(m, item, isAfter(e));
+                      }}
+                    >
+                      <span
+                        className="drag-handle"
+                        draggable
+                        aria-label={`Перетащить: ${item.title}`}
+                        onDragStart={(e) => {
+                          /* Firefox не начинает перетаскивание без setData */
+                          e.dataTransfer.setData("text/plain", item.title);
+                          e.dataTransfer.effectAllowed = "move";
+                          setDrag({ type: "item", kind: item.kind, id: item.id });
+                        }}
+                        onDragEnd={endDrag}
+                      >
+                        <IconDrag size={16} />
+                      </span>
+                      <span
+                        className="lesson-icon"
+                        style={{ width: 30, height: 30, borderRadius: 9 }}
+                      >
+                        <Icon size={16} />
+                      </span>
+                      {/* Ссылку не тащим: перетаскивание живёт на ручке слева */}
+                      <Link
+                        href={href}
+                        draggable={false}
+                        className="grow"
+                        style={{ minWidth: 120 }}
+                      >
+                        <span className="small" style={{ fontWeight: 600 }}>
+                          {item.title}
+                        </span>
+                      </Link>
+
+                      {/* Требует времени — вручную у урока, теста и задания */}
+                      <div className="stack g2">
+                        <label className="row g6 nowrap caption muted">
+                          требует времени
+                          <input
+                            className={`input${timeErrors[key] ? " input-error" : ""}`}
+                            inputMode="numeric"
+                            aria-label={`Требуемое время: ${item.title}`}
+                            value={times[key] ?? String(item.time_required_min)}
+                            onChange={(e) =>
+                              setTimes((t) => ({ ...t, [key]: digits(e.target.value) }))
+                            }
+                            onBlur={() => saveTime(item)}
+                            style={{ width: 64, height: 38, textAlign: "center" }}
+                          />
+                          мин
+                        </label>
+                        {timeErrors[key] && (
+                          <span className="error-text">{timeErrors[key]}</span>
+                        )}
+                      </div>
+
+                      <Badge kind={item.is_ready ? "accepted" : "neutral"}>
+                        {item.is_ready ? "готов" : "черновик"}
+                      </Badge>
+                      {item.is_hidden && <Badge kind="locked">скрыт</Badge>}
+
+                      <div style={{ position: "relative" }}>
+                        <button
+                          className="btn btn-icon"
+                          style={{ minHeight: 32, width: 32 }}
+                          aria-label="Действия"
+                          onClick={() => setMenuFor(menuFor === key ? null : key)}
+                        >
+                          <IconMore size={16} />
+                        </button>
+                        {menuFor === key && (
+                          <>
+                            <div
+                              style={{ position: "fixed", inset: 0, zIndex: 40 }}
+                              onClick={() => setMenuFor(null)}
+                            />
+                            <div className="row-menu">
+                              <Link
+                                href={href}
+                                className="admin-nav-item"
+                                onClick={() => setMenuFor(null)}
+                              >
+                                <IconEdit size={17} />
+                                Редактировать
+                              </Link>
+                              <MenuButton
+                                icon={item.is_hidden ? IconEye : IconEyeOff}
+                                onClick={() => toggleHidden(item)}
+                              >
+                                {item.is_hidden ? "Показать" : "Скрыть"}
+                              </MenuButton>
+                              {item.has_data ? (
+                                <p
+                                  className="caption muted-3 pretty"
+                                  style={{ padding: "6px 12px 8px", margin: 0 }}
+                                >
+                                  Удалить нельзя: {keepsReason(item.kind)}. Скрытый элемент
+                                  исчезает у учителей целиком, но у тех, кто его прошёл,
+                                  засчитанное остаётся.
+                                </p>
+                              ) : (
+                                <MenuButton
+                                  icon={IconTrash}
+                                  danger
+                                  onClick={() => {
+                                    setMenuFor(null);
+                                    setDeletingItem(item);
+                                  }}
+                                >
+                                  Удалить
+                                </MenuButton>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Добавление прямо в этот модуль — тип виден сразу */}
+                <div className="row wrap g8" style={{ padding: "10px 16px", background: "#fbfcfe" }}>
+                  <span className="caption muted-3" style={{ alignSelf: "center" }}>
+                    Добавить в модуль:
+                  </span>
+                  {GROUP_ORDER.map((g) => {
+                    const Icon = groupIcon(g);
+                    return (
+                      <Button
+                        key={g}
+                        variant="ghost"
+                        size="sm"
+                        icon={<Icon size={15} />}
+                        onClick={() => openAdd(g === "lesson" ? "video" : g, m.id)}
+                      >
+                        {GROUP_META[g].label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Сумма по программе — считает сервер по видимым элементам */}
+      <div className="card card-pad row between wrap g10">
+        <span className="small muted">Всего по программе</span>
+        <strong style={{ fontSize: 18, letterSpacing: "-0.01em" }}>
+          {duration(programMinutes)}
+        </strong>
+      </div>
+      <span className="caption muted-3 pretty">
+        Объём курса в сертификате задаётся отдельно, на вкладке «Основное»: сейчас
+        там {hours || "—"} часов. Скрытые элементы в сумму не входят.
+      </span>
+      {hiddenCount > 0 && (
+        <Note kind="muted">
+          <span className="caption pretty">
+            Скрытых элементов: {hiddenCount}. У учителя такого элемента нет ни в программе,
+            ни по прямой ссылке — заготовка заводится скрытой нарочно. Показать её можно
+            пунктом «Показать» в меню строки или переключателем видимости в редакторе
+            элемента, когда она наполнена.
+          </span>
+        </Note>
+      )}
+
       {/* Добавление элемента программы: сначала тип, потом куда и как называется */}
       <Sheet
         open={addOpen}
@@ -1170,10 +1979,10 @@ export default function CourseEditorPage() {
         title="Добавить в программу"
         footer={
           <div className="stack g8">
-            <Button block size="lg" onClick={() => submitAdd(true)}>
+            <Button block size="lg" loading={busy} onClick={() => submitAdd(true)}>
               Добавить и открыть редактор
             </Button>
-            <Button variant="secondary" block onClick={() => submitAdd(false)}>
+            <Button variant="secondary" block loading={busy} onClick={() => submitAdd(false)}>
               Добавить и остаться в программе
             </Button>
           </div>
@@ -1237,7 +2046,7 @@ export default function CourseEditorPage() {
             <select
               className="input"
               value={addModuleId}
-              onChange={(e) => setAddModuleId(e.target.value)}
+              onChange={(e) => setAddModuleId(Number(e.target.value))}
             >
               {program.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -1250,52 +2059,65 @@ export default function CourseEditorPage() {
           <div className="field">
             <label className="label">Название</label>
             <input
-              className="input"
+              className={`input${addErrors.title ? " input-error" : ""}`}
               value={addTitle}
-              onChange={(e) => setAddTitle(e.target.value)}
+              onChange={(e) => {
+                setAddTitle(e.target.value);
+                setAddErrors((p) => (p.title ? { ...p, title: "" } : p));
+              }}
               placeholder={KIND_META[addKind].title}
             />
             <span className="hint">
               Оставьте пустым — подставим «{KIND_META[addKind].title}». Название меняется
               в редакторе в любой момент.
             </span>
+            {addErrors.title && <span className="error-text">{addErrors.title}</span>}
           </div>
 
           <div className="field" style={{ maxWidth: 220 }}>
             <label className="label">Требует времени, минут</label>
             <input
-              className="input"
+              className={`input${addErrors.time_required_min ? " input-error" : ""}`}
               inputMode="numeric"
               value={addTime}
-              onChange={(e) => setAddTime(e.target.value)}
+              onChange={(e) => {
+                setAddTime(digits(e.target.value));
+                setAddErrors((p) =>
+                  p.time_required_min ? { ...p, time_required_min: "" } : p,
+                );
+              }}
             />
             <span className="hint">Складывается в сумму по программе</span>
+            {addErrors.time_required_min && (
+              <span className="error-text">{addErrors.time_required_min}</span>
+            )}
           </div>
 
           <Note kind="muted">
             <span className="small">
               {addKind === "quiz"
-                ? "Тест откроется в редакторе теста: вопросы, проходной балл, одна попытка или пересдачи."
+                ? "Тест откроется в редакторе теста: вопросы, проходной балл и признак итогового задаются там — сейчас ставим 70% и «не итоговый»."
                 : addKind === "task"
                   ? "Задание откроется в редакторе задания: условие, формат сдачи, критерии."
                   : addKind === "video"
                     ? "Видеоурок откроется в редакторе: ссылка на YouTube обязательна, текст под видео и файлы — по желанию."
                     : "Текстовый урок откроется в редакторе: текст обязателен, файлы — по желанию."}{" "}
-              В программе он появится черновиком, пока не наполнен.
+              Заготовка заводится скрытой и черновиком: пустой элемент не должен всплыть
+              у учителей, пока его не наполнили.
             </span>
           </Note>
         </div>
       </Sheet>
 
-      {/* Новый модуль — сразу ведёт к добавлению первого элемента */}
+      {/* Модуль: одна шторка на создание и переименование */}
       <Sheet
         open={moduleOpen}
         onClose={() => setModuleOpen(false)}
-        title="Новый модуль"
+        title={moduleId === null ? "Новый модуль" : "Переименовать модуль"}
         footer={
           <div className="stack g8">
-            <Button block size="lg" onClick={submitModule}>
-              Создать модуль
+            <Button block size="lg" loading={busy} onClick={submitModule}>
+              {moduleId === null ? "Создать модуль" : "Сохранить название"}
             </Button>
             <Button variant="secondary" block onClick={() => setModuleOpen(false)}>
               Отмена
@@ -1307,82 +2129,151 @@ export default function CourseEditorPage() {
           <div className="field">
             <label className="label">Название модуля</label>
             <input
-              className="input"
+              className={`input${moduleError ? " input-error" : ""}`}
               value={moduleTitle}
-              onChange={(e) => setModuleTitle(e.target.value)}
+              onChange={(e) => {
+                setModuleTitle(e.target.value);
+                setModuleError("");
+              }}
               placeholder={`Модуль ${program.length + 1}`}
             />
+            {moduleError && <span className="error-text">{moduleError}</span>}
           </div>
-          <p className="small muted pretty">
-            Сразу после создания предложим добавить в него первый элемент — урок, тест
-            или задание.
-          </p>
+          {moduleId === null && (
+            <p className="small muted pretty">
+              Сразу после создания предложим добавить в него первый элемент — урок, тест
+              или задание.
+            </p>
+          )}
         </div>
       </Sheet>
 
-      {/* Создание второй языковой версии */}
+      {/* Удаление модуля: что держит удаление, сервер называет поимённо */}
       <Sheet
-        open={createVersion}
-        onClose={() => setCreateVersion(false)}
-        title={`Создать ${missingLang === "kz" ? "казахскую" : "русскую"} версию`}
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        title="Удалить модуль?"
         footer={
           <div className="stack g8">
             <Button
+              variant="danger"
               block
               size="lg"
-              onClick={() => {
-                setCreateVersion(false);
-                toast(
-                  copyProgram
-                    ? "Версия создана — структура программы скопирована как заготовка"
-                    : "Версия создана — программа пустая",
-                  "success",
-                );
-              }}
+              loading={busy}
+              onClick={() => deleting && removeModule(deleting)}
             >
-              Создать версию
+              Удалить
             </Button>
-            <Button variant="secondary" block onClick={() => setCreateVersion(false)}>
+            <Button variant="secondary" block onClick={() => setDeleting(null)}>
               Отмена
             </Button>
           </div>
         }
       >
         <div className="stack g14">
-          <p className="small muted pretty">
-            Заведём новый курс с тем же groupId. В каталоге он останется одной карточкой
-            с бейджами языков, а дальше содержимое живёт своей жизнью: своя программа,
-            цена, дата старта и сертификат. Совпадать один в один версии не обязаны.
+          <p className="body muted pretty">
+            «{deleting?.title}» удалится вместе со своими уроками, тестами и заданиями:
+            модуль без содержимого никому не нужен, а вычищать его поэлементно значит
+            десять раз ответить на один и тот же вопрос.
           </p>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={copyProgram}
-              onChange={(e) => setCopyProgram(e.target.checked)}
-            />
-            <span className="check-box">
-              <IconCheck size={14} />
-            </span>
-            <span className="check-label">Скопировать структуру программы как заготовку</span>
-          </label>
+          {blockMessage && (
+            <Note kind="danger">
+              <div className="stack g8">
+                <span className="small pretty">{blockMessage}</span>
+                <div className="stack g4">
+                  {blockers.map((b, i) => (
+                    <span key={i} className="caption pretty">
+                      {KIND_META[(b.kind ?? "video") as ItemKind]?.label ?? b.kind} «{b.title}»
+                      {b.reason === "has_attempts"
+                        ? " — есть попытки"
+                        : b.reason === "has_submissions"
+                          ? " — есть сдачи"
+                          : " — есть прогресс"}
+                    </span>
+                  ))}
+                </div>
+                <span className="caption muted pretty">
+                  Такие элементы скрывают по одному — пункт «Скрыть» в меню строки, —
+                  а модуль остаётся.
+                </span>
+              </div>
+            </Note>
+          )}
         </div>
       </Sheet>
 
-      <style>{`
-        .edit-two { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-        .edit-row { display: grid; grid-template-columns: 1fr; gap: 14px; }
-        .program-row { row-gap: 8px; }
-        .kind-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
-        .kind-card {
-          display: flex; gap: 10px; align-items: flex-start; text-align: left;
-          padding: 12px; border: 1px solid var(--border); border-radius: 12px;
-          background: #fff; cursor: pointer; transition: border-color .15s, background .15s;
+      {/* Удаление элемента: заготовку не жаль, а наполненный урок — уже работа */}
+      <Sheet
+        open={deletingItem !== null}
+        onClose={() => !busy && setDeletingItem(null)}
+        title="Удалить элемент?"
+        footer={
+          <div className="stack g8">
+            <Button
+              variant="danger"
+              block
+              size="lg"
+              loading={busy}
+              onClick={() => deletingItem && removeItem(deletingItem)}
+            >
+              Удалить
+            </Button>
+            <Button
+              variant="secondary"
+              block
+              disabled={busy}
+              onClick={() => setDeletingItem(null)}
+            >
+              Отмена
+            </Button>
+          </div>
         }
-        .kind-card:hover { border-color: var(--border-strong); }
-        .kind-card[data-active="true"] { border-color: var(--primary); background: #f6f9ff; }
-        @media (min-width: 640px) { .edit-row { grid-template-columns: 1fr 1fr; } }
-        @media (min-width: 1100px) { .edit-two { grid-template-columns: 1.4fr 1fr; gap: 24px; } }
+      >
+        <p className="body muted pretty">
+          «{deletingItem?.title}» удалится вместе со своим содержимым — текстом,
+          видео, вопросами, материалами. Вернуть его будет нечем: копии
+          не остаётся. Если элемент ещё пригодится, его лучше скрыть.
+        </p>
+      </Sheet>
+
+      <style>{`
+        .row-menu {
+          position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
+          min-width: 230px; padding: 6px; background: #fff;
+          border: 1px solid var(--border); border-radius: 12px;
+          box-shadow: var(--shadow-lg);
+        }
       `}</style>
-    </AdminShell>
+    </div>
+  );
+}
+
+/** Пункт меню-кнопка: в разметке их много, а классы у всех одни и те же. */
+function MenuButton({
+  icon: Icon,
+  danger,
+  onClick,
+  children,
+}: {
+  icon: (p: { size?: number }) => React.JSX.Element;
+  danger?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      className="admin-nav-item"
+      style={{
+        color: danger ? "var(--danger)" : undefined,
+        width: "100%",
+        border: "none",
+        background: "none",
+        cursor: "pointer",
+      }}
+      onClick={onClick}
+    >
+      <Icon size={17} />
+      {children}
+    </button>
   );
 }
