@@ -9,12 +9,13 @@ import {
   qs,
   useLoad,
   useMe,
+  usePublicSettings,
   userInitials,
+  waHref,
   type Notification,
   type NotificationsPage,
 } from "@lms/api";
 import { useStore } from "@lms/prototype";
-import { adminContacts } from "@lms/prototype/data";
 import { dayTime, phoneFmt } from "@lms/ui/i18n";
 import { admin } from "@/lib/urls";
 import {
@@ -667,6 +668,11 @@ export function PublicShell({
 
 export function Footer() {
   const { t } = useStore();
+  /* Контакты — из настроек площадки; оба канала хранятся номерами,
+     ссылку wa.me собираем сами. Пока не пришли — колонка без ссылок */
+  const contacts = usePublicSettings().data?.contacts;
+  const wa = contacts ? waHref(contacts.whatsapp) : null;
+  const phone = contacts?.phone.trim() || null;
   return (
     <footer style={{ background: "#fff", borderTop: "1px solid var(--border)", marginTop: 24 }}>
       <div className="page section stack g32">
@@ -704,15 +710,16 @@ export function Footer() {
               «Связаться с администратором» на странице курса */}
           <div className="stack g10">
             <strong className="small">Контакты администратора</strong>
-            <a href={`tel:${adminContacts.phoneRaw}`} className="small muted">
-              {adminContacts.phone}
-            </a>
-            <a href={adminContacts.whatsapp} className="small muted" target="_blank" rel="noreferrer">
-              WhatsApp
-            </a>
-            <a href={adminContacts.telegram} className="small muted" target="_blank" rel="noreferrer">
-              Telegram {adminContacts.telegramName}
-            </a>
+            {phone && (
+              <a href={`tel:${phone}`} className="small muted">
+                {phone}
+              </a>
+            )}
+            {wa && (
+              <a href={wa} className="small muted" target="_blank" rel="noreferrer">
+                WhatsApp
+              </a>
+            )}
             <div style={{ marginTop: 4 }}>
               <LangSwitch />
             </div>

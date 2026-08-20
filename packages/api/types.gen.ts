@@ -4023,8 +4023,6 @@ export interface components {
             phone?: string | null;
             /** Whatsapp */
             whatsapp?: string | null;
-            /** Telegram */
-            telegram?: string | null;
             /** Hours */
             hours?: string | null;
         };
@@ -4033,6 +4031,9 @@ export interface components {
          * @description Контакты администратора: их подставляют в кнопку «Связаться
          *     с администратором» и в подвал. Не заполняли — приходят пустые строки,
          *     а не null: экран рисует поля всегда.
+         *
+         *     `phone` — для звонков, `whatsapp` — номер, а не ссылка: ссылку wa.me
+         *     фронт собирает сам.
          */
         SettingsContactsOut: {
             /** Name */
@@ -4041,8 +4042,6 @@ export interface components {
             phone: string;
             /** Whatsapp */
             whatsapp: string;
-            /** Telegram */
-            telegram: string;
             /** Hours */
             hours: string;
         };
@@ -5779,8 +5778,8 @@ export interface operations {
     admin_leads_admin_leads_get: {
         parameters: {
             query?: {
-                status?: ("new" | "contacted" | "paid" | "granted" | "declined" | "open") | null;
-                course_id?: number | null;
+                status?: string | null;
+                course_id?: string | null;
                 q?: string | null;
                 page?: number;
                 per_page?: number;

@@ -89,9 +89,9 @@ function brandOf(s: AdminSettings): BrandForm {
 /**
  * Тело `PATCH` вкладки «Бренд и контакты».
  *
- * `contacts` уходит объектом целиком, всеми пятью полями. Контракт называет
+ * `contacts` уходит объектом целиком, всеми четырьмя полями. Контракт называет
  * его «объектом целиком», сервер сливает по полям, а смысл частичной отправки
- * владельцем ещё не решён — пять полей дают один результат при любой трактовке.
+ * владельцем ещё не решён — четыре поля дают один результат при любой трактовке.
  *
  * **Стёртое поле уходит пустой строкой, а не `null`.** `null` сервер читает
  * как «не прислали»: вернётся 200 со старым значением, и админ решит, что
@@ -106,7 +106,6 @@ function brandPatch(f: BrandForm): AdminSettingsPatch {
       name: f.contacts.name.trim(),
       phone: f.contacts.phone.trim(),
       whatsapp: f.contacts.whatsapp.trim(),
-      telegram: f.contacts.telegram.trim(),
       hours: f.contacts.hours.trim(),
     },
   };
@@ -204,7 +203,12 @@ export default function AdminSettingsPage() {
   /* Порядок полей задаёт `brandOf` — сравнение строк честное */
   const dirty = JSON.stringify(form) !== JSON.stringify(brandOf(data));
 
-  const contactField = (key: keyof SettingsContacts, label: string, mono?: boolean) => (
+  const contactField = (
+    key: keyof SettingsContacts,
+    label: string,
+    mono?: boolean,
+    hint?: string,
+  ) => (
     <div className="field">
       <label className="label">{label}</label>
       <input
@@ -212,8 +216,10 @@ export default function AdminSettingsPage() {
         value={form.contacts[key]}
         onChange={(e) => setContact(key, e.target.value)}
       />
-      {errors[`contacts.${key}`] && (
+      {errors[`contacts.${key}`] ? (
         <span className="error-text">{errors[`contacts.${key}`]}</span>
+      ) : (
+        hint && <span className="hint">{hint}</span>
       )}
     </div>
   );
@@ -290,9 +296,13 @@ export default function AdminSettingsPage() {
                   </span>
                 </Note>
                 {contactField("name", "Имя администратора")}
-                {contactField("phone", "Телефон", true)}
-                {contactField("whatsapp", "Ссылка WhatsApp", true)}
-                {contactField("telegram", "Ссылка Telegram", true)}
+                {contactField("phone", "Телефон для звонков", true)}
+                {contactField(
+                  "whatsapp",
+                  "Номер WhatsApp",
+                  true,
+                  "Только номер — ссылку wa.me сайт соберёт сам",
+                )}
                 <div className="field">
                   <label className="label">Часы работы</label>
                   <input

@@ -11,11 +11,11 @@
  * `draft` и `hidden` в выдаче API не бывают, веток под них нет.
  */
 
-import { adminContacts } from "@lms/prototype/data";
+import { usePublicSettings, waHref } from "@lms/api";
 import { day, price as fmtPrice } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { Badge } from "@lms/ui";
-import { IconPhone, IconTelegram, IconWhatsapp } from "@lms/ui/icons";
+import { IconPhone, IconWhatsapp } from "@lms/ui/icons";
 
 /** Три вида бейджа: идёт набор · старт такого-то числа · набор закрыт. */
 export function EnrollBadge({
@@ -58,58 +58,61 @@ export function Price({
 /**
  * Запасной путь связи. Главный сценарий — нажать «Записаться» и ждать,
  * поэтому кнопка вторичная и стоит под главной.
+ *
+ * Каналы — WhatsApp и звонок, из настроек площадки; оба хранятся номерами,
+ * ссылку wa.me собираем здесь. Пока настройки не пришли или канал
+ * не заполнен — не рисуем ничего: скелет на вторичной кнопке шумнее пользы.
  */
 export function ContactAdmin({ variant = "button" }: { variant?: "button" | "link" }) {
   const { t } = useStore();
+  const settings = usePublicSettings();
+  const contacts = settings.data?.contacts;
+  if (!contacts) return null;
+
+  const wa = waHref(contacts.whatsapp);
+  const phone = contacts.phone.trim();
 
   if (variant === "link") {
+    const href = wa ?? (phone ? `tel:${phone}` : null);
+    if (!href) return null;
     return (
       <a
-        href={adminContacts.whatsapp}
+        href={href}
         target="_blank"
         rel="noreferrer"
         className="row center g6 small"
         style={{ color: "var(--primary)", fontWeight: 700, minHeight: 44 }}
       >
-        <IconWhatsapp size={17} />
+        {wa ? <IconWhatsapp size={17} /> : <IconPhone size={17} />}
         {t.contactAdmin}
       </a>
     );
   }
 
+  if (!wa && !phone) return null;
   return (
     <div className="stack g8">
-      <div className="row g8">
-        <a
-          href={adminContacts.whatsapp}
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-secondary grow"
-        >
+      {wa && (
+        <a href={wa} target="_blank" rel="noreferrer" className="btn btn-secondary grow">
           <IconWhatsapp size={18} />
           WhatsApp
         </a>
+      )}
+      {phone && (
         <a
-          href={adminContacts.telegram}
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-secondary grow"
+          href={`tel:${phone}`}
+          className="row center g6 small"
+          style={{ color: "var(--text-2)", minHeight: 44 }}
         >
-          <IconTelegram size={18} />
-          Telegram
+          <IconPhone size={16} />
+          <span className="mono">{phone}</span>
         </a>
-      </div>
-      <a
-        href={`tel:${adminContacts.phoneRaw}`}
-        className="row center g6 small"
-        style={{ color: "var(--text-2)", minHeight: 44 }}
-      >
-        <IconPhone size={16} />
-        <span className="mono">{adminContacts.phone}</span>
-      </a>
-      <span className="caption muted-3" style={{ textAlign: "center" }}>
-        {adminContacts.hours}
-      </span>
+      )}
+      {contacts.hours && (
+        <span className="caption muted-3" style={{ textAlign: "center" }}>
+          {contacts.hours}
+        </span>
+      )}
     </div>
   );
 }
