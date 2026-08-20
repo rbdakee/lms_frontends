@@ -11,7 +11,7 @@
  * а выбор версии: пункт меню «Отчёты» ведёт именно сюда.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   api,
@@ -27,7 +27,7 @@ import { dayTime } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Badge, Button, Empty, Note, Progress, type BadgeKind } from "@lms/ui";
-import { IconChart, IconDownload, IconSearch } from "@lms/ui/icons";
+import { IconChart, IconSearch } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 
@@ -39,7 +39,7 @@ const PER_PAGE = 20;
 const DROP_SHARE = 0.2;
 
 export default function ReportPage() {
-  const { t, lang, toast } = useStore();
+  const { t, lang } = useStore();
   const router = useRouter();
   /* Сегмент необязательный: «/reports» — это выбор курса, «/reports/2» — отчёт */
   const params = useParams<{ id?: string[] }>();
@@ -76,8 +76,23 @@ export default function ReportPage() {
   const data = report.data;
   const notFound = isApiError(report.error, "not_found");
 
+  /* Кнопка «Выбрать курс» в пустом состоянии подводит взгляд к списку
+     наверху: фокусирует его и, где браузер умеет, раскрывает */
+  const pickerRef = useRef<HTMLSelectElement>(null);
+  const openPicker = () => {
+    const el = pickerRef.current;
+    if (!el) return;
+    el.focus();
+    try {
+      el.showPicker?.();
+    } catch {
+      /* без showPicker остаётся фокус — этого достаточно */
+    }
+  };
+
   const picker = (
     <select
+      ref={pickerRef}
       className="input"
       style={{ width: "auto", minWidth: 200 }}
       aria-label={t.repCourseField}
@@ -102,25 +117,18 @@ export default function ReportPage() {
     <AdminShell
       title={data ? `${t.repTitle} · ${data.course.title}` : t.repTitle}
       subtitle={data ? t.repGeneratedAt(dayTime(data.generated_at, lang)) : undefined}
-      actions={
-        <div className="row g8">
-          {picker}
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<IconDownload size={16} />}
-            /* Эндпоинта выгрузки нет: собирать CSV на клиенте нельзя —
-               участники приходят страницами, в файл попала бы одна из них */
-            onClick={() => toast(t.repCsvLater)}
-          >
-            <span className="hide-sm">{t.repCsv}</span>
-          </Button>
-        </div>
-      }
+      /* Кнопки «Скачать CSV» нет: эндпоинта выгрузки нет, а неработающая
+         кнопка — лишний шум (решение владельца 20.08.2026) */
+      actions={picker}
     >
       {courseId === undefined ? (
         <div className="card">
-          <Empty icon={<IconChart size={38} />} title={t.repPickTitle} text={t.repPickText} />
+          <Empty
+            icon={<IconChart size={38} />}
+            title={t.repPickTitle}
+            text={t.repPickText}
+            action={<Button onClick={openPicker}>{t.repPickBtn}</Button>}
+          />
         </div>
       ) : report.loading && !data ? (
         <div className="card card-pad row center" style={{ minHeight: 240 }}>
@@ -158,7 +166,6 @@ export default function ReportPage() {
         .report-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         @media (min-width: 700px) { .report-kpis { grid-template-columns: repeat(4, 1fr); } }
         @media (min-width: 1200px) { .report-kpis { grid-template-columns: repeat(7, 1fr); } }
-        @media (max-width: 640px) { .hide-sm { display: none; } }
       `}</style>
     </AdminShell>
   );

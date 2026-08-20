@@ -36,7 +36,7 @@ import { fmt, phoneFmt } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Avatar, Button, Empty, StatusBadge } from "@lms/ui";
-import { IconChevronRight, IconDownload, IconSearch } from "@lms/ui/icons";
+import { IconChevronRight, IconSearch } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 
@@ -51,7 +51,7 @@ function initialsOf(t: AdminTeacher): string {
 }
 
 export default function TeachersPage() {
-  const { t, toast } = useStore();
+  const { t } = useStore();
   const [query, setQuery] = useState("");
   /* Поиск и школа уходят на сервер — печать не должна слать запрос на каждую букву */
   const [q, setQ] = useState("");
@@ -111,18 +111,8 @@ export default function TeachersPage() {
           ? undefined
           : `${fmt(total)} ${hasFilters ? "по фильтру" : "зарегистрировано"}`
       }
-      actions={
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<IconDownload size={16} />}
-          /* Эндпоинта выгрузки нет — обещать скачанный файл нельзя.
-             Так же честно об этом говорит отчёт по курсу */
-          onClick={() => toast(t.repCsvLater)}
-        >
-          <span className="hide-sm">{t.repCsv}</span>
-        </Button>
-      }
+      /* Кнопки «Скачать CSV» нет: эндпоинта выгрузки нет, а неработающая
+         кнопка — лишний шум (решение владельца 20.08.2026) */
     >
       <div className="stack g16">
         <div className="row wrap g10">

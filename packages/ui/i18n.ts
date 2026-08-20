@@ -479,8 +479,6 @@ const ru = {
   /* Админка · отчёт по курсу (5.23) */
   repTitle: "Отчёт",
   repGeneratedAt: (dt: string) => `Данные на ${dt}`,
-  repCsv: "Скачать CSV",
-  repCsvLater: "Выгрузка CSV пока не готова — сделаем отдельной задачей",
   repGranted: "получили доступ",
   repStarted: "начали",
   repCompleted: "завершили",
@@ -513,6 +511,7 @@ const ru = {
   repNoMatch: "Участников не нашли",
   repPickTitle: "Выберите курс",
   repPickText: "Отчёт считается по версии курса — выберите её в списке наверху.",
+  repPickBtn: "Выбрать курс",
   repCourseField: "Курс",
 
   /* Предпросмотр как учитель */
@@ -962,8 +961,6 @@ const kz: Dict = {
 
   repTitle: "Есеп",
   repGeneratedAt: (dt: string) => `Дерек ${dt} жағдайына`,
-  repCsv: "CSV жүктеп алу",
-  repCsvLater: "CSV шығару әзірге дайын емес — оны бөлек тапсырма етіп жасаймыз",
   repGranted: "қолжетімділік алды",
   repStarted: "бастады",
   repCompleted: "аяқтады",
@@ -996,6 +993,7 @@ const kz: Dict = {
   repNoMatch: "Қатысушы табылмады",
   repPickTitle: "Курсты таңдаңыз",
   repPickText: "Есеп курс нұсқасы бойынша есептеледі — оны жоғарыдағы тізімнен таңдаңыз.",
+  repPickBtn: "Курсты таңдау",
   repCourseField: "Курс",
 
   pvTitle: "Мұғалім көзімен қарау",
