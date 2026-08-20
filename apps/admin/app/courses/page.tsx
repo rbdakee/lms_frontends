@@ -45,6 +45,7 @@ import {
   IconEye,
   IconEyeOff,
   IconChart,
+  IconFilter,
   IconLayers,
   IconMore,
   IconPlus,
@@ -72,6 +73,9 @@ export default function AdminCoursesPage() {
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<AdminCourse | null>(null);
   const [hiding, setHiding] = useState<AdminCourse | null>(null);
+  /* Мобильный: статус и язык за одной кнопкой-иконкой справа от поиска,
+     окно выезжает снизу — как на заявках */
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -99,6 +103,9 @@ export default function AdminCoursesPage() {
   const total = courses.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const hasFilters = status !== "all" || courseLang !== "all" || q !== "";
+  /* Счётчик на мобильной кнопке-иконке: только то, что за ней спрятано, —
+     поиск остаётся на экране и в счёт не идёт */
+  const mobileFilters = (status !== "all" ? 1 : 0) + (courseLang !== "all" ? 1 : 0);
 
   const resetFilters = () => {
     setQuery("");
@@ -284,8 +291,10 @@ export default function AdminCoursesPage() {
       }
     >
       <div className="stack g16">
-        <div className="row wrap g10">
-          <div className="input-wrap" style={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
+        {/* Поиск виден всегда; статус и язык на мобильном схлопнуты
+            в кнопку-иконку справа от поиска, окно выезжает снизу */}
+        <div className="row g10">
+          <div className="input-wrap" style={{ flex: 1, minWidth: 0, maxWidth: 380 }}>
             <span className="input-icon">
               <IconSearch size={19} />
             </span>
@@ -296,35 +305,46 @@ export default function AdminCoursesPage() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 190 }}
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as typeof status);
-              setPage(1);
-            }}
+          <div className="row wrap g10 courses-filters-inline">
+            <select
+              className="input"
+              style={{ width: "auto", minWidth: 190 }}
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value as typeof status);
+                setPage(1);
+              }}
+            >
+              <option value="all">Все статусы</option>
+              {COURSE_STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {COURSE_STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+            <select
+              className="input"
+              style={{ width: "auto", minWidth: 150 }}
+              value={courseLang}
+              onChange={(e) => {
+                setCourseLang(e.target.value as typeof courseLang);
+                setPage(1);
+              }}
+            >
+              <option value="all">Оба языка</option>
+              <option value="ru">Русский</option>
+              <option value="kz">Қазақша</option>
+            </select>
+          </div>
+          <Button
+            variant="secondary"
+            className="courses-filter-btn"
+            aria-label="Фильтры"
+            icon={<IconFilter size={17} />}
+            onClick={() => setFiltersOpen(true)}
           >
-            <option value="all">Все статусы</option>
-            {COURSE_STATUS_ORDER.map((s) => (
-              <option key={s} value={s}>
-                {COURSE_STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 150 }}
-            value={courseLang}
-            onChange={(e) => {
-              setCourseLang(e.target.value as typeof courseLang);
-              setPage(1);
-            }}
-          >
-            <option value="all">Оба языка</option>
-            <option value="ru">Русский</option>
-            <option value="kz">Қазақша</option>
-          </select>
+            {mobileFilters > 0 ? mobileFilters : null}
+          </Button>
         </div>
 
         {courses.loading ? (
@@ -441,7 +461,9 @@ export default function AdminCoursesPage() {
                   className="card card-pad stack g10"
                   style={busyId === c.id ? { opacity: 0.5 } : undefined}
                 >
-                  <div className="row between g10" style={{ alignItems: "flex-start" }}>
+                  {/* По центру, а не по верху: с двухстрочным названием
+                      обложка иначе висит выше текста */}
+                  <div className="row between g10" style={{ alignItems: "center" }}>
                     <Cover src={c.cover} glyph={false} style={{ width: 56, borderRadius: 8 }} />
                     <Link href={`/courses/${c.id}/edit`} className="grow">
                       <strong className="small pretty">{c.title}</strong>
@@ -516,6 +538,70 @@ export default function AdminCoursesPage() {
           </>
         )}
       </div>
+
+      {/* Фильтры на мобильном. Значения общие со строкой фильтров и
+          применяются сразу — «Готово» просто закрывает окно */}
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Фильтры"
+        footer={
+          <div className="stack g8">
+            <Button block size="lg" onClick={() => setFiltersOpen(false)}>
+              Готово
+            </Button>
+            {mobileFilters > 0 && (
+              <Button
+                variant="secondary"
+                block
+                onClick={() => {
+                  setStatus("all");
+                  setCourseLang("all");
+                  setPage(1);
+                }}
+              >
+                Сбросить фильтры
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <div className="stack g14">
+          <div className="field">
+            <label className="label">Статус</label>
+            <select
+              className="input"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value as typeof status);
+                setPage(1);
+              }}
+            >
+              <option value="all">Все статусы</option>
+              {COURSE_STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {COURSE_STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label className="label">Язык курса</label>
+            <select
+              className="input"
+              value={courseLang}
+              onChange={(e) => {
+                setCourseLang(e.target.value as typeof courseLang);
+                setPage(1);
+              }}
+            >
+              <option value="all">Оба языка</option>
+              <option value="ru">Русский</option>
+              <option value="kz">Қазақша</option>
+            </select>
+          </div>
+        </div>
+      </Sheet>
 
       <NewCourseSheet open={creating} onClose={() => setCreating(false)} />
 
@@ -597,7 +683,14 @@ export default function AdminCoursesPage() {
         </div>
       </Sheet>
 
-      <style>{`@media (max-width: 560px) { .hide-sm { display: none; } }`}</style>
+      <style>{`
+        @media (max-width: 560px) { .hide-sm { display: none; } }
+        .courses-filter-btn { display: none; }
+        @media (max-width: 899px) {
+          .courses-filters-inline { display: none; }
+          .courses-filter-btn { display: inline-flex; flex-shrink: 0; }
+        }
+      `}</style>
     </AdminShell>
   );
 }
