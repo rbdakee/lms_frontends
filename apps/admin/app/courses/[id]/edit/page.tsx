@@ -347,6 +347,10 @@ function CourseEditor() {
      на пять минут: без метки замена обложки показала бы прежнюю */
   const [coverStamp, setCoverStamp] = useState(0);
   const coverPick = useRef<HTMLInputElement>(null);
+  /* Что выбрали в проводнике: растровые форматы сперва проходят обрезку
+     под рамку 16:9 — как обложка стоит в каталоге, — SVG и GIF грузятся
+     как есть (обрезка убила бы масштабируемость и анимацию) */
+  const [cropping, setCropping] = useState<File | null>(null);
 
   /* Форма пересобирается только при смене курса: пока админ печатает, дерево
      программы ходит на сервер своими запросами и не должно стирать поля */
@@ -664,10 +668,6 @@ function CourseEditor() {
     else toast(isApiError(e) && e.status > 0 ? e.message : fallback, "error");
   };
 
-  /* Что выбрали в проводнике: растровые форматы сперва проходят обрезку
-     под рамку 16:9 — как обложка стоит в каталоге, — SVG и GIF грузятся
-     как есть (обрезка убила бы масштабируемость и анимацию) */
-  const [cropping, setCropping] = useState<File | null>(null);
   const pickCover = (picked: FileList | null) => {
     const file = picked?.[0];
     if (!file || coverBusy) return;
