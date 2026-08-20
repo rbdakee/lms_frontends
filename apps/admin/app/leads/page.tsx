@@ -353,7 +353,9 @@ export default function LeadsPage() {
                           <div
                             key={l.id}
                             className="card card-pad stack g10"
-                            draggable
+                            /* Доступ выдан — заявке дальше деваться некуда,
+                               перетаскивать её из колонки уже нельзя */
+                            draggable={l.status !== "granted"}
                             onDragStart={(e) => {
                               e.dataTransfer.setData("text/plain", String(l.id));
                               e.dataTransfer.effectAllowed = "move";
@@ -364,7 +366,7 @@ export default function LeadsPage() {
                               setDragOver(null);
                             }}
                             style={{
-                              cursor: "grab",
+                              cursor: l.status === "granted" ? "default" : "grab",
                               opacity: dragId === l.id ? 0.5 : undefined,
                             }}
                           >
