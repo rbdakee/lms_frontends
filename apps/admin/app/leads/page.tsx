@@ -8,14 +8,25 @@
  * Главное действие прямо в строке — «Открыть доступ».
  *
  * Данные — `GET /admin/leads` с серверной пагинацией и фильтрами: `status`
- * (включая псевдостатус `open` — «В работе»), `course_id`, `q` — один
- * параметр на ФИО и телефон в любом виде. Метка «напоминание» — `reminded_at`.
+ * и `course_id` принимают списки через запятую — фильтры экрана с мультивыбором
+ * (свой MultiSelect, не нативный select), `q` — один параметр на ФИО и телефон
+ * в любом виде. Метка «напоминание» — `reminded_at`.
+ *
+ * Вида два — список и канбан (просьба владельца 20.08.2026), переключатель
+ * помнится в localStorage. Канбан — колонки по статусам, до 100 заявок одним
+ * запросом; карточка переносится перетаскиванием. Бросок в «Доступ выдан»
+ * открывает модалку выдачи (прямой PATCH в granted сервер запрещает),
+ * в «Отказ» — окно с обязательной причиной. На тач-экранах перетаскивания
+ * нет — статус меняется из списка или с карточки заявки.
+ *
+ * На мобильном фильтры собраны за одной кнопкой, окно выезжает снизу.
  */
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   api,
+  isApiError,
   qs,
   useLoad,
   type AdminLead,
@@ -23,28 +34,57 @@ import {
   type CatalogOut,
   type LeadStatus,
 } from "@lms/api";
-import { dayMonth, phoneFmt, price as fmtPrice } from "@lms/ui/i18n";
+import { dayMonth, price as fmtPrice } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { isOpenLead, LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "@/components/admin/leadsApi";
-import { LeadStatusPicker, PhoneActions } from "@/components/admin/LeadStatus";
+import { DeclineLeadSheet, LeadStatusPicker, PhoneActions } from "@/components/admin/LeadStatus";
+import { MultiOptions, MultiSelect } from "@/components/admin/MultiSelect";
 import { Waiting } from "@/components/admin/Waiting";
 import { GrantLeadSheet } from "@/components/admin/GrantLead";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { Avatar, Button, Empty, StatusBadge } from "@lms/ui";
-import { IconChevronRight, IconSearch } from "@lms/ui/icons";
+import { Avatar, Button, Empty, Note, Sheet, StatusBadge } from "@lms/ui";
+import { IconChevronRight, IconFilter, IconSearch } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
+/* Потолок канбана — предел per_page на сервере */
+const KANBAN_LIMIT = 100;
+
+type LeadsView = "list" | "kanban";
+const VIEW_KEY = "admin_leads_view";
+
+const STATUS_OPTIONS = LEAD_STATUS_ORDER.map((s) => ({
+  value: s,
+  label: LEAD_STATUS_LABEL[s],
+}));
 
 export default function LeadsPage() {
-  const { lang } = useStore();
+  const { lang, toast } = useStore();
 
   const [query, setQuery] = useState("");
   /* Поиск уходит на сервер — печать не должна слать запрос на каждую букву */
   const [q, setQ] = useState("");
-  const [courseId, setCourseId] = useState<"all" | number>("all");
-  const [status, setStatus] = useState<"all" | "open" | LeadStatus>("all");
+  const [courseIds, setCourseIds] = useState<number[]>([]);
+  const [statuses, setStatuses] = useState<LeadStatus[]>([]);
   const [page, setPage] = useState(1);
   const [granting, setGranting] = useState<AdminLead | null>(null);
+  /* Отказ с канбана: бросили карточку в колонку «Отказ» — причина обязательна */
+  const [declining, setDeclining] = useState<AdminLead | null>(null);
+  /* Мобильный: все фильтры за одной кнопкой, окно выезжает снизу — как меню */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  /* Перетаскивание: что тащим и над какой колонкой висим */
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<LeadStatus | null>(null);
+
+  /* Стартуем со списка и читаем сохранённый выбор эффектом, а не в useState:
+     на сервере localStorage нет, и разный первый кадр дал бы ошибку гидратации */
+  const [view, setView] = useState<LeadsView>("list");
+  useEffect(() => {
+    if (localStorage.getItem(VIEW_KEY) === "kanban") setView("kanban");
+  }, []);
+  const switchView = (v: LeadsView) => {
+    setView(v);
+    localStorage.setItem(VIEW_KEY, v);
+  };
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -54,23 +94,44 @@ export default function LeadsPage() {
     return () => clearTimeout(id);
   }, [query]);
 
+  /* Массивы фильтров в deps ходят строками: новый массив на каждый рендер
+     перезапускал бы загрузку бесконечно */
+  const statusParam = statuses.join(",");
+  const courseParam = courseIds.join(",");
+
   const leads = useLoad(
     () =>
       api<AdminLeadsPage>(
         `/admin/leads${qs({
           page,
           per_page: PER_PAGE,
-          status: status === "all" ? undefined : status,
-          course_id: courseId === "all" ? undefined : courseId,
+          status: statusParam || undefined,
+          course_id: courseParam || undefined,
           q,
         })}`,
       ),
-    [page, status, courseId, q],
+    [page, statusParam, courseParam, q],
   );
-  /* Счётчик «новых» не зависит от фильтров списка — отдельный запрос */
+  /* Счётчик «новых» в подзаголовке не зависит от фильтров — отдельный запрос */
   const fresh = useLoad(
     () => api<AdminLeadsPage>(`/admin/leads${qs({ status: "new", per_page: 1 })}`),
     [],
+  );
+  /* Канбану нужны все статусы разом — своя выборка одним запросом, без
+     пагинации. Поиск и курс действуют, фильтр статуса не нужен: статусы
+     и есть колонки. В списке не грузим ничего */
+  const kanban = useLoad(
+    () =>
+      view === "kanban"
+        ? api<AdminLeadsPage>(
+            `/admin/leads${qs({
+              per_page: KANBAN_LIMIT,
+              course_id: courseParam || undefined,
+              q,
+            })}`,
+          )
+        : Promise.resolve(null),
+    [view, courseParam, q],
   );
   /* Фильтр по курсу — все версии из каталога */
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
@@ -79,21 +140,62 @@ export default function LeadsPage() {
   const total = leads.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const newCount = fresh.data?.total ?? 0;
-  const hasFilters = status !== "all" || courseId !== "all" || q !== "";
-  const courseOptions = (catalog.data?.items ?? []).flatMap((g) => g.versions);
+  const hasFilters = statuses.length > 0 || courseIds.length > 0 || q !== "";
+  const courseOptions = (catalog.data?.items ?? [])
+    .flatMap((g) => g.versions)
+    .map((c) => ({ value: c.id, label: c.title }));
 
   const refresh = () => {
     leads.reload();
     fresh.reload();
+    if (view === "kanban") kanban.reload();
   };
 
-  /** PATCH вернул заявку — подставляем её на место старой без перезапроса */
+  /** PATCH вернул заявку — подставляем её на место старой без перезапроса.
+      В канбане смена статуса тем самым переносит карточку в свою колонку */
   const replaceLead = (updated: AdminLead) => {
-    leads.setData((d) =>
-      d ? { ...d, items: d.items.map((l) => (l.id === updated.id ? updated : l)) } : d,
-    );
+    const swap = (d: AdminLeadsPage | null) =>
+      d ? { ...d, items: d.items.map((l) => (l.id === updated.id ? updated : l)) } : d;
+    leads.setData(swap);
+    kanban.setData(swap);
     fresh.reload();
   };
+
+  const moveLead = async (l: AdminLead, status: LeadStatus) => {
+    try {
+      const updated = await api<AdminLead>(`/admin/leads/${l.id}`, {
+        method: "PATCH",
+        json: { status },
+      });
+      replaceLead(updated);
+      toast(`Статус заявки: ${LEAD_STATUS_LABEL[status]}`);
+    } catch (e) {
+      toast(isApiError(e) ? e.message : "Не удалось изменить статус", "error");
+    }
+  };
+
+  /** Бросили карточку в колонку. «Доступ выдан» и «Отказ» прямым PATCH
+      нельзя: выдача идёт через модалку доступа, отказ требует причину */
+  const dropLead = (l: AdminLead, target: LeadStatus) => {
+    if (l.status === target) return;
+    if (target === "granted") return setGranting(l);
+    if (target === "declined") return setDeclining(l);
+    void moveLead(l, target);
+  };
+
+  const resetFilters = () => {
+    setQuery("");
+    setCourseIds([]);
+    setStatuses([]);
+    setPage(1);
+  };
+
+  /* Счётчик на мобильной кнопке «Фильтры» — по группам, а не по значениям.
+     Статус считается только в списке: канбан его не применяет */
+  const activeFilters =
+    (q !== "" ? 1 : 0) +
+    (courseIds.length > 0 ? 1 : 0) +
+    (view === "list" && statuses.length > 0 ? 1 : 0);
 
   const teacherName = (l: AdminLead) =>
     [l.teacher.last_name, l.teacher.first_name, l.teacher.middle_name]
@@ -108,64 +210,243 @@ export default function LeadsPage() {
       subtitle={`${total} по фильтру · ${newCount} новых · оплата принимается вне платформы`}
     >
       <div className="stack g16">
-        {/* ===== Фильтры ===== */}
-        <div className="row wrap g10">
-          <div className="input-wrap" style={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
-            <span className="input-icon">
-              <IconSearch size={19} />
-            </span>
-            <input
-              className="input"
-              placeholder="Поиск по ФИО или телефону"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+        {/* ===== Фильтры: на десктопе — строкой, на мобильном — одна кнопка
+            и окно снизу. Внешний ряд не переносится — иначе переключатель
+            видов уезжал бы под фильтры ===== */}
+        <div className="row g10" style={{ alignItems: "flex-start" }}>
+          <div className="row wrap g10 grow leads-filters-inline" style={{ minWidth: 0 }}>
+            <div className="input-wrap" style={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
+              <span className="input-icon">
+                <IconSearch size={19} />
+              </span>
+              <input
+                className="input"
+                placeholder="Поиск по ФИО или телефону"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            <MultiSelect
+              placeholder="Все курсы"
+              options={courseOptions}
+              value={courseIds}
+              minWidth={190}
+              onChange={(next) => {
+                setCourseIds(next);
+                setPage(1);
+              }}
             />
+            {/* Фильтр статуса — только в списке: в канбане статусы
+                и так разложены по колонкам */}
+            {view === "list" && (
+              <MultiSelect
+                placeholder="Все статусы"
+                options={STATUS_OPTIONS}
+                value={statuses}
+                onChange={(next) => {
+                  setStatuses(next);
+                  setPage(1);
+                }}
+              />
+            )}
           </div>
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 190 }}
-            value={courseId}
-            onChange={(e) => {
-              setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
-              setPage(1);
-            }}
-          >
-            <option value="all">Все курсы</option>
-            {courseOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 170 }}
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as typeof status);
-              setPage(1);
-            }}
-          >
-            <option value="all">Все статусы</option>
-            <option value="open">В работе</option>
-            {LEAD_STATUS_ORDER.map((s) => (
-              <option key={s} value={s}>
-                {LEAD_STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
           <Button
-            variant={status === "new" ? "primary" : "secondary"}
-            onClick={() => {
-              setStatus(status === "new" ? "all" : "new");
-              setPage(1);
-            }}
+            variant="secondary"
+            className="leads-filter-btn"
+            icon={<IconFilter size={17} />}
+            onClick={() => setFiltersOpen(true)}
           >
-            Только новые · {newCount}
+            Фильтры{activeFilters > 0 ? ` · ${activeFilters}` : ""}
           </Button>
+          <div className="segmented" style={{ marginLeft: "auto", flexShrink: 0 }}>
+            <button data-active={view === "list"} onClick={() => switchView("list")}>
+              Список
+            </button>
+            <button data-active={view === "kanban"} onClick={() => switchView("kanban")}>
+              Канбан
+            </button>
+          </div>
         </div>
 
-        {leads.loading ? (
+        {view === "kanban" ? (
+          kanban.loading ? (
+            <div className="card card-pad row center" style={{ minHeight: 200 }}>
+              <span
+                className="spinner"
+                style={{ width: 26, height: 26, color: "var(--primary)" }}
+              />
+            </div>
+          ) : kanban.error || !kanban.data ? (
+            <div className="card">
+              <Empty
+                title="Не удалось загрузить"
+                text="Проверьте интернет и попробуйте ещё раз."
+                action={
+                  <Button variant="secondary" onClick={kanban.reload}>
+                    Повторить
+                  </Button>
+                }
+              />
+            </div>
+          ) : kanban.data.items.length === 0 ? (
+            <div className="card">
+              <Empty
+                icon={<IconSearch size={34} />}
+                title={q || courseIds.length ? "Заявок не нашли" : "Заявок пока нет"}
+                text={
+                  q || courseIds.length
+                    ? "Попробуйте снять фильтры или очистить поиск."
+                    : "Как только учитель нажмёт «Записаться», заявка появится здесь."
+                }
+              />
+            </div>
+          ) : (
+            <>
+              {kanban.data.total > kanban.data.items.length && (
+                <Note kind="info">
+                  <span className="small">
+                    Показаны первые {kanban.data.items.length} из {kanban.data.total}{" "}
+                    заявок — сузьте поиском или фильтром курса.
+                  </span>
+                </Note>
+              )}
+              <div className="kanban">
+                {LEAD_STATUS_ORDER.map((s) => {
+                  const col = kanban.data!.items.filter((l) => l.status === s);
+                  return (
+                    <section
+                      key={s}
+                      className="kanban-col stack g10"
+                      data-drag-over={dragOver === s || undefined}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (dragOver !== s) setDragOver(s);
+                      }}
+                      onDragLeave={(e) => {
+                        /* dragleave стреляет и на детях — уходим, только
+                           когда курсор реально покинул колонку */
+                        if (!e.currentTarget.contains(e.relatedTarget as Node))
+                          setDragOver((cur) => (cur === s ? null : cur));
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOver(null);
+                        const id = Number(e.dataTransfer.getData("text/plain"));
+                        const l = kanban.data!.items.find((x) => x.id === id);
+                        if (l) dropLead(l, s);
+                      }}
+                    >
+                      <div className="row between g8" style={{ paddingInline: 2 }}>
+                        <strong className="small">{LEAD_STATUS_LABEL[s]}</strong>
+                        <span className="caption muted-3">{col.length}</span>
+                      </div>
+                      {col.length === 0 ? (
+                        <span
+                          className="caption muted-3"
+                          style={{ padding: "14px 2px", textAlign: "center" }}
+                        >
+                          Пусто
+                        </span>
+                      ) : (
+                        col.map((l) => (
+                          <div
+                            key={l.id}
+                            className="card card-pad stack g10"
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", String(l.id));
+                              e.dataTransfer.effectAllowed = "move";
+                              setDragId(l.id);
+                            }}
+                            onDragEnd={() => {
+                              setDragId(null);
+                              setDragOver(null);
+                            }}
+                            style={{
+                              cursor: "grab",
+                              opacity: dragId === l.id ? 0.5 : undefined,
+                            }}
+                          >
+                            {/* Без города: для работы с заявкой он не нужен */}
+                            <Link href={`/leads/${l.id}`} className="row g10" draggable={false}>
+                              <Avatar initials={initials(l)} size={34} tone="neutral" />
+                              <span className="stack g2 grow" style={{ minWidth: 0 }}>
+                                <span className="small" style={{ fontWeight: 700 }}>
+                                  {teacherName(l)}
+                                </span>
+                              </span>
+                            </Link>
+                            <div className="stack g2">
+                              <span className="caption pretty">{l.course.title}</span>
+                              <div className="row wrap g6">
+                                <strong className="caption">
+                                  {fmtPrice(l.price_snapshot ?? undefined, lang)}
+                                </strong>
+                                <span className="dot-sep">·</span>
+                                <span className="caption muted-3">
+                                  {dayMonth(l.created_at, lang)}
+                                </span>
+                                {l.reminded_at && (
+                                  <span className="caption" style={{ color: "var(--warning)" }}>
+                                    напоминание
+                                  </span>
+                                )}
+                              </div>
+                              {isOpenLead(l.status) && (
+                                <Waiting days={l.waiting_days} redAfter={2} />
+                              )}
+                            </div>
+                            {/* Доступ выдан — связываться больше незачем:
+                                остаются ФИО, курс, цена и дата запроса */}
+                            {l.status !== "granted" && (
+                              <PhoneActions phone={l.teacher.phone} />
+                            )}
+                            {isOpenLead(l.status) && (
+                              <Button size="sm" block onClick={() => setGranting(l)}>
+                                Открыть доступ
+                              </Button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+              <style>{`
+                .kanban {
+                  display: grid;
+                  grid-auto-flow: column;
+                  grid-auto-columns: minmax(250px, 1fr);
+                  gap: 12px;
+                  align-items: start;
+                  overflow-x: auto;
+                  padding-bottom: 6px;
+                }
+                /* min-width: 0 — обязателен: без него колонка расте́т под
+                   min-content карточки, карточка распирает сетку, и весь
+                   экран уезжает в горизонтальный скролл */
+                .kanban-col {
+                  background: #f1f5f9;
+                  border-radius: 14px;
+                  padding: 10px;
+                  min-width: 0;
+                }
+                .kanban-col[data-drag-over] {
+                  background: var(--primary-bg);
+                  outline: 2px dashed var(--primary);
+                  outline-offset: -2px;
+                }
+                .kanban-col .card { min-width: 0; }
+                /* «Позвонить» и «WhatsApp» делят ряд поровну и переносятся,
+                   когда не влезают, а не вылезают за края карточки */
+                .kanban-col .card .row { flex-wrap: wrap; }
+                .kanban-col .card .row .btn { flex: 1 1 auto; }
+              `}</style>
+            </>
+          )
+        ) : leads.loading ? (
           <div className="card card-pad row center" style={{ minHeight: 200 }}>
             <span className="spinner" style={{ width: 26, height: 26, color: "var(--primary)" }} />
           </div>
@@ -193,15 +474,7 @@ export default function LeadsPage() {
               }
               action={
                 hasFilters ? (
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setQuery("");
-                      setCourseId("all");
-                      setStatus("all");
-                      setPage(1);
-                    }}
-                  >
+                  <Button variant="secondary" onClick={resetFilters}>
                     Сбросить фильтры
                   </Button>
                 ) : undefined
@@ -238,10 +511,9 @@ export default function LeadsPage() {
                         </Link>
                       </td>
                       <td>
-                        <div className="stack g6">
-                          <span className="small mono nowrap">{phoneFmt(l.teacher.phone)}</span>
-                          <PhoneActions phone={l.teacher.phone} />
-                        </div>
+                        {/* Номер и WhatsApp рисует PhoneActions: на ПК номер
+                            текстом, кнопки «Позвонить» на десктопе нет */}
+                        <PhoneActions phone={l.teacher.phone} />
                       </td>
                       <td style={{ maxWidth: 260 }}>
                         <div className="stack g2">
@@ -264,7 +536,7 @@ export default function LeadsPage() {
                           )}
                         </div>
                       </td>
-                      <td style={{ minWidth: 170 }}>
+                      <td style={{ minWidth: 150 }}>
                         <LeadStatusPicker
                           lead={l}
                           onGrant={() => setGranting(l)}
@@ -328,10 +600,8 @@ export default function LeadsPage() {
                     </div>
                   </div>
 
-                  <div className="row g8">
-                    <span className="small mono grow nowrap">{phoneFmt(l.teacher.phone)}</span>
-                    <PhoneActions phone={l.teacher.phone} />
-                  </div>
+                  {/* Номер-ссылка с трубкой и WhatsApp — внутри PhoneActions */}
+                  <PhoneActions phone={l.teacher.phone} />
 
                   <LeadStatusPicker
                     lead={l}
@@ -385,6 +655,78 @@ export default function LeadsPage() {
         </p>
       </div>
 
+      {/* Фильтры на мобильном. Значения общие со строкой фильтров и
+          применяются сразу — «Готово» просто закрывает окно */}
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Фильтры"
+        footer={
+          <div className="stack g8">
+            <Button block size="lg" onClick={() => setFiltersOpen(false)}>
+              Готово
+            </Button>
+            {activeFilters > 0 && (
+              <Button variant="secondary" block onClick={resetFilters}>
+                Сбросить фильтры
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <div className="stack g14">
+          <div className="field">
+            <label className="label">Поиск</label>
+            <div className="input-wrap">
+              <span className="input-icon">
+                <IconSearch size={19} />
+              </span>
+              <input
+                className="input"
+                placeholder="ФИО или телефон"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label className="label">Курсы</label>
+            <MultiOptions
+              options={courseOptions}
+              value={courseIds}
+              onChange={(next) => {
+                setCourseIds(next);
+                setPage(1);
+              }}
+            />
+          </div>
+          {view === "list" && (
+            <div className="field">
+              <label className="label">Статусы</label>
+              <MultiOptions
+                options={STATUS_OPTIONS}
+                value={statuses}
+                onChange={(next) => {
+                  setStatuses(next);
+                  setPage(1);
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </Sheet>
+
+      {declining && (
+        <DeclineLeadSheet
+          lead={declining}
+          onClose={() => setDeclining(null)}
+          onDone={(updated) => {
+            setDeclining(null);
+            replaceLead(updated);
+          }}
+        />
+      )}
+
       {granting && (
         <GrantLeadSheet
           lead={granting}
@@ -393,6 +735,14 @@ export default function LeadsPage() {
           onGranted={refresh}
         />
       )}
+
+      <style>{`
+        .leads-filter-btn { display: none; }
+        @media (max-width: 899px) {
+          .leads-filters-inline { display: none; }
+          .leads-filter-btn { display: inline-flex; }
+        }
+      `}</style>
     </AdminShell>
   );
 }

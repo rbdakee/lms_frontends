@@ -131,3 +131,17 @@
   background: #a5b4fc;
 }
 
+
+/* ---------- Телефон в заявках: ПК — текст, мобильный — ссылка-звонок ---------- */
+
+.phone-call {
+  display: none;
+}
+@media (max-width: 899px) {
+  .phone-text {
+    display: none;
+  }
+  .phone-call {
+    display: inline-flex;
+  }
+}

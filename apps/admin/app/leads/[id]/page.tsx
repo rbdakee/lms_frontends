@@ -32,7 +32,6 @@ import {
   Empty,
   LinkButton,
   Note,
-  StatusBadge,
 } from "@lms/ui";
 import { IconCheck } from "@lms/ui/icons";
 
@@ -148,12 +147,13 @@ export default function LeadCardPage() {
 
               <hr className="divider" />
 
+              {/* Телефона в списке нет — он ниже, рядом с WhatsApp,
+                  и второй раз писать его незачем */}
               <dl className="stack g10" style={{ margin: 0 }}>
                 {(
                   [
                     ["Школа", l.teacher.school],
                     ["Регион", l.teacher.region],
-                    ["Телефон", phoneFmt(l.teacher.phone)],
                   ] as [string, string][]
                 )
                   .filter(([, v]) => v)
@@ -185,7 +185,14 @@ export default function LeadCardPage() {
                     <strong>{l.course.title}</strong>
                   </a>
                 </div>
-                <StatusBadge status={LEAD_STATUS_LABEL[l.status as LeadStatus]} />
+                {/* Статус один и сразу изменяемый — рядом с названием курса.
+                    Дублей пузырька ниже по карточке нет (просьба владельца
+                    20.08.2026) */}
+                <LeadStatusPicker
+                  lead={l}
+                  onGrant={() => setGranting(true)}
+                  onChanged={replaceLead}
+                />
               </div>
 
               <div className="row wrap g14">
@@ -215,15 +222,6 @@ export default function LeadCardPage() {
                   </span>
                 </Note>
               )}
-
-              <div className="stack g10">
-                <span className="caption muted">Статус заявки</span>
-                <LeadStatusPicker
-                  lead={l}
-                  onGrant={() => setGranting(true)}
-                  onChanged={replaceLead}
-                />
-              </div>
 
               {l.status === "granted" ? (
                 <Note kind="success">
