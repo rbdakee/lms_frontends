@@ -20,7 +20,15 @@ import { useStore } from "@lms/prototype";
 import { Waiting } from "@/components/admin/Waiting";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Avatar, Button, Empty } from "@lms/ui";
-import { IconChevronRight, IconInbox, IconMail, IconMessage } from "@lms/ui/icons";
+import {
+  IconCertificate,
+  IconChevronRight,
+  IconInbox,
+  IconLayers,
+  IconMail,
+  IconMessage,
+  IconUsers,
+} from "@lms/ui/icons";
 import type { ReactNode } from "react";
 
 /** Порог, после которого «ждёт N дней» краснеет: у заявок свой, у работ свой. */
@@ -169,22 +177,20 @@ export default function AdminDashboard() {
           </Panel>
         </div>
 
-        {/* ===== Три справочных числа — просто строка, без оформления ===== */}
-        <div className="row wrap g14 small muted" style={{ paddingTop: 4 }}>
-          <span>
-            {t.dashTeachers}:{" "}
-            <strong style={{ color: "var(--text)" }}>{fmt(d.totals.teachers)}</strong>
-          </span>
-          <span className="dot-sep">·</span>
-          <span>
-            {t.dashCourses}:{" "}
-            <strong style={{ color: "var(--text)" }}>{d.totals.courses_published}</strong>
-          </span>
-          <span className="dot-sep">·</span>
-          <span>
-            {t.dashCerts}:{" "}
-            <strong style={{ color: "var(--text)" }}>{fmt(d.totals.certificates)}</strong>
-          </span>
+        {/* ===== Три справочных числа — виджеты, как плитки сверху, но
+            в спокойном синем: это справка, а не «требует действия» ===== */}
+        <div className="dash-tiles">
+          <Stat icon={<IconUsers size={20} />} value={fmt(d.totals.teachers)} label={t.dashTeachers} />
+          <Stat
+            icon={<IconLayers size={20} />}
+            value={String(d.totals.courses_published)}
+            label={t.dashCourses}
+          />
+          <Stat
+            icon={<IconCertificate size={20} />}
+            value={fmt(d.totals.certificates)}
+            label={t.dashCerts}
+          />
         </div>
       </div>
 
@@ -242,7 +248,14 @@ function Tile({
 }) {
   const hot = count > 0;
   return (
-    <Link href={href} className="card card-link card-pad row g14" style={{ minHeight: 88 }}>
+    /* display: flex — инлайном: .card-link объявлен в CSS ниже .row и его
+       display: block перебивал флекс, плитка складывалась в столбик,
+       а шеврон падал под текст и не читался как «сюда можно нажать» */
+    <Link
+      href={href}
+      className="card card-link card-pad row g14"
+      style={{ minHeight: 88, display: "flex" }}
+    >
       <span
         style={{
           width: 46,
@@ -278,5 +291,35 @@ function Tile({
       </div>
       <IconChevronRight size={18} className="muted-3" />
     </Link>
+  );
+}
+
+/* ============ Справочное число внизу ============ */
+
+function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
+  return (
+    <div className="card card-pad row g14" style={{ minHeight: 72 }}>
+      <span
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--primary-bg)",
+          color: "var(--primary)",
+        }}
+      >
+        {icon}
+      </span>
+      <div className="grow stack g2" style={{ minWidth: 0 }}>
+        <strong style={{ fontSize: 22, lineHeight: "26px", letterSpacing: "-0.02em" }}>
+          {value}
+        </strong>
+        <span className="caption muted-3">{label}</span>
+      </div>
+    </div>
   );
 }
