@@ -348,7 +348,7 @@ export default function CoursePageScreen() {
                 </Note>
               )}
               <hr className="divider" />
-              <span className="caption muted">Оплата принимается вне платформы</span>
+              <span className="caption muted">Оплата принимается менеджером</span>
               <ContactAdmin />
             </div>
 
@@ -441,7 +441,7 @@ export default function CoursePageScreen() {
 
               <hr className="divider" />
               <span className="caption muted" style={{ textAlign: "center" }}>
-                Оплата принимается вне платформы
+                Оплата принимается менеджером
               </span>
               <ContactAdmin />
               <hr className="divider" />
