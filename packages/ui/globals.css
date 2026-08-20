@@ -1916,3 +1916,33 @@ select.input {
     background: #fff;
   }
 }
+
+/* ---------- Скроллбары: тонкие и скруглённые, под радиусы карточек ----------
+   Системный ползунок — квадратный и с серой дорожкой: рядом со скруглённым
+   углом карточки он выглядит сломанной кромкой. Дорожка прозрачная, бегунок
+   скруглён и отступает от края на 2px (рамка + background-clip). */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-3);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
