@@ -195,10 +195,6 @@ export function SettingsImageSlot({
       </div>
 
       {error ? <span className="error-text">{error}</span> : <span className="hint">{hint}</span>}
-      <span className="caption muted-3 pretty">
-        Сохраняется сразу. Новая картинка появится на месте старой не сразу: публичная
-        ссылка на неё кэшируется на сутки.
-      </span>
     </div>
   );
 }

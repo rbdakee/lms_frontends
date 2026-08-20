@@ -38,6 +38,7 @@ import { useStore } from "@lms/prototype";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { SettingsCategories } from "@/components/admin/SettingsCategories";
+import { SettingsCertificatePreview } from "@/components/admin/SettingsCertificatePreview";
 import { SettingsImageSlot } from "@/components/admin/SettingsImageSlot";
 import { SettingsTelegram } from "@/components/admin/SettingsTelegram";
 import { Button, Empty, Note } from "@lms/ui";
@@ -297,12 +298,7 @@ export default function AdminSettingsPage() {
                 </Note>
                 {contactField("name", "Имя администратора")}
                 {contactField("phone", "Телефон для звонков", true)}
-                {contactField(
-                  "whatsapp",
-                  "Номер WhatsApp",
-                  true,
-                  "Только номер — ссылку wa.me сайт соберёт сам",
-                )}
+                {contactField("whatsapp", "Номер WhatsApp", true)}
                 <div className="field">
                   <label className="label">Часы работы</label>
                   <input
@@ -344,14 +340,13 @@ export default function AdminSettingsPage() {
         {/* ===== Три картинки для сертификата ===== */}
         {tab === "cert" && (
           <div className="stack g16" style={{ maxWidth: 720 }}>
-            <Note kind="muted">
-              <span className="small">
-                Шаблон сертификата один и свёрстан в коде — подставляются только ФИО,
-                название курса, объём в часах, дата и номер. Конструктора шаблона нет:
-                три картинки закрывают ту же задачу. Каждая сохраняется сразу,
-                кнопки «Сохранить» у них нет.
-              </span>
-            </Note>
+            <div style={{ maxWidth: 420 }}>
+              <SettingsCertificatePreview images={data.certificate_images} />
+            </div>
+            <span className="caption muted-3">
+              Предпросмотр с придуманными ФИО, курсом и номером — так лягут картинки
+              на настоящем документе.
+            </span>
 
             <div className="cert-images">
               {CERT_IMAGES.map((img) => (
