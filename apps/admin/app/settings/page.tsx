@@ -42,6 +42,7 @@ import { SettingsCertificatePreview } from "@/components/admin/SettingsCertifica
 import { SettingsImageSlot } from "@/components/admin/SettingsImageSlot";
 import { SettingsTelegram } from "@/components/admin/SettingsTelegram";
 import { Button, Empty, Note } from "@lms/ui";
+import { PhoneInput } from "@lms/ui/PhoneInput";
 
 type Tab = "brand" | "categories" | "telegram" | "cert";
 
@@ -207,16 +208,24 @@ export default function AdminSettingsPage() {
   const contactField = (
     key: keyof SettingsContacts,
     label: string,
-    mono?: boolean,
+    phone?: boolean,
     hint?: string,
   ) => (
     <div className="field">
       <label className="label">{label}</label>
-      <input
-        className={`input${mono ? " mono" : ""}${errors[`contacts.${key}`] ? " input-error" : ""}`}
-        value={form.contacts[key]}
-        onChange={(e) => setContact(key, e.target.value)}
-      />
+      {phone ? (
+        <PhoneInput
+          className={`input mono${errors[`contacts.${key}`] ? " input-error" : ""}`}
+          value={form.contacts[key]}
+          onChange={(v) => setContact(key, v)}
+        />
+      ) : (
+        <input
+          className={`input${errors[`contacts.${key}`] ? " input-error" : ""}`}
+          value={form.contacts[key]}
+          onChange={(e) => setContact(key, e.target.value)}
+        />
+      )}
       {errors[`contacts.${key}`] ? (
         <span className="error-text">{errors[`contacts.${key}`]}</span>
       ) : (

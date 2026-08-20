@@ -32,6 +32,7 @@ import {
   type TeacherRetakeIn,
 } from "@lms/api";
 import { dayTime, dayYear, phoneFmt, plural } from "@lms/ui/i18n";
+import { PhoneInput } from "@lms/ui/PhoneInput";
 import { useStore } from "@lms/prototype";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { GrantAccessSheet } from "@/components/admin/GrantAccess";
@@ -641,12 +642,7 @@ export default function TeacherCardPage() {
           </div>
           <div className="field">
             <label className="label">Новый номер</label>
-            <input
-              className="input mono"
-              placeholder="+7 (___) ___-__-__"
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value)}
-            />
+            <PhoneInput className="input mono" value={newPhone} onChange={setNewPhone} />
           </div>
         </div>
       </Sheet>
