@@ -368,7 +368,7 @@ function ProfileScreen({ user }: { user: User }) {
                   </span>
                   <div className="stack">
                     <strong className="small">{phoneFmt(user.phone)}</strong>
-                    <span className="caption muted-3">вход по SMS</span>
+                    <span className="caption muted-3">вход по коду из WhatsApp</span>
                   </div>
                 </div>
               </div>

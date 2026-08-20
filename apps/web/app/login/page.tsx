@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * Вход по телефону — раздел 5.4 брифа. Шаг 1: номер. Шаг 2: код из SMS.
+ * Вход по телефону — раздел 5.4 брифа. Шаг 1: номер. Шаг 2: код из WhatsApp.
  *
  * Живой API: `POST /auth/request_code` → таймер повтора из `retry_after_sec`,
  * `POST /auth/verify_code` → пользователь и кука сессии. Три состояния ошибок
  * кода: `wrong_code` (осталось N попыток), `code_expired`, `too_many_attempts`
- * (ввод заблокирован, таймер). В dev SMS-код пишется в лог контейнера `api`.
+ * (ввод заблокирован, таймер). В dev код пишется в лог контейнера `api` (SMS_PROVIDER=log).
  *
  * `?next=` — куда вернуть после входа: страница курса присылает сюда учителя,
  * нажавшего «Записаться» без входа, и заявка отправляется после возвращения.
@@ -262,7 +262,7 @@ export default function LoginPage() {
       setCode(next);
       return;
     }
-    // Автоподстановка кода из SMS: вставили сразу 4 цифры
+    // Вставили сразу 4 цифры: код копируется кнопкой в самом сообщении
     if (clean.length > 1) {
       const filled = clean.slice(0, 4).split("");
       const next = ["", "", "", ""].map((_, idx) => filled[idx] ?? "");
@@ -318,7 +318,7 @@ export default function LoginPage() {
                 <div className="stack g8">
                   <h1 className="h1">Вход</h1>
                   <p className="body muted pretty">
-                    Введите номер телефона — отправим SMS с кодом. Пароль не нужен.
+                    Введите номер телефона — отправим код в WhatsApp. Пароль не нужен.
                   </p>
                 </div>
 
@@ -376,7 +376,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <div className="stack g8">
-                  <h1 className="h1">Введите код из SMS</h1>
+                  <h1 className="h1">Введите код из WhatsApp</h1>
                   <p className="body muted">
                     Отправили на <strong style={{ color: "var(--text)" }}>{maskPhone(phone)}</strong>
                     {" · "}
@@ -446,7 +446,7 @@ export default function LoginPage() {
                 {!error && (
                   <div className="row center g6 caption muted-3">
                     <IconInfo size={15} />
-                    Код подставится из SMS автоматически
+                    Скопируйте код из WhatsApp — он подставится сам
                   </div>
                 )}
 
