@@ -258,7 +258,10 @@ export default function CoursePageScreen() {
     <>
       <div className="page section stack g24" style={{ paddingTop: 16 }}>
         <div className="row between g12">
-          <Breadcrumbs items={[{ label: "Каталог", href: "/courses" }, { label: category }]} />
+          {/* В крошке — название курса, а не категория: категория стоит
+              синей подписью над заголовком, и в крошке она читалась как
+              «я пришёл из раздела Оценивание», которым человек не шёл */}
+          <Breadcrumbs items={[{ label: "Каталог", href: "/courses" }, { label: c.title }]} />
           <Link href="/courses" className="btn btn-ghost btn-sm mobile-only">
             <IconArrowLeft size={16} />
             Каталог
