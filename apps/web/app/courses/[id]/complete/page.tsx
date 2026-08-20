@@ -27,9 +27,10 @@ import {
 import { useStore } from "@lms/prototype";
 import { useOrigin } from "@lms/ui/useOrigin";
 import { TeacherShell } from "@/components/layout/Shell";
-import { CertificateThumb } from "@/components/course/CertificateSheet";
+import { CertificateSheet } from "@/components/course/CertificateSheet";
 import { CourseRow, pickVersion } from "@/components/course/CourseCard";
 import { ConditionRow } from "@/components/course/CourseProgram";
+import { useCertificatePdf } from "@/lib/certificatePdf";
 import { Button, Empty, LinkButton, Note } from "@lms/ui";
 import { IconCheck, IconDownload, IconShare, IconStar } from "@lms/ui/icons";
 
@@ -40,6 +41,7 @@ export default function CompletePage() {
   const { t, lang, rateCourse, ratings, toast } = useStore();
   const { me, status } = useMe();
   const { verifyUrl } = useOrigin();
+  const { downloading, download } = useCertificatePdf();
 
   /* «Что пройти дальше» — живой каталог */
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
@@ -140,15 +142,21 @@ export default function CompletePage() {
           </div>
         </section>
 
-        {/* Сертификат */}
-        <section style={{ maxWidth: 620, margin: "0 auto", width: "100%" }} className="stack g16">
-          <CertificateThumb cert={cert} />
+        {/* Сертификат — тот же документ, что на «/certificates/:id», не миниатюра:
+            человек только что его получил и хочет видеть ФИО, часы, номер и QR.
+            Ширина шире остальных секций: у макета A4 свои пропорции, и на 620px
+            подписи в подвале мельчают до нечитаемых */}
+        <section style={{ maxWidth: 900, margin: "0 auto", width: "100%" }} className="stack g16">
+          <div className="card" style={{ padding: 12, background: "#f8fafc" }}>
+            <CertificateSheet cert={cert} />
+          </div>
           <div className="row g10 wrap">
             <Button
               block
               size="lg"
               icon={<IconDownload size={18} />}
-              onClick={() => toast(t.certPdfToast, "success")}
+              loading={downloading}
+              onClick={() => download(cert)}
             >
               {t.cmpDownload}
             </Button>

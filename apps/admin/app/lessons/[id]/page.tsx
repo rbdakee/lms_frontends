@@ -17,7 +17,15 @@
  *
  * Ссылку на YouTube сервер приводит к одному написанию, а разметку чистит
  * по белому списку — поэтому после сохранения в поля кладётся то, что
- * вернулось, а не то, что было набрано.
+ * вернулось, а не то, что было набрано. Кладётся только в те поля, которых
+ * с момента отправки не касались: ответ не должен съесть буквы, набранные
+ * пока он летел.
+ *
+ * Поля уходят на сервер сами: текст и числа — по уходу из поля, переключатели
+ * и галочки — сразу, «ухода» у них нет. В запросе только то, что разошлось
+ * с последним ответом сервера. Кнопка «Сохранить» осталась: ею отправляют
+ * всё разом и повторяют после отказа, а рядом с ней строка состояния —
+ * тост на каждое поле означал бы столько же тостов, сколько полей.
  *
  * «Предпросмотр как учитель» включает режим на сервере (`POST /admin/preview/enter`)
  * и уводит в кабинет учителя: записи по курсу становятся no-op, доступ
@@ -113,9 +121,10 @@ function patchBody(f: Form): AdminLessonPatch {
 }
 
 /**
- * Обязательные числа проверяем до отправки. `null` сервер читает как
- * «не прислано» и возвращает прежнее значение, форма пересобирается ответом,
- * и стёртое число молча возвращается на место при зелёном тосте.
+ * Обязательные числа проверяем до отправки: пустое поле уходит нулём,
+ * а ноль сервер примет за «0 минут» и сохранит — на экран вернётся уже он.
+ * Такое поле не отправляется вовсе: ошибка стоит под ним, урок числится
+ * несохранённым, соседние поля при этом ездят на сервер как обычно.
  */
 function validate(f: Form): Record<string, string> {
   const wrong: Record<string, string> = {};
@@ -124,6 +133,58 @@ function validate(f: Form): Record<string, string> {
 }
 
 const digits = (v: string) => v.replace(/\D/g, "");
+
+/** Поле формы → поле запроса: имя одно во всей цепочке, кроме разметки —
+    она уходит объектом `body`. */
+const PATCH_FIELD: Record<keyof Form, keyof AdminLessonPatch> = {
+  title: "title",
+  kind: "kind",
+  html: "body",
+  video_url: "video_url",
+  duration_label: "duration_label",
+  time_required_min: "time_required_min",
+  is_hidden: "is_hidden",
+};
+
+/**
+ * Урок, каким он лежит на сервере, — в том же виде, в каком уходит PATCH.
+ * Разница с ним и есть несохранённое; сравнивать поля формы напрямую нельзя,
+ * у текстового урока ссылка на видео уезжает как `null` независимо от того,
+ * что осталось в поле.
+ */
+function savedOf(l: AdminLesson): AdminLessonPatch {
+  return {
+    title: l.title,
+    kind: l.kind,
+    body: l.body === null ? null : { html: htmlOf(l.body) },
+    video_url: l.video_url,
+    duration_label: l.duration_label,
+    time_required_min: l.time_required_min,
+    is_hidden: l.is_hidden,
+  };
+}
+
+/**
+ * Что уйдёт на сервер: только разошедшиеся поля, а не форма целиком. PATCH
+ * у сервера частичный, и лишнее в теле означало бы отказ по полю, которого
+ * автор не трогал.
+ */
+function pending(f: Form, saved: AdminLessonPatch): AdminLessonPatch {
+  const next = patchBody(f);
+  const wrong = validate(f);
+  const out: AdminLessonPatch = {};
+  for (const field of Object.keys(next) as (keyof AdminLessonPatch)[]) {
+    /* Пустое поле минут уходит нулём, а ноль сервер примет за «0 минут»
+       и молча сохранит: заведомо сломанное не отправляем вовсе */
+    if (wrong[field]) continue;
+    if (JSON.stringify(next[field]) === JSON.stringify(saved[field])) continue;
+    Object.assign(out, { [field]: next[field] });
+  }
+  return out;
+}
+
+/** Чем кончилось последнее сохранение — строкой рядом с кнопкой. */
+type Auto = { kind: "idle" | "saving" | "saved" } | { kind: "failed"; why: string };
 
 export default function LessonEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -134,12 +195,23 @@ export default function LessonEditorPage() {
 
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [auto, setAuto] = useState<Auto>({ kind: "idle" });
   const [uploading, setUploading] = useState(false);
   const [entering, setEntering] = useState(false);
   const [removing, setRemoving] = useState<LessonFile | null>(null);
   const [removingBusy, setRemovingBusy] = useState(false);
   const pickRef = useRef<HTMLInputElement>(null);
+
+  /* Форма живёт и в ссылке: уход из поля читает её сразу после правки —
+     до того, как React перерисует экран */
+  const formRef = useRef<Form | null>(null);
+  /* Последний ответ сервера телом запроса. То же лежит в `data`, но
+     отправителю нужно свежее значение, а не то, что было на его рендере */
+  const savedRef = useRef<AdminLessonPatch | null>(null);
+  /* Сохранения идут по очереди: ответ обогнавшего запроса вернул бы в поля
+     урок до последней правки, а сам обогнавший считал бы разницу с тем,
+     чего сервер ещё не видел */
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   /* Форма пересобирается только при смене урока: материалы ходят на сервер
      своими запросами и не должны стирать набранное */
@@ -147,37 +219,80 @@ export default function LessonEditorPage() {
   useEffect(() => {
     if (data && seeded.current !== data.id) {
       seeded.current = data.id;
-      setForm(formOf(data));
+      formRef.current = formOf(data);
+      savedRef.current = savedOf(data);
+      setForm(formRef.current);
       setErrors({});
+      setAuto({ kind: "idle" });
     }
   }, [data]);
 
-  const save = async () => {
-    if (!form || saving) return;
-    const wrong = validate(form);
-    if (Object.keys(wrong).length) {
+  const apply = (next: Form) => {
+    formRef.current = next;
+    setForm(next);
+  };
+
+  /**
+   * Одно сохранение. Разница с сервером считается в момент отправки, а не
+   * в момент правки: пока летел предыдущий запрос, часть полей уже уехала,
+   * и второй раз им уезжать незачем.
+   *
+   * `announce` — тост, и он только у кнопки: у полей тостов вышло бы столько
+   * же, сколько полей, поэтому им остаётся строка состояния.
+   */
+  const runSave = async (announce: boolean) => {
+    const sent = formRef.current;
+    const saved = savedRef.current;
+    if (!sent || !saved) return;
+    const wrong = validate(sent);
+    const patch = pending(sent, saved);
+    if (!Object.keys(patch).length) {
       setErrors(wrong);
+      const why = Object.values(wrong)[0];
+      setAuto(why ? { kind: "failed", why } : { kind: "saved" });
+      if (announce && !why) toast("Урок сохранён", "success");
       return;
     }
-    setSaving(true);
-    setErrors({});
+    setAuto({ kind: "saving" });
+    setErrors(wrong);
     try {
       const updated = await api<AdminLesson>(`/admin/lessons/${id}`, {
         method: "PATCH",
-        json: patchBody(form),
+        json: patch,
       });
+      savedRef.current = savedOf(updated);
       lesson.setData(updated);
-      /* Сервер нормализовал ссылку и почистил разметку — показываем его
-         значения, иначе автор не увидит, что с его текстом стало */
-      setForm(formOf(updated));
-      toast("Урок сохранён", "success");
+      /* Сервер нормализовал ссылку и почистил разметку — его значения кладём
+         в те поля, которых с момента отправки не касались; в остальных лежит
+         то, что автор печатает прямо сейчас */
+      const fresh = formOf(updated);
+      const now = formRef.current ?? sent;
+      const merged = { ...now };
+      for (const key of Object.keys(fresh) as (keyof Form)[]) {
+        if (now[key] === sent[key]) Object.assign(merged, { [key]: fresh[key] });
+      }
+      apply(merged);
+      /* Ошибки сервера сняты ответом, свои держатся, пока поле не заполнено */
+      setErrors(validate(merged));
+      setAuto({ kind: "saved" });
+      if (announce) toast("Урок сохранён", "success");
     } catch (e) {
       const fields = fieldErrors(e);
-      if (Object.keys(fields).length) setErrors(fields);
-      else toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
-    } finally {
-      setSaving(false);
+      /* Напечатанное серверным значением не затираем и к серверному не
+         откатываем: отказ съел бы работу. Причина по полю показывается тем же
+         способом, что и у кнопки «Сохранить», остальное — строкой состояния */
+      if (Object.keys(fields).length) setErrors({ ...wrong, ...fields });
+      else if (announce) toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+      setAuto({
+        kind: "failed",
+        why:
+          Object.values(fields)[0] || (isApiError(e) ? e.message : "Не удалось сохранить"),
+      });
     }
+  };
+
+  const flush = (announce: boolean) => {
+    queue.current = queue.current.then(() => runSave(announce));
   };
 
   /* Файл сначала уезжает в хранилище, и только потом ключ привязывается
@@ -292,11 +407,55 @@ export default function LessonEditorPage() {
     );
   }
 
-  const set = <K extends keyof Form>(key: K, value: Form[K]) =>
-    setForm((f) => (f ? { ...f, [key]: value } : f));
+  const set = <K extends keyof Form>(key: K, value: Form[K]) => {
+    apply({ ...(formRef.current ?? form), [key]: value });
+    /* Правка снимает ошибку поля: красная рамка до следующего сохранения
+       говорит о запрете, которого уже нет */
+    const field = PATCH_FIELD[key];
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
+  };
+
+  /* Переключателю и галочке уходить неоткуда: правка и есть уход из поля */
+  const setNow = <K extends keyof Form>(key: K, value: Form[K]) => {
+    set(key, value);
+    flush(false);
+  };
+
+  /**
+   * Уход из поля: запрос уходит, только если поле разошлось с сервером —
+   * ушли, ничего не поменяв, и запроса нет. Сохраняем именно по уходу,
+   * а не по паузе в наборе: недописанному значению на сервере делать нечего.
+   */
+  const leave = (key: keyof Form) => {
+    const f = formRef.current;
+    const saved = savedRef.current;
+    if (!f || !saved) return;
+    const field = PATCH_FIELD[key];
+    if (JSON.stringify(patchBody(f)[field]) !== JSON.stringify(saved[field])) flush(false);
+  };
 
   const vid = youtubeId(form.video_url);
   const emptyText = isEmptyHtml(form.html);
+
+  /* «Сохранено» держится, пока в полях нет ничего сверх сохранённого: иначе
+     строка врала бы про поле, из которого ещё не вышли, и про то, что сервер
+     отбил, — а несохранённое остаётся на кнопке «Сохранить» */
+  const dirty =
+    Object.keys(pending(form, savedOf(data))).length > 0 ||
+    Object.keys(validate(form)).length > 0;
+  /* Причина отказа висит, пока жива правка, из-за которой отказали: вернули
+     значение руками — на сервере снова оно же, и «не сохранено» стало бы
+     враньём про сохранённый урок */
+  const autoText =
+    auto.kind === "saving"
+      ? "Сохраняем…"
+      : !dirty
+        ? auto.kind === "idle"
+          ? ""
+          : "Сохранено"
+        : auto.kind === "failed"
+          ? `Не сохранено: ${auto.why}`
+          : "Не сохранено";
 
   return (
     <AdminShell
@@ -304,6 +463,22 @@ export default function LessonEditorPage() {
       subtitle={`${data.course.title} · ${data.module.title}`}
       actions={
         <div className="row g8">
+          {autoText && (
+            <span
+              className="caption nowrap"
+              /* Причина отказа бывает в предложение — в шапке ей столько места
+                 нет, целиком она стоит под самим полем и в подсказке */
+              style={{
+                maxWidth: 200,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                color: auto.kind === "failed" ? "var(--warning)" : "var(--text-3)",
+              }}
+              title={autoText}
+            >
+              {autoText}
+            </span>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -313,7 +488,7 @@ export default function LessonEditorPage() {
           >
             <span className="hide-sm">{t.pvTitle}</span>
           </Button>
-          <Button size="sm" loading={saving} onClick={save}>
+          <Button size="sm" loading={auto.kind === "saving"} onClick={() => flush(true)}>
             Сохранить
           </Button>
         </div>
@@ -366,7 +541,7 @@ export default function LessonEditorPage() {
                 <button
                   key={v}
                   data-active={form.kind === v}
-                  onClick={() => set("kind", v)}
+                  onClick={() => setNow("kind", v)}
                   style={{ flex: 1 }}
                 >
                   {icon}
@@ -396,6 +571,7 @@ export default function LessonEditorPage() {
               className={`input${errors.title ? " input-error" : ""}`}
               value={form.title}
               onChange={(e) => set("title", e.target.value)}
+              onBlur={() => leave("title")}
             />
             {errors.title && <span className="error-text">{errors.title}</span>}
           </div>
@@ -415,6 +591,7 @@ export default function LessonEditorPage() {
                 className={`input${errors.video_url ? " input-error" : ""}`}
                 value={form.video_url}
                 onChange={(e) => set("video_url", e.target.value)}
+                onBlur={() => leave("video_url")}
                 placeholder="https://youtu.be/… или https://www.youtube.com/watch?v=…"
               />
               {errors.video_url ? (
@@ -434,6 +611,7 @@ export default function LessonEditorPage() {
                 className={`input${errors.duration_label ? " input-error" : ""}`}
                 value={form.duration_label}
                 onChange={(e) => set("duration_label", e.target.value)}
+                onBlur={() => leave("duration_label")}
                 placeholder="12:40"
               />
               {errors.duration_label ? (
@@ -480,17 +658,27 @@ export default function LessonEditorPage() {
             )}
           </div>
 
-          <RichEditor
-            value={form.html}
-            onChange={(html) => set("html", html)}
-            invalid={!!errors.body}
-            ariaLabel={form.kind === "video" ? "Текст под видео" : "Текст урока"}
-            placeholder={
-              form.kind === "video"
-                ? "Краткий конспект, шаги из видео, ссылки — что пригодится после просмотра…"
-                : "Текст урока…"
-            }
-          />
+          {/* У редактора разметки нет «ухода из поля»: он собран из кнопок
+              и contentEditable. Ловим фокус, ушедший из всей обвязки, —
+              иначе уходом считался бы клик по кнопке панели или по полю
+              ссылки, а это середина работы над текстом */}
+          <div
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) leave("html");
+            }}
+          >
+            <RichEditor
+              value={form.html}
+              onChange={(html) => set("html", html)}
+              invalid={!!errors.body}
+              ariaLabel={form.kind === "video" ? "Текст под видео" : "Текст урока"}
+              placeholder={
+                form.kind === "video"
+                  ? "Краткий конспект, шаги из видео, ссылки — что пригодится после просмотра…"
+                  : "Текст урока…"
+              }
+            />
+          </div>
           {errors.body ? (
             <span className="error-text">{errors.body}</span>
           ) : (
@@ -566,6 +754,7 @@ export default function LessonEditorPage() {
               inputMode="numeric"
               value={form.time_required_min}
               onChange={(e) => set("time_required_min", digits(e.target.value))}
+              onBlur={() => leave("time_required_min")}
             />
             {errors.time_required_min ? (
               <span className="error-text">{errors.time_required_min}</span>
@@ -587,7 +776,7 @@ export default function LessonEditorPage() {
             <button
               className="switch"
               data-on={form.is_hidden}
-              onClick={() => set("is_hidden", !form.is_hidden)}
+              onClick={() => setNow("is_hidden", !form.is_hidden)}
               aria-pressed={form.is_hidden}
               aria-label="Скрыт от учителей"
             />

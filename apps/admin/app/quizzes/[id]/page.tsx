@@ -13,13 +13,23 @@
  *  - включён: попыток сколько угодно, засчитывается последний результат.
  * Подсказка под переключателем меняется вместе с ним.
  *
- * **Настройки и вопросы сохраняются порознь.** Кнопка в шапке шлёт
- * `PATCH /admin/quizzes/{id}` — только правила теста. Вопросы ходят на сервер
- * поштучно (`POST /admin/quizzes/{id}/questions`, `PATCH /admin/quiz_questions/{id}`),
- * общей ручки «сохранить все вопросы» в контракте нет — поэтому у каждого
- * вопроса своя кнопка, а несохранённый помечен прямо в карточке. Про закрытие
- * вкладки и перезагрузку с несохранённым переспрашивает браузер; переход
- * по ссылке внутри админки — клиентская навигация, и вопроса там не будет.
+ * **Экран сохраняется сам, по уходу из поля** — не по паузе при печати:
+ * промежуточное слово на сервер попадать не должно. Галочки, выпадающие списки
+ * и добавление варианта уходят сразу по изменению: уходить из них некуда.
+ *
+ * Настройки и вопросы сохраняются порознь. Настройки шлёт
+ * `PATCH /admin/quizzes/{id}` и только теми полями, что разошлись с сервером;
+ * кнопка в шапке осталась способом отправить всё разом и повторить после
+ * отказа. Вопросы ходят на сервер поштучно
+ * (`POST /admin/quizzes/{id}/questions`, `PATCH /admin/quiz_questions/{id}`),
+ * общей ручки «сохранить все вопросы» в контракте нет.
+ *
+ * **Недоделанный вопрос виден красным и на сервер не уходит вовсе** — правила
+ * «вопрос целый» повторены с сервера в `questionProblems`. Запросы идут по
+ * одному, очередью: уход из одного поля и щелчок в другом накладываются, и без
+ * очереди правка молча пропадала бы. Про закрытие вкладки с недоделанным
+ * вопросом переспрашивает браузер; переход по ссылке внутри админки —
+ * клиентская навигация, и вопроса там не будет.
  *
  * **Вопрос, попавший хоть в одну попытку, не редактируется.** `has_attempts`
  * приходит с сервера, и замок рисуется по нему, не дожидаясь `409`: у такого
@@ -66,6 +76,12 @@ import {
    он их и проверяет, экран только не даёт зайти в заведомо пустое. */
 const MIN_OPTIONS = 2;
 const MAX_OPTIONS = 10;
+/* «Несколько правильных» из двух вариантов — это вопрос с одним ответом
+   наоборот: у сервера та же граница и то же объяснение */
+const MIN_MULTI_OPTIONS = 3;
+
+/** Ключ настроек в очереди сохранений: у строк вопросов ключи свои. */
+const SETTINGS_KEY = "settings";
 
 const TYPE_LABEL: Record<QuestionType, string> = {
   single: "Один правильный",
@@ -135,6 +151,21 @@ function patchBody(f: Form): AdminQuizPatch {
 }
 
 /**
+ * Только то, что разошлось с сервером. Автосохранение стреляет по уходу
+ * из поля, и слать всю форму целиком нельзя: в соседнем поле в этот момент
+ * может лежать наполовину набранное число, которое ушло бы на сервер заодно.
+ */
+function changedFields(f: Form, base: Form): AdminQuizPatch {
+  const now = patchBody(f);
+  const was = patchBody(base);
+  const out: AdminQuizPatch = {};
+  for (const key of Object.keys(now) as (keyof AdminQuizPatch)[]) {
+    if (now[key] !== was[key]) Object.assign(out, { [key]: now[key] });
+  }
+  return out;
+}
+
+/**
  * Что экран не отправляет.
  *
  * Стёртое обязательное число: `null` сервер читает как «не прислано»
@@ -193,6 +224,8 @@ interface Row {
   saved: AdminQuizQuestion | null;
   form: QForm;
   errors: Record<string, string>;
+  /** Номер правки: ответ уже улетевшего запроса не затирает набранное позже */
+  rev: number;
 }
 
 function qFormOf(q: AdminQuizQuestion): QForm {
@@ -210,7 +243,21 @@ const rowOf = (q: AdminQuizQuestion): Row => ({
   saved: q,
   form: qFormOf(q),
   errors: {},
+  rev: 0,
 });
+
+/** Форма из ответа сервера, но с прежними ключами у не изменившихся вариантов:
+    новый ключ пересоздаёт input, а фокус уже ушёл в следующее поле. */
+function mergedForm(prev: QForm, saved: AdminQuizQuestion): QForm {
+  const fresh = qFormOf(saved);
+  return {
+    ...fresh,
+    options: fresh.options.map((o, i) => {
+      const was = prev.options[i];
+      return was && was.text === o.text && was.is_correct === o.is_correct ? was : o;
+    }),
+  };
+}
 
 const sameOptions = (a: Opt[], b: Opt[]) =>
   a.length === b.length &&
@@ -227,6 +274,37 @@ function isDirty(row: Row): boolean {
     row.form.points !== base.points ||
     !sameOptions(row.form.options, base.options)
   );
+}
+
+/**
+ * Чего вопросу не хватает, чтобы уйти на сервер: пусто — вопрос целый.
+ *
+ * Это **сознательное повторение серверной проверки** — `_checked_text`
+ * и `_checked_options` из `backend/app/application/quizzes_admin.py`, вплоть
+ * до порядка проверок, чисел и формулировок. Без него автосохранение било бы
+ * в `422` на каждой букве: пустая заготовка вопроса не проходит ни одну
+ * из этих проверок. Расходится с сервером — экран либо молчит о запрете,
+ * либо красит нормальный вопрос красным.
+ */
+function questionProblems(f: QForm): Record<string, string> {
+  const wrong: Record<string, string> = {};
+  if (!f.text.trim()) wrong.text = "Без текста вопрос не сохранить";
+  const options = f.options.map((o) => ({ text: o.text.trim(), is_correct: o.is_correct }));
+  const correct = options.filter((o) => o.is_correct).length;
+  if (options.length < MIN_OPTIONS || options.length > MAX_OPTIONS) {
+    wrong.options = `Вариантов должно быть от ${MIN_OPTIONS} до ${MAX_OPTIONS}`;
+  } else if (options.some((o) => !o.text)) {
+    wrong.options = "Вариант без текста не сохранить";
+  } else if (f.type === "single" && correct !== 1) {
+    wrong.options = "В вопросе с одним ответом правильный ровно один";
+  } else if (f.type === "multi" && !correct) {
+    wrong.options = "В вопросе с несколькими ответами нужен правильный";
+  } else if (f.type === "multi" && options.length < MIN_MULTI_OPTIONS) {
+    wrong.options = `В вопросе с несколькими ответами вариантов не меньше ${MIN_MULTI_OPTIONS}`;
+  } else if (f.type === "bool" && (options.length !== 2 || correct !== 1)) {
+    wrong.options = "У вопроса «да/нет» два варианта и один правильный";
+  }
+  return wrong;
 }
 
 const optionsIn = (f: QForm): QuizOptionIn[] =>
@@ -266,12 +344,43 @@ export default function QuizEditorPage() {
 
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
-  /** Ключ строки, которая сейчас ходит на сервер: две сразу не отправляем */
-  const [busyKey, setBusyKey] = useState<string | null>(null);
+  /** Настройки доехали до сервера — короткое «сохранено» рядом с заголовком */
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  /** Ключ строки, по которой идёт кнопочное действие: копия, видимость, удаление */
+  const [actionKey, setActionKey] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const nextKey = useRef(0);
+
+  /* Очередь сохранений: ключ настроек или ключ строки вопроса. Уход из поля
+     одного вопроса и щелчок в другом идут подряд, и без очереди второе
+     сохранение либо терялось бы молча, либо обгоняло первое. Задача читает
+     состояние в момент отправки, а не в момент постановки: пока она ждёт,
+     в поле успевают набрать ещё, и повторная постановка того же ключа
+     не нужна */
+  const waiting = useRef<string[]>([]);
+  const running = useRef<string | null>(null);
+  const draining = useRef(false);
+  /** Вопросы поменялись — «максимум N баллов» и замки надо перечитать */
+  const stale = useRef(false);
+  const [savingKeys, setSavingKeys] = useState<string[]>([]);
+  /* Счётчик запусков очереди: она трогает состояние строк, поэтому стартует
+     после отрисовки, а не из обработчика — до коммита строка в rowsRef ещё
+     прежняя, и щелчок по «правильный» ушёл бы на сервер без него */
+  const [pulse, setPulse] = useState(0);
+  /** Нажали кнопку в шапке: шлём всё тело, а не только разошедшееся */
+  const sendAll = useRef(false);
+  /** Номер правки настроек — та же защита от старого ответа, что у строки */
+  const formRev = useRef(0);
+
+  /* Задача очереди выполняется позже своей постановки и читает состояние
+     через ссылки: в замыкании обработчика оно было бы уже устаревшим */
+  const rowsRef = useRef<Row[]>(rows);
+  rowsRef.current = rows;
+  const formRef = useRef<Form | null>(form);
+  formRef.current = form;
+  const dataRef = useRef<AdminQuiz | null>(data);
+  dataRef.current = data;
 
   const seeded = useRef<number | null>(null);
   useEffect(() => {
@@ -290,7 +399,12 @@ export default function QuizEditorPage() {
       const fresh = data.questions.map((q) => {
         const old = known.get(q.id);
         if (!old) return rowOf(q);
-        return isDirty(old) ? { ...old, saved: q } : rowOf(q);
+        const next = { ...old, saved: q };
+        /* Строку, которая и так совпадает с сервером, не пересобираем:
+           у вариантов сменились бы ключи, input пересоздался бы, и фокус
+           уехал бы из поля, в котором сейчас печатают */
+        if (!isDirty(next)) return next;
+        return isDirty(old) ? next : { ...rowOf(q), rev: old.rev };
       });
       /* Ещё не созданные вопросы живут в конце — новый всё равно встаёт последним */
       return [...fresh, ...prev.filter((r) => !r.saved)];
@@ -304,6 +418,7 @@ export default function QuizEditorPage() {
   /* Обе формы собирает formOf, порядок ключей у них один — сравнение по строке
      здесь честнее, чем перечислять десять полей руками */
   const settingsDirty = !!form && !!data && JSON.stringify(form) !== JSON.stringify(formOf(data));
+  const settingsBusy = savingKeys.includes(SETTINGS_KEY);
 
   /* Вопросы уходят на сервер поштучно, и набранное легко потерять уходом
      со страницы: про несохранённое переспрашивает браузер */
@@ -325,39 +440,143 @@ export default function QuizEditorPage() {
     }
   }, [id, quiz.setData]);
 
-  const save = async () => {
-    if (!form || saving) return;
-    const wrong = validate(form, visibleQuestions > 0);
+  const patchRow = (key: string, fn: (r: Row) => Row) =>
+    setRows((rs) => rs.map((r) => (r.key === key ? fn(r) : r)));
+
+  /* Правка формы двигает номер: ответ уже улетевшего запроса не должен
+     вернуть в поля то, что успели перепечатать */
+  const editRow = (key: string, fn: (r: Row) => Row) =>
+    patchRow(key, (r) => {
+      const next = fn(r);
+      return next === r ? r : { ...next, rev: r.rev + 1 };
+    });
+
+  const setField = <K extends keyof QForm>(key: string, field: K, value: QForm[K]) =>
+    editRow(key, (r) => ({ ...r, form: { ...r.form, [field]: value } }));
+
+  const syncSaving = () =>
+    setSavingKeys(running.current ? [running.current, ...waiting.current] : [...waiting.current]);
+
+  /** Поставить сохранение в очередь. Повторная постановка того же ключа
+      не нужна: задача возьмёт строку такой, какой она будет к отправке. */
+  const enqueue = (key: string) => {
+    if (!waiting.current.includes(key)) waiting.current.push(key);
+    syncSaving();
+    setPulse((p) => p + 1);
+  };
+
+  /** Настройки теста. Кнопка в шапке шлёт всё тело, автосохранение — только
+      то, что разошлось с сервером. */
+  const sendSettings = async () => {
+    const f = formRef.current;
+    const base = dataRef.current;
+    const all = sendAll.current;
+    sendAll.current = false;
+    if (!f || !base) return;
+    const wrong = validate(f, base.questions.filter((q) => !q.is_hidden).length > 0);
     if (Object.keys(wrong).length) {
       setErrors(wrong);
+      setSettingsSaved(false);
       return;
     }
-    setSaving(true);
+    const body = all ? patchBody(f) : changedFields(f, formOf(base));
+    if (!Object.keys(body).length) return;
+    const rev = formRev.current;
     setErrors({});
     try {
-      const updated = await api<AdminQuiz>(`/admin/quizzes/${id}`, {
-        method: "PATCH",
-        json: patchBody(form),
-      });
+      const updated = await api<AdminQuiz>(`/admin/quizzes/${id}`, { method: "PATCH", json: body });
       quiz.setData(updated);
-      setForm(formOf(updated));
-      toast("Настройки теста сохранены", "success");
+      /* Пока запрос летел, в соседнем поле могли набрать ещё — старый ответ
+         его не затирает */
+      if (formRev.current === rev) setForm(formOf(updated));
+      setSettingsSaved(true);
+      /* Тоста на каждое поле нет: об автосохранении говорит строка состояния
+         рядом с заголовком. Тост остаётся у кнопки — её нажали руками */
+      if (all) toast("Настройки теста сохранены", "success");
     } catch (e) {
       const fields = fieldErrors(e);
       if (Object.keys(fields).length) setErrors(fields);
       /* 409 final_quiz_exists приходит готовой строкой и называет тест,
          который уже итоговый, — показываем её как есть */
       else toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
-    } finally {
-      setSaving(false);
+      setSettingsSaved(false);
     }
   };
 
-  const patchRow = (key: string, fn: (r: Row) => Row) =>
-    setRows((rs) => rs.map((r) => (r.key === key ? fn(r) : r)));
+  /** Одна строка вопроса. `true` — запрос ушёл, и серверные цифры устарели. */
+  const sendRow = async (key: string): Promise<boolean> => {
+    const row = rowsRef.current.find((r) => r.key === key);
+    /* Всё проверяется в момент отправки, а не постановки: пока строка ждала
+       очереди, её могли доделать, сломать или удалить */
+    if (!row || row.saved?.has_attempts || !isDirty(row)) return false;
+    if (Object.keys(questionProblems(row.form)).length) return false;
+    const rev = row.rev;
+    patchRow(key, (r) => ({ ...r, errors: {} }));
+    try {
+      const saved = row.saved
+        ? await api<AdminQuizQuestion>(`/admin/quiz_questions/${row.saved.id}`, {
+            method: "PATCH",
+            json: questionPatch(row.form),
+          })
+        : await api<AdminQuizQuestion>(`/admin/quizzes/${id}/questions`, {
+            method: "POST",
+            json: createBody(row.form),
+          });
+      patchRow(key, (r) => {
+        /* Снимок с сервера обновляется всегда, даже если строку успели
+           поправить: без него следующее сохранение нового вопроса ушло бы
+           вторым POST и завело бы дубль */
+        const next: Row = { ...r, saved, errors: {} };
+        /* Ответ более старого запроса не затирает набранное позже */
+        if (r.rev !== rev) return next;
+        /* Сервер обрезал пробелы — в полях то, что вернулось */
+        return isDirty(next) ? { ...next, form: mergedForm(r.form, saved) } : next;
+      });
+      return true;
+    } catch (e) {
+      const fields = fieldErrors(e);
+      /* Отказ ложится в поля строки и не съедает набранное: форму не трогаем,
+         строка остаётся несохранённой и уйдёт снова со следующей правкой */
+      if (Object.keys(fields).length) patchRow(key, (r) => ({ ...r, errors: fields }));
+      else toast(isApiError(e) ? e.message : "Не удалось сохранить вопрос", "error");
+      return false;
+    }
+  };
 
-  const setField = <K extends keyof QForm>(key: string, field: K, value: QForm[K]) =>
-    patchRow(key, (r) => ({ ...r, form: { ...r.form, [field]: value } }));
+  /** Одна задача из очереди — ровно одна: следующая пойдёт со следующей
+      отрисовки, иначе она прочитала бы строку до того, как в неё лёг ответ
+      предыдущей, и новый вопрос ушёл бы вторым `POST`. */
+  const step = async () => {
+    if (draining.current) return;
+    if (!waiting.current.length) {
+      /* «максимум N баллов» и признаки попыток считает сервер: перечитываем
+         один раз на опустевшую очередь, а не после каждого поля */
+      if (stale.current) {
+        stale.current = false;
+        await refresh();
+      }
+      return;
+    }
+    const key = waiting.current[0];
+    waiting.current = waiting.current.slice(1);
+    running.current = key;
+    draining.current = true;
+    syncSaving();
+    try {
+      if (key === SETTINGS_KEY) await sendSettings();
+      else if (await sendRow(key)) stale.current = true;
+    } finally {
+      running.current = null;
+      draining.current = false;
+      syncSaving();
+      setPulse((p) => p + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (pulse) void step();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pulse]);
 
   /* Пустой вопрос заводится на экране, а не на сервере: `POST` требует готовых
      вариантов, и заготовка отбилась бы `422`. Правильный заранее не отмечен —
@@ -378,45 +597,18 @@ export default function QuizEditorPage() {
           options: [newOption(), newOption()],
         },
         errors: {},
+        rev: 0,
       },
     ]);
-  };
-
-  const saveRow = async (row: Row) => {
-    if (busyKey) return;
-    setBusyKey(row.key);
-    patchRow(row.key, (r) => ({ ...r, errors: {} }));
-    try {
-      const saved = row.saved
-        ? await api<AdminQuizQuestion>(`/admin/quiz_questions/${row.saved.id}`, {
-            method: "PATCH",
-            json: questionPatch(row.form),
-          })
-        : await api<AdminQuizQuestion>(`/admin/quizzes/${id}/questions`, {
-            method: "POST",
-            json: createBody(row.form),
-          });
-      /* Сервер обрезал пробелы у текста и вариантов — в поля кладём то,
-         что вернулось, а не то, что было набрано */
-      patchRow(row.key, () => rowOf(saved));
-      toast(row.saved ? "Вопрос сохранён" : "Вопрос добавлен", "success");
-      await refresh();
-    } catch (e) {
-      const fields = fieldErrors(e);
-      if (Object.keys(fields).length) patchRow(row.key, (r) => ({ ...r, errors: fields }));
-      else toast(isApiError(e) ? e.message : "Не удалось сохранить вопрос", "error");
-    } finally {
-      setBusyKey(null);
-    }
   };
 
   /* Скрыть можно всегда, даже вопрос с попытками: `PATCH`, в котором нет ничего,
      кроме is_hidden, сервер не отбивает никогда — ровно это он и советует
      в тексте своего отказа. Поэтому в теле только один ключ */
   const toggleHidden = async (row: Row) => {
-    if (!row.saved || busyKey) return;
+    if (!row.saved || actionKey) return;
     const hide = !row.saved.is_hidden;
-    setBusyKey(row.key);
+    setActionKey(row.key);
     try {
       const body: QuizQuestionPatch = { is_hidden: hide };
       const saved = await api<AdminQuizQuestion>(`/admin/quiz_questions/${row.saved.id}`, {
@@ -434,7 +626,7 @@ export default function QuizEditorPage() {
     } catch (e) {
       toast(isApiError(e) ? e.message : "Не удалось поменять видимость", "error");
     } finally {
-      setBusyKey(null);
+      setActionKey(null);
     }
   };
 
@@ -447,9 +639,9 @@ export default function QuizEditorPage() {
      несохранённой, а сохранить её значило бы завести второй такой же вопрос
      и вдвое больший максимум баллов */
   const duplicate = async (row: Row) => {
-    if (!row.saved || busyKey) return;
+    if (!row.saved || actionKey) return;
     const dirty = isDirty(row);
-    setBusyKey(row.key);
+    setActionKey(row.key);
     try {
       const saved = await api<AdminQuizQuestion>(`/admin/quizzes/${id}/questions`, {
         method: "POST",
@@ -468,7 +660,7 @@ export default function QuizEditorPage() {
       const first = Object.values(fields)[0];
       toast(first ?? (isApiError(e) ? e.message : "Не удалось продублировать"), "error");
     } finally {
-      setBusyKey(null);
+      setActionKey(null);
     }
   };
 
@@ -479,8 +671,8 @@ export default function QuizEditorPage() {
       setDeletingKey(null);
       return;
     }
-    if (busyKey) return;
-    setBusyKey(row.key);
+    if (actionKey) return;
+    setActionKey(row.key);
     try {
       await api(`/admin/quiz_questions/${row.saved.id}`, { method: "DELETE" });
       setRows((rs) => rs.filter((r) => r.key !== row.key));
@@ -494,12 +686,12 @@ export default function QuizEditorPage() {
       setDeletingKey(null);
       toast(isApiError(e) ? e.message : "Не удалось удалить вопрос", "error");
     } finally {
-      setBusyKey(null);
+      setActionKey(null);
     }
   };
 
   const setOption = (key: string, index: number, patch: Partial<Opt>) =>
-    patchRow(key, (r) => ({
+    editRow(key, (r) => ({
       ...r,
       form: {
         ...r.form,
@@ -514,30 +706,37 @@ export default function QuizEditorPage() {
   const markCorrect = (row: Row, index: number) => {
     if (row.form.type === "multi") {
       setOption(row.key, index, { is_correct: !row.form.options[index].is_correct });
-      return;
+    } else {
+      editRow(row.key, (r) => ({
+        ...r,
+        form: {
+          ...r.form,
+          options: r.form.options.map((o, i) => ({ ...o, is_correct: i === index })),
+        },
+      }));
     }
-    patchRow(row.key, (r) => ({
-      ...r,
-      form: {
-        ...r.form,
-        options: r.form.options.map((o, i) => ({ ...o, is_correct: i === index })),
-      },
-    }));
+    /* Отметка уходит сразу: уйти из галочки некуда */
+    enqueue(row.key);
   };
 
-  const addOption = (key: string) =>
-    patchRow(key, (r) =>
+  /* Добавление и удаление варианта — тоже «сразу»: кнопка, а не поле */
+  const addOption = (key: string) => {
+    editRow(key, (r) =>
       r.form.options.length >= MAX_OPTIONS
         ? r
         : { ...r, form: { ...r.form, options: [...r.form.options, newOption()] } },
     );
+    enqueue(key);
+  };
 
-  const dropOption = (key: string, index: number) =>
-    patchRow(key, (r) =>
+  const dropOption = (key: string, index: number) => {
+    editRow(key, (r) =>
       r.form.options.length <= MIN_OPTIONS
         ? r
         : { ...r, form: { ...r.form, options: r.form.options.filter((_, i) => i !== index) } },
     );
+    enqueue(key);
+  };
 
   if (quiz.loading && !data) {
     return (
@@ -584,8 +783,27 @@ export default function QuizEditorPage() {
     );
   }
 
-  const set = <K extends keyof Form>(key: K, value: Form[K]) =>
+  const set = <K extends keyof Form>(key: K, value: Form[K]) => {
+    /* Каждая правка двигает номер: ответ уже улетевшего запроса не должен
+       вернуть в форму то, что успели перепечатать */
+    formRev.current += 1;
+    setSettingsSaved(false);
     setForm((f) => (f ? { ...f, [key]: value } : f));
+  };
+
+  /* Переключатели и списки уходят сразу по изменению: уйти из них некуда.
+     Текстовые и числовые поля ждут ухода из поля — иначе на сервер попадало бы
+     наполовину набранное число */
+  const setNow = <K extends keyof Form>(key: K, value: Form[K]) => {
+    set(key, value);
+    enqueue(SETTINGS_KEY);
+  };
+
+  /** Кнопка в шапке: то же сохранение, но всем телом разом. */
+  const saveAll = () => {
+    sendAll.current = true;
+    enqueue(SETTINGS_KEY);
+  };
 
   const deleting = rows.find((r) => r.key === deletingKey) ?? null;
   const hiddenCount = data.questions.filter((q) => q.is_hidden).length;
@@ -598,7 +816,7 @@ export default function QuizEditorPage() {
       title={form.title || "Редактор теста"}
       subtitle={`${data.course.title} · ${data.module.title}`}
       actions={
-        <Button size="sm" loading={saving} onClick={save}>
+        <Button size="sm" loading={settingsBusy} onClick={saveAll}>
           Сохранить настройки
         </Button>
       }
@@ -617,7 +835,14 @@ export default function QuizEditorPage() {
         <div className="card card-pad stack g16">
           <div className="row between g12" style={{ alignItems: "center" }}>
             <h2 className="h3">Настройки теста</h2>
-            {settingsDirty && <Badge kind="review">Не сохранено</Badge>}
+            {/* Короткое состояние вместо тоста на каждое поле */}
+            {settingsBusy ? (
+              <span className="caption muted-3">Сохраняем…</span>
+            ) : settingsDirty ? (
+              <Badge kind="review">Не сохранено</Badge>
+            ) : (
+              settingsSaved && <span className="caption muted-3">Сохранено</span>
+            )}
           </div>
 
           {/* Язык у теста не выбирается: он наследуется от курса, а вторая
@@ -635,6 +860,7 @@ export default function QuizEditorPage() {
               className={`input${errors.title ? " input-error" : ""}`}
               value={form.title}
               onChange={(e) => set("title", e.target.value)}
+              onBlur={() => enqueue(SETTINGS_KEY)}
             />
             {errors.title && <span className="error-text">{errors.title}</span>}
           </div>
@@ -645,14 +871,14 @@ export default function QuizEditorPage() {
               <div className="segmented" style={{ width: "100%" }}>
                 <button
                   data-active={form.is_final}
-                  onClick={() => set("is_final", true)}
+                  onClick={() => setNow("is_final", true)}
                   style={{ flex: 1 }}
                 >
                   Итоговый
                 </button>
                 <button
                   data-active={!form.is_final}
-                  onClick={() => set("is_final", false)}
+                  onClick={() => setNow("is_final", false)}
                   style={{ flex: 1 }}
                 >
                   Тест модуля
@@ -674,6 +900,7 @@ export default function QuizEditorPage() {
                 inputMode="numeric"
                 value={form.pass_score}
                 onChange={(e) => set("pass_score", digits(e.target.value))}
+                onBlur={() => enqueue(SETTINGS_KEY)}
               />
               {errors.pass_score ? (
                 <span className="error-text">{errors.pass_score}</span>
@@ -696,6 +923,7 @@ export default function QuizEditorPage() {
               inputMode="numeric"
               value={form.time_required_min}
               onChange={(e) => set("time_required_min", digits(e.target.value))}
+              onBlur={() => enqueue(SETTINGS_KEY)}
             />
             {errors.time_required_min ? (
               <span className="error-text">{errors.time_required_min}</span>
@@ -722,7 +950,7 @@ export default function QuizEditorPage() {
               <button
                 className="switch"
                 data-on={form.retakable}
-                onClick={() => set("retakable", !form.retakable)}
+                onClick={() => setNow("retakable", !form.retakable)}
                 aria-pressed={form.retakable}
                 aria-label="Пересдаваемый"
               />
@@ -753,6 +981,7 @@ export default function QuizEditorPage() {
                       style={{ width: 68, height: 40, textAlign: "center" }}
                       value={form.time_limit_min}
                       onChange={(e) => set("time_limit_min", digits(e.target.value))}
+                      onBlur={() => enqueue(SETTINGS_KEY)}
                       inputMode="numeric"
                       aria-label="Минут"
                     />
@@ -762,7 +991,14 @@ export default function QuizEditorPage() {
                 <button
                   className="switch"
                   data-on={form.timer}
-                  onClick={() => set("timer", !form.timer)}
+                  onClick={() => {
+                    const on = !form.timer;
+                    set("timer", on);
+                    /* Включённый таймер без минут отправлять нечем — ждём,
+                       пока их наберут. Выключенный уходит сразу: null и есть
+                       значение «ограничения нет» */
+                    if (!on) enqueue(SETTINGS_KEY);
+                  }}
                   aria-pressed={form.timer}
                   aria-label="Таймер"
                 />
@@ -790,7 +1026,7 @@ export default function QuizEditorPage() {
               <button
                 className="switch"
                 data-on={form.shuffle}
-                onClick={() => set("shuffle", !form.shuffle)}
+                onClick={() => setNow("shuffle", !form.shuffle)}
                 aria-pressed={form.shuffle}
                 aria-label="Перемешивать вопросы"
               />
@@ -806,7 +1042,7 @@ export default function QuizEditorPage() {
               <button
                 className="switch"
                 data-on={form.show_review}
-                onClick={() => set("show_review", !form.show_review)}
+                onClick={() => setNow("show_review", !form.show_review)}
                 aria-pressed={form.show_review}
                 aria-label="Разбор после сдачи"
               />
@@ -861,7 +1097,7 @@ export default function QuizEditorPage() {
               data-on={form.is_hidden}
               disabled={cannotOpen}
               style={cannotOpen ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-              onClick={() => set("is_hidden", !form.is_hidden)}
+              onClick={() => setNow("is_hidden", !form.is_hidden)}
               aria-pressed={form.is_hidden}
               aria-label="Скрыт от учителей"
             />
@@ -881,8 +1117,9 @@ export default function QuizEditorPage() {
         {unsaved > 0 && (
           <Note kind="muted">
             <span className="small pretty">
-              Вопросы сохраняются по одному, своей кнопкой в карточке: кнопка в шапке
-              шлёт только настройки теста. Непомеченные вопросы уже на сервере.
+              Вопросы сохраняются сами и по одному — по уходу из поля. Недоделанный
+              вопрос помечен красным и на сервер не уходит вовсе, пока в нём чего-то
+              не хватает. Непомеченные вопросы уже на сервере.
             </span>
           </Note>
         )}
@@ -907,16 +1144,23 @@ export default function QuizEditorPage() {
             const locked = !!row.saved?.has_attempts;
             const hidden = !!row.saved?.is_hidden;
             const dirty = isDirty(row);
-            const busy = busyKey === row.key;
-            const blocked = busyKey !== null && !busy;
-            const topErrors = Object.entries(row.errors).filter(
+            const busy = savingKeys.includes(row.key);
+            /* Копия, видимость и удаление идут по одной на весь экран — они
+               меняют состав вопросов, и второй такой же клик не нужен */
+            const blocked = actionKey !== null;
+            /* Чего вопросу не хватает — поверх отказа сервера: тот описывает
+               прошлую отправку, а это то, что в полях сейчас */
+            const problems = locked ? {} : questionProblems(row.form);
+            const broken = Object.keys(problems).length > 0;
+            const shown: Record<string, string> = { ...row.errors, ...problems };
+            const topErrors = Object.entries(shown).filter(
               ([field]) => !INLINE_FIELDS.includes(field),
             );
 
             return (
               <div
                 key={row.key}
-                className="card"
+                className={`card${broken ? " q-bad" : ""}`}
                 style={{ overflow: "hidden", opacity: hidden ? 0.75 : 1 }}
               >
                 <div
@@ -935,7 +1179,12 @@ export default function QuizEditorPage() {
                     style={{ height: 34, width: "auto", fontSize: 13 }}
                     value={row.form.type}
                     disabled={locked}
-                    onChange={(e) => setField(row.key, "type", e.target.value as QuestionType)}
+                    onChange={(e) => {
+                      setField(row.key, "type", e.target.value as QuestionType);
+                      /* Список — «сразу»: правила зачёта у типов разные,
+                         и вопрос может стать целым или, наоборот, красным */
+                      enqueue(row.key);
+                    }}
                     aria-label="Тип вопроса"
                   >
                     <option value="single">{TYPE_LABEL.single}</option>
@@ -949,19 +1198,24 @@ export default function QuizEditorPage() {
                     </Badge>
                   )}
                   {hidden && <Badge kind="neutral">Скрыт</Badge>}
-                  {dirty && <Badge kind="review">Не сохранён</Badge>}
+                  {broken ? (
+                    <Badge kind="rework">Не доделан</Badge>
+                  ) : (
+                    dirty && <Badge kind="review">Не сохранён</Badge>
+                  )}
 
                   <div className="grow" />
 
                   <div className="row g6 nowrap">
                     <span className="caption muted">Баллы</span>
                     <input
-                      className={`input${row.errors.points ? " input-error" : ""}`}
+                      className={`input${shown.points ? " input-error" : ""}`}
                       style={{ width: 56, height: 34, textAlign: "center", fontSize: 13 }}
                       value={row.form.points}
                       disabled={locked}
                       inputMode="numeric"
                       onChange={(e) => setField(row.key, "points", digits(e.target.value))}
+                      onBlur={() => enqueue(row.key)}
                       aria-label="Баллы за вопрос"
                     />
                   </div>
@@ -1030,14 +1284,15 @@ export default function QuizEditorPage() {
                   <div className="field">
                     <label className="label">Текст вопроса</label>
                     <textarea
-                      className={`input${row.errors.text ? " input-error" : ""}`}
+                      className={`input${shown.text ? " input-error" : ""}`}
                       style={{ minHeight: 68 }}
                       value={row.form.text}
                       disabled={locked}
                       onChange={(e) => setField(row.key, "text", e.target.value)}
+                      onBlur={() => enqueue(row.key)}
                       placeholder="О чём спрашиваем"
                     />
-                    {row.errors.text && <span className="error-text">{row.errors.text}</span>}
+                    {shown.text && <span className="error-text">{shown.text}</span>}
                   </div>
 
                   <div className="stack g8">
@@ -1062,11 +1317,12 @@ export default function QuizEditorPage() {
                           {opt.is_correct && <IconCheck size={13} />}
                         </button>
                         <input
-                          className="input"
+                          className={`input${broken && !opt.text.trim() ? " input-error" : ""}`}
                           style={{ height: 44 }}
                           value={opt.text}
                           disabled={locked}
                           onChange={(e) => setOption(row.key, oi, { text: e.target.value })}
+                          onBlur={() => enqueue(row.key)}
                           placeholder={`Вариант ${oi + 1}`}
                         />
                         {!locked && row.form.options.length > MIN_OPTIONS && (
@@ -1094,8 +1350,8 @@ export default function QuizEditorPage() {
                       </Button>
                     )}
 
-                    {row.errors.options ? (
-                      <span className="error-text">{row.errors.options}</span>
+                    {shown.options ? (
+                      <span className="error-text">{shown.options}</span>
                     ) : (
                       <span className="caption muted-3 pretty">
                         {TYPE_HINT[row.form.type]}
@@ -1109,43 +1365,45 @@ export default function QuizEditorPage() {
                       <span className="label-optional">· показывается в разборе</span>
                     </label>
                     <textarea
-                      className={`input${row.errors.explanation ? " input-error" : ""}`}
+                      className={`input${shown.explanation ? " input-error" : ""}`}
                       style={{ minHeight: 60 }}
                       value={row.form.explanation}
                       disabled={locked}
                       onChange={(e) => setField(row.key, "explanation", e.target.value)}
+                      onBlur={() => enqueue(row.key)}
                     />
-                    {row.errors.explanation && (
-                      <span className="error-text">{row.errors.explanation}</span>
+                    {shown.explanation && (
+                      <span className="error-text">{shown.explanation}</span>
                     )}
                   </div>
 
+                  {/* Второй кнопки «сохранить вопрос» нет: строка уходит
+                      на сервер сама, как только вопрос стал целым */}
                   {!locked && (
                     <div className="row g8 wrap" style={{ alignItems: "center" }}>
-                      <Button
-                        size="sm"
-                        loading={busy}
-                        disabled={blocked || !dirty}
-                        onClick={() => saveRow(row)}
-                      >
-                        {row.saved ? "Сохранить вопрос" : "Добавить вопрос"}
-                      </Button>
                       {dirty && row.saved && (
                         <Button
                           variant="ghost"
                           size="sm"
                           disabled={busy || blocked}
-                          onClick={() => patchRow(row.key, () => rowOf(row.saved!))}
+                          onClick={() => editRow(row.key, () => rowOf(row.saved!))}
                         >
                           Вернуть сохранённое
                         </Button>
                       )}
-                      <span className="caption muted-3">
-                        {dirty
-                          ? row.saved
-                            ? "Правки ещё не на сервере"
-                            : "Вопроса ещё нет на сервере"
-                          : "Сохранён"}
+                      <span
+                        className="caption muted-3"
+                        style={broken ? { color: "var(--danger)" } : undefined}
+                      >
+                        {busy
+                          ? "Сохраняем…"
+                          : broken
+                            ? "Вопрос не доделан — на сервер он не уйдёт"
+                            : dirty
+                              ? row.saved
+                                ? "Правки ещё не на сервере"
+                                : "Вопроса ещё нет на сервере"
+                              : "Сохранён"}
                       </span>
                     </div>
                   )}
@@ -1179,7 +1437,7 @@ export default function QuizEditorPage() {
               variant="danger"
               block
               size="lg"
-              loading={deleting ? busyKey === deleting.key : false}
+              loading={deleting ? actionKey === deleting.key : false}
               onClick={() => deleting && removeRow(deleting)}
             >
               {deleting?.saved ? "Удалить" : "Убрать"}
@@ -1198,6 +1456,7 @@ export default function QuizEditorPage() {
       </Sheet>
 
       <style>{`
+        .q-bad { border-color: var(--danger); }
         .q-row { display: grid; grid-template-columns: 1fr; gap: 14px; }
         @media (min-width: 640px) { .q-row { grid-template-columns: 1.4fr 1fr; } }
       `}</style>

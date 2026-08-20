@@ -19,7 +19,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Админка · LMS для учителей",
+  title: "Админка · Академия педагогов и психологов",
   description: "Заявки, доступы, проверка работ и содержимое курсов.",
   /* Админка не индексируется: она про телефоны и ФИО учителей, а не про каталог */
   robots: { index: false, follow: false },

@@ -12,12 +12,14 @@ export default function NotFound() {
           <Empty
             icon={<IconSearch size={36} />}
             title="Страница не найдена"
-            text="Возможно, ссылка устарела. Откройте каталог или карту экранов прототипа."
+            text="Возможно, ссылка устарела. Откройте каталог курсов или вернитесь на главную."
             action={
               <div className="row g8 wrap center">
                 <LinkButton href="/courses">Открыть каталог</LinkButton>
-                <LinkButton href="/map" variant="secondary">
-                  Карта экранов
+                {/* Страница видна и гостю, поэтому вторая ссылка — на лендинг,
+                    а не в кабинет: он потребовал бы входа */}
+                <LinkButton href="/" variant="secondary">
+                  На главную
                 </LinkButton>
               </div>
             }

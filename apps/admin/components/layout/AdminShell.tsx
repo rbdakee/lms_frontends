@@ -4,10 +4,11 @@
  * Каркас админки — десктоп-первым, но открывается с планшета и телефона.
  * На узких экранах боковое меню превращается в шторку.
  *
- * Отдельного входа в админку нет: тот же вход по SMS на domain.kz, права —
- * `is_admin` у пользователя. Каркас проверяет `GET /me` и не пускает гостей
- * и учителей без прав — права при этом проверяются и на сервере, гейт здесь
- * только чтобы не показывать пустые экраны с ошибками 403.
+ * Вход по SMS у админки свой — `/login` на её домене, чтобы за кодом
+ * не уходить в приложение учителя. Кука `sid` при этом одна на оба фронта,
+ * права — `is_admin` у пользователя. Каркас проверяет `GET /me` и не пускает
+ * гостей и учителей без прав — права при этом проверяются и на сервере,
+ * гейт здесь только чтобы не показывать пустые экраны с ошибками 403.
  */
 
 import Link from "next/link";
@@ -29,8 +30,8 @@ import {
   IconSettings,
   IconStar,
   IconUsers,
-  LogoMark,
 } from "@lms/ui/icons";
+import logo from "@lms/ui/logo.png";
 
 interface NavItem {
   href: string;
@@ -130,6 +131,10 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 /** Гость или учитель без прав — вежливый отказ вместо пустых экранов с 403. */
 function AdminGate() {
   const { status, blocked_message } = useMe();
+  const pathname = usePathname();
+  /* Закрытый экран запоминается в адресе входа: после SMS человек вернётся
+     туда, куда шёл, а не на дашборд. */
+  const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
 
   if (status === "loading") {
     return (
@@ -150,18 +155,23 @@ function AdminGate() {
             status === "blocked"
               ? blocked_message ?? "Доступ заблокирован."
               : guest
-                ? "Отдельного входа в админку нет. Войдите по SMS в приложении учителя — если у аккаунта есть права администратора, админка откроется."
+                ? "Войдите по SMS — код придёт на номер администратора."
                 : "У этого аккаунта нет прав администратора. Если они должны быть — напишите владельцу платформы."
           }
           action={
             guest ? (
-              <a href={web("/login")} className="btn btn-primary">
-                Войти на {new URL(web("/")).host}
-              </a>
+              <Link href={loginHref} className="btn btn-primary">
+                Войти
+              </Link>
             ) : (
-              <a href={web("/my")} className="btn btn-secondary">
-                Кабинет учителя
-              </a>
+              <div className="row center g10">
+                <Link href={loginHref} className="btn btn-primary">
+                  Войти другим номером
+                </Link>
+                <a href={web("/my")} className="btn btn-secondary">
+                  Кабинет учителя
+                </a>
+              </div>
             )
           }
         />
@@ -199,14 +209,16 @@ export function AdminShell({
           href={web("/")}
           className="row g10 admin-logo"
           style={{ padding: "6px 10px 10px" }}
-          aria-label="LMS — на лендинг"
+          aria-label="Академия педагогов и психологов — на лендинг"
         >
-          <span className="logo-mark" style={{ width: 32, height: 32, borderRadius: 9 }}>
-            <LogoMark size={18} />
-          </span>
+          <img src={logo.src} alt="" className="logo-emblem" width={38} height={38} />
           <span className="stack" style={{ lineHeight: 1.2 }}>
-            <strong style={{ fontSize: 15 }}>LMS · Админ</strong>
-            <span className="caption muted-3">Институт повышения</span>
+            <strong style={{ fontSize: 13.5 }}>
+              Академия педагогов
+              <br />
+              и психологов
+            </strong>
+            <span className="caption muted-3">Админка</span>
           </span>
         </Link>
 
@@ -260,12 +272,14 @@ export function AdminShell({
         onClose={() => setMenu(false)}
         title={
           <Link href={web("/")} className="row g10" onClick={() => setMenu(false)}>
-            <span className="logo-mark" style={{ width: 32, height: 32, borderRadius: 9 }}>
-              <LogoMark size={18} />
-            </span>
+            <img src={logo.src} alt="" className="logo-emblem" width={38} height={38} />
             <span className="stack" style={{ lineHeight: 1.2 }}>
-              <span style={{ fontSize: 15, fontWeight: 800 }}>LMS · Админ</span>
-              <span className="caption muted-3">на лендинг</span>
+              <span style={{ fontSize: 13.5, fontWeight: 800 }}>
+                Академия педагогов
+                <br />
+                и психологов
+              </span>
+              <span className="caption muted-3">Админка · на лендинг</span>
             </span>
           </Link>
         }

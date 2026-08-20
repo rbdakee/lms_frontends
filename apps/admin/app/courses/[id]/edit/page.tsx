@@ -39,6 +39,7 @@ import {
   type CourseStatus,
   type LessonKind,
   type ProgramOrderIn,
+  type UploadedFile,
 } from "@lms/api";
 import { day, duration, price as fmtPrice, plural } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
@@ -62,6 +63,7 @@ import {
 import {
   IconBook,
   IconCheck,
+  IconClose,
   IconCopy,
   IconDrag,
   IconEdit,
@@ -74,6 +76,7 @@ import {
   IconTask,
   IconText,
   IconTrash,
+  IconUpload,
   IconVideo,
 } from "@lms/ui/icons";
 
@@ -89,7 +92,6 @@ const FIELD_TAB: Record<string, Tab> = {
   title: "main",
   short: "main",
   full: "main",
-  cover: "main",
   category_id: "main",
   hours: "main",
   duration_text: "main",
@@ -200,7 +202,6 @@ interface Form {
   title: string;
   short: string;
   full: string;
-  cover: string;
   category_id: number;
   hours: string;
   duration_text: string;
@@ -226,7 +227,6 @@ function formOf(c: AdminCourseCard): Form {
     title: c.title,
     short: c.short,
     full: c.full,
-    cover: c.cover ?? "",
     category_id: c.category_id,
     hours: String(c.hours),
     duration_text: c.duration_text ?? "",
@@ -241,26 +241,62 @@ function formOf(c: AdminCourseCard): Form {
   };
 }
 
-/** Пустое поле — это `null`, а не пустая строка: «цены нет» и «цена 0» разное. */
-function patchBody(f: Form) {
-  return {
-    title: f.title.trim(),
-    short: f.short,
-    full: f.full,
-    cover: f.cover.trim() || null,
-    category_id: f.category_id,
-    hours: Number(f.hours),
-    duration_text: f.duration_text.trim() || null,
-    price: f.price.trim() === "" ? null : Number(f.price),
-    status: f.status,
-    starts_at: f.starts_at || null,
-    strict_order: f.strict_order,
-    cert_require_lessons: f.cert_require_lessons,
-    cert_require_tasks: f.cert_require_tasks,
-    cert_require_module_quizzes: f.cert_require_module_quizzes,
-    cert_require_final_quiz: f.cert_require_final_quiz,
-  };
+/** Значение поля в теле PATCH — имя поля то же, преобразований на границе нет. */
+type PatchValue = string | number | boolean | null;
+
+/**
+ * Одно поле формы в том виде, в каком его принимает сервер. Автосохранение
+ * шлёт поля по одному, кнопка «Сохранить» — все разом, и превращение формы
+ * в тело запроса у них обязано быть одно: разойдись они, кнопка чинила бы
+ * то, что автосохранение записало иначе.
+ *
+ * Пустое поле — это `null`, а не пустая строка: «цены нет» и «цена 0» разное.
+ */
+function fieldValue(f: Form, key: keyof Form): PatchValue {
+  switch (key) {
+    case "title":
+      return f.title.trim();
+    case "duration_text":
+      return f.duration_text.trim() || null;
+    case "hours":
+      return Number(f.hours);
+    case "price":
+      return f.price.trim() === "" ? null : Number(f.price);
+    case "starts_at":
+      return f.starts_at || null;
+    default:
+      return f[key];
+  }
 }
+
+function patchBody(f: Form): Record<string, PatchValue> {
+  return Object.fromEntries(
+    (Object.keys(f) as (keyof Form)[]).map((k) => [k, fieldValue(f, k)]),
+  );
+}
+
+/**
+ * Значение, которое сервер заведомо не примет. Пустое поле часов — это
+ * `Number("") === 0`, а `PATCH` у опубликованного курса требует `hours >= 1`;
+ * пустое название он отбивает по `title` в любом статусе. Автосохранение
+ * такое не отправляет вовсе: стереть «36», чтобы вписать «40», — обычный
+ * способ править число, и 422 на промежуточном значении прилетать не должен.
+ */
+function unsendable(f: Form, key: keyof Form): boolean {
+  return (key === "hours" || key === "title") && f[key].trim() === "";
+}
+
+/** Причина отказа для строки в шапке: формулировки пишет сервер, а не экран. */
+function whyFailed(e: unknown, fields: Record<string, string>): string {
+  return Object.values(fields)[0] || (isApiError(e) ? e.message : "не удалось сохранить");
+}
+
+/** Что показывает строка автосохранения рядом с кнопкой «Сохранить». */
+type AutoSave =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "saved" }
+  | { kind: "failed"; why: string };
 
 /* ============ Экран ============ */
 
@@ -301,20 +337,49 @@ function CourseEditor() {
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  /* Тоста на каждое поле не будет — их было бы столько же, сколько полей,
+     и они забили бы экран. Единственный след автосохранения — эта строка */
+  const [auto, setAuto] = useState<AutoSave>({ kind: "idle" });
   const [busy, setBusy] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
   const [copyProgram, setCopyProgram] = useState(true);
+  /* Обложка живёт мимо формы: это файл, а не буквы в поле, и уходит на сервер
+     сразу — «ухода из поля» у кнопки нет. Поэтому её нет ни в `Form`, ни в
+     `dirty`: иначе «не сохранено» горело бы после каждой загрузки */
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [coverError, setCoverError] = useState("");
+  /* Имя файла сервер наружу не отдаёт — помним то, что сами же и загрузили */
+  const [coverName, setCoverName] = useState("");
+  /* Адрес раздачи у курса один и тот же на все картинки, а кэшируется он
+     на пять минут: без метки замена обложки показала бы прежнюю */
+  const [coverStamp, setCoverStamp] = useState(0);
+  const coverPick = useRef<HTMLInputElement>(null);
 
   /* Форма пересобирается только при смене курса: пока админ печатает, дерево
      программы ходит на сервер своими запросами и не должно стирать поля */
   const seeded = useRef<number | null>(null);
   /* Номер чтения курса: ответ устаревшего refresh не должен затереть свежий */
   const refreshSeq = useRef(0);
+  /* То же по записи: два ухода из полей подряд дают два PATCH, и ответ более
+     раннего вернул бы карточку без второй правки — вместе с ней откатился бы
+     и чек-лист «Публикации». Счётчик один на все записи курса: кнопка
+     «Сохранить» и кнопки публикации кладут в `data` такую же карточку */
+  const writeSeq = useRef(0);
+  /* Что по полю уже ушло на сервер: в `data` правка появится только с ответом,
+     а до него второй уход из того же поля сравнивать не с чем */
+  const sent = useRef<Partial<Record<keyof Form, PatchValue>>>({});
   useEffect(() => {
     if (data && seeded.current !== data.id) {
       seeded.current = data.id;
       setForm(formOf(data));
       setErrors({});
+      sent.current = {};
+      setAuto({ kind: "idle" });
+      /* Переключатель РУС|ҚАЗ открывает другой курс тем же экраном: имя файла
+         и метка кэша относились к прошлой обложке */
+      setCoverName("");
+      setCoverError("");
+      setCoverStamp(0);
     }
   }, [data]);
 
@@ -374,19 +439,26 @@ function CourseEditor() {
     if (!form || saving) return;
     setSaving(true);
     setErrors({});
+    setAuto({ kind: "saving" });
+    const my = ++writeSeq.current;
     try {
       const updated = await api<AdminCourseCard>(`/admin/courses/${id}`, {
         method: "PATCH",
         json: patchBody(form),
       });
+      if (writeSeq.current !== my) return;
+      sent.current = {};
       course.setData(updated);
       /* Сервер мог поправить присланное — показываем его значения, а не свои */
       setForm(formOf(updated));
+      setAuto({ kind: "saved" });
       toast("Сохранено", "success");
     } catch (e) {
+      if (writeSeq.current !== my) return;
       const fields = fieldErrors(e);
       if (Object.keys(fields).length) showFieldErrors(fields);
       else toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+      setAuto({ kind: "failed", why: whyFailed(e, fields) });
     } finally {
       setSaving(false);
     }
@@ -397,17 +469,22 @@ function CourseEditor() {
     if (busy) return;
     setBusy(true);
     setErrors({});
+    const my = ++writeSeq.current;
     try {
       const updated = await api<AdminCourseCard>(`/admin/courses/${id}`, {
         method: "PATCH",
         json: { status },
       });
+      /* Клик по кнопке публикации сначала уводит фокус из поля — автосохранение
+         этого поля уже летит, и его ответ моложе нашего быть не должен */
+      if (writeSeq.current !== my) return;
       course.setData(updated);
       /* Форму целиком не пересобираем: несохранённые правки полей — работа
          админа, и кнопка публикации не должна её выбрасывать */
       setForm((f) => (f ? { ...f, status: updated.status as CourseStatus } : f));
       toast(message, "success");
     } catch (e) {
+      if (writeSeq.current !== my) return;
       const fields = fieldErrors(e);
       if (Object.keys(fields).length) showFieldErrors(fields);
       else toast(isApiError(e) ? e.message : "Не удалось поменять статус", "error");
@@ -534,16 +611,183 @@ function CourseEditor() {
     setErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
   };
 
-  const notOk = data.readiness.items.filter((r) => !r.ok).length;
+  /* В счётчик под кнопкой идут только блокирующие пункты: отсутствие обложки
+     набор больше не держит, и в числе «незакрытых» ему делать нечего */
+  const notOk = data.readiness.items.filter((r) => !r.ok && r.blocking).length;
+
+  /* Чек-лист посчитан сервером по сохранённому курсу, а поля показывают
+     напечатанное: пока правка не сохранена, «Публикация» говорит о старой
+     версии — и понять это со стороны неоткуда */
+  const saved = formOf(data);
+  /* Сравниваем не буквы в полях, а то, что уйдёт на сервер: пробел в хвосте
+     названия сервер срежет сам, и «несохранённое» из-за него горело бы вечно */
+  const dirty = (Object.keys(saved) as (keyof Form)[]).some(
+    (k) => fieldValue(saved, k) !== fieldValue(form, k),
+  );
+
+  /**
+   * Поле уходит на сервер само: у текста и чисел — по выходу из поля,
+   * у флажков, списков и даты — сразу, «ухода» у них нет. Шлём одно поле,
+   * а не форму целиком: PATCH применяет только присланное, и то, что админ
+   * печатает в соседнем поле прямо сейчас, чужой запрос не заденет.
+   * `status` не шлём никогда — его меняют кнопки «Публикации».
+   */
+  const saveField = async <K extends keyof Form>(key: K, value: Form[K]) => {
+    if (key === "status") return;
+    const next: Form = { ...form, [key]: value };
+    const now = fieldValue(next, key);
+    /* Сравниваем с тем, что на сервере: ушли из поля, ничего не поменяв, —
+       запроса нет. Пока ответ летит, сервер знает уже отправленное значение */
+    const before = key in sent.current ? sent.current[key] : fieldValue(saved, key);
+    if (now === before) return;
+    if (unsendable(next, key)) {
+      /* Напечатанное остаётся в поле, а «не сохранено» скажет строка в шапке;
+         прошлая причина отказа к этому значению уже не относится */
+      setAuto({ kind: "idle" });
+      return;
+    }
+    sent.current[key] = now;
+    setAuto({ kind: "saving" });
+    const my = ++writeSeq.current;
+    try {
+      const updated = await api<AdminCourseCard>(`/admin/courses/${id}`, {
+        method: "PATCH",
+        json: { [key]: now },
+      });
+      if (writeSeq.current !== my) return;
+      /* Ответ идёт в `data`: из него живут чек-лист «Публикации» и превью
+         карточки. Форму при этом не пересобираем — админ уже печатает
+         в соседнем поле, и его буквы пропасть не должны */
+      course.setData(updated);
+      setAuto({ kind: "saved" });
+    } catch (e) {
+      /* Не дошло — значит на сервере старое значение, и повторный уход
+         из поля с тем же текстом обязан попробовать ещё раз */
+      delete sent.current[key];
+      if (writeSeq.current !== my) return;
+      const fields = fieldErrors(e);
+      /* Напечатанное серверным значением не затираем: отказ съел бы работу.
+         Показываем причину тем же способом, что и кнопка «Сохранить» */
+      if (Object.keys(fields).length) showFieldErrors(fields);
+      else toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+      setAuto({ kind: "failed", why: whyFailed(e, fields) });
+    }
+  };
+
+  /**
+   * Обложка: файл сначала уезжает в приватное хранилище (`POST /files`),
+   * и только потом ключ привязывается к курсу — тем же порядком, что картинки
+   * настроек. Сам по себе загруженный файл ни к чему не относится.
+   */
+  const patchCover = async (value: { key: string; name: string } | null) => {
+    const my = ++writeSeq.current;
+    const updated = await api<AdminCourseCard>(`/admin/courses/${id}`, {
+      method: "PATCH",
+      json: { cover: value },
+    });
+    /* Счётчик записи тот же, что у автосохранения полей: ответ более раннего
+       PATCH не должен затереть свежую карточку вместе с чек-листом */
+    if (writeSeq.current !== my) return;
+    course.setData(updated);
+    setCoverName(value?.name ?? "");
+    setCoverStamp(Date.now());
+  };
+
+  /* 422 приходит с именем поля — причину показываем у самой обложки.
+     Всё остальное (404 «файл не найден») говорит тостом, как в настройках */
+  const coverFail = (e: unknown, fallback: string) => {
+    const mine = fieldErrors(e).cover;
+    if (mine) setCoverError(mine);
+    else toast(isApiError(e) && e.status > 0 ? e.message : fallback, "error");
+  };
+
+  const uploadCover = async (picked: FileList | null) => {
+    const file = picked?.[0];
+    if (!file || coverBusy) return;
+    setCoverBusy(true);
+    setCoverError("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      /* Content-Type ставит браузер сам — вместе с boundary,
+         без него сервер тело не разберёт */
+      const up = await api<UploadedFile>("/files", { method: "POST", body });
+      await patchCover({ key: up.key, name: up.name });
+      toast("Обложка сохранена", "success");
+    } catch (e) {
+      coverFail(e, "Не удалось загрузить обложку");
+    } finally {
+      setCoverBusy(false);
+      /* Тот же файл после отказа выбирают заново — без сброса `change`
+         на нём не случится */
+      if (coverPick.current) coverPick.current.value = "";
+    }
+  };
+
+  const removeCover = async () => {
+    if (coverBusy) return;
+    setCoverBusy(true);
+    setCoverError("");
+    try {
+      await patchCover(null);
+      toast("Обложка убрана", "success");
+    } catch (e) {
+      coverFail(e, "Не удалось убрать обложку");
+    } finally {
+      setCoverBusy(false);
+    }
+  };
+
+  /* Обложка показывается из ответа сервера, а не из формы: наружу он отдаёт
+     адрес раздачи, а метка гасит кэш браузера после замены картинки */
+  const coverSrc = data.cover && coverStamp ? `${data.cover}?v=${coverStamp}` : data.cover;
+
+  /** Флажок, список и дата: правка и отправка одним движением */
+  const setNow = <K extends keyof Form>(key: K, value: Form[K]) => {
+    set(key, value);
+    saveField(key, value);
+  };
+
+  /* «Сохранено» значит «в полях нет ничего сверх того, что лежит на сервере»,
+     и считается это по `dirty`, а не по последнему ответу: причина отказа,
+     которую админ уже исправил, висеть в шапке не должна */
+  const autoText =
+    auto.kind === "saving"
+      ? "Сохраняем…"
+      : dirty
+        ? auto.kind === "failed"
+          ? `Не сохранено: ${auto.why}`
+          : "Не сохранено"
+        : auto.kind === "idle"
+          ? ""
+          : "Сохранено";
 
   return (
     <AdminShell
       title={data.title || "Курс без названия"}
       subtitle="Редактирование содержимого"
       actions={
-        <Button variant="secondary" size="sm" loading={saving} onClick={save}>
-          Сохранить
-        </Button>
+        <div className="row g10">
+          {autoText && (
+            <span
+              className={`caption nowrap${auto.kind === "failed" ? "" : " muted"}`}
+              /* Причина от сервера бывает в предложение — в шапке ей столько
+                 места нет, целиком её уже сказал тост */
+              style={{
+                maxWidth: 230,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                color: auto.kind === "failed" ? "var(--warning)" : undefined,
+              }}
+              title={autoText}
+            >
+              {autoText}
+            </span>
+          )}
+          <Button variant="secondary" size="sm" loading={saving} onClick={save}>
+            Сохранить
+          </Button>
+        </div>
       }
     >
       <div className="stack g20">
@@ -619,6 +863,7 @@ function CourseEditor() {
                     className={`input${errors.title ? " input-error" : ""}`}
                     value={form.title}
                     onChange={(e) => set("title", e.target.value)}
+                    onBlur={() => saveField("title", form.title)}
                     placeholder={data.lang === "kz" ? "Курс атауы" : "Название курса"}
                   />
                   {errors.title && <span className="error-text">{errors.title}</span>}
@@ -631,6 +876,7 @@ function CourseEditor() {
                     style={{ minHeight: 80 }}
                     value={form.short}
                     onChange={(e) => set("short", e.target.value)}
+                    onBlur={() => saveField("short", form.short)}
                     placeholder="Одно предложение — показывается в карточке каталога"
                   />
                   {errors.short && <span className="error-text">{errors.short}</span>}
@@ -643,6 +889,7 @@ function CourseEditor() {
                     style={{ minHeight: 120 }}
                     value={form.full}
                     onChange={(e) => set("full", e.target.value)}
+                    onBlur={() => saveField("full", form.full)}
                   />
                   {errors.full && <span className="error-text">{errors.full}</span>}
                 </div>
@@ -653,7 +900,7 @@ function CourseEditor() {
                     <select
                       className={`input${errors.category_id ? " input-error" : ""}`}
                       value={form.category_id}
-                      onChange={(e) => set("category_id", Number(e.target.value))}
+                      onChange={(e) => setNow("category_id", Number(e.target.value))}
                       disabled={dicts.loading}
                     >
                       {categories.map((c) => (
@@ -686,6 +933,7 @@ function CourseEditor() {
                       inputMode="numeric"
                       value={form.hours}
                       onChange={(e) => set("hours", digits(e.target.value))}
+                      onBlur={() => saveField("hours", form.hours)}
                     />
                     <span className="hint">
                       По элементам курса набирается {duration(data.program_minutes)}. Это
@@ -705,6 +953,7 @@ function CourseEditor() {
                     className={`input${errors.duration_text ? " input-error" : ""}`}
                     value={form.duration_text}
                     onChange={(e) => set("duration_text", e.target.value)}
+                    onBlur={() => saveField("duration_text", form.duration_text)}
                     placeholder="≈ 6 недель"
                   />
                   <span className="hint">Показывается в карточке каталога рядом с объёмом</span>
@@ -725,6 +974,7 @@ function CourseEditor() {
                       inputMode="numeric"
                       value={form.price}
                       onChange={(e) => set("price", digits(e.target.value))}
+                      onBlur={() => saveField("price", form.price)}
                       placeholder="45000"
                     />
                     <span className="hint">
@@ -746,6 +996,10 @@ function CourseEditor() {
                         </option>
                       ))}
                     </select>
+                    <span className="hint">
+                      Само не сохраняется: статус меняют кнопки «Публикации» или
+                      «Сохранить» в шапке.
+                    </span>
                     {errors.status && <span className="error-text">{errors.status}</span>}
                   </div>
                 </div>
@@ -763,7 +1017,7 @@ function CourseEditor() {
                     className={`input${errors.starts_at ? " input-error" : ""}`}
                     type="date"
                     value={form.starts_at}
-                    onChange={(e) => set("starts_at", e.target.value)}
+                    onChange={(e) => setNow("starts_at", e.target.value)}
                   />
                   <span className="hint">
                     Именно она рисует бейдж «Старт {day(form.starts_at || "2026-09-01", uiLang)}»
@@ -783,31 +1037,57 @@ function CourseEditor() {
               </div>
             </div>
 
-            {/* Обложка — адресом: ручки, которая делает публичный адрес
-                из загруженного файла, в контракте пока нет */}
+            {/* Обложка — файлом: адрес раздачи делает сервер сам, а ссылку
+                на чужую картинку он больше не принимает */}
             <div className="card card-pad stack g12">
               <h2 className="h3">Обложка</h2>
-              <Cover src={form.cover || null} style={{ borderRadius: 12 }} />
-              <div className="field">
-                <label className="label">Адрес картинки</label>
-                <input
-                  className={`input${errors.cover ? " input-error" : ""}`}
-                  value={form.cover}
-                  maxLength={500}
-                  onChange={(e) => set("cover", e.target.value)}
-                  placeholder="https://cdn.example.kz/covers/course.jpg"
-                />
-                <span className="hint">
-                  Формат 16:9, минимум 640×360. Показывается в каталоге и на странице курса.
-                  Пусто — останется градиент.
-                </span>
-                {errors.cover && <span className="error-text">{errors.cover}</span>}
+              <Cover src={coverSrc} style={{ borderRadius: 12 }} />
+              <input
+                ref={coverPick}
+                type="file"
+                /* Подсказка браузеру, а не запрет: настоящая проверка — по байтам
+                   файла на сервере, и имя картинки её не обманет */
+                accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                hidden
+                onChange={(e) => uploadCover(e.target.files)}
+              />
+              <div className="row g8">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  block
+                  icon={<IconUpload size={15} />}
+                  loading={coverBusy}
+                  onClick={() => coverPick.current?.click()}
+                >
+                  {data.cover ? "Заменить обложку" : "Загрузить обложку"}
+                </Button>
+                {data.cover && (
+                  <button
+                    className="btn btn-icon"
+                    style={{ minHeight: 34, width: 34, flexShrink: 0 }}
+                    aria-label="Убрать обложку"
+                    disabled={coverBusy}
+                    onClick={removeCover}
+                  >
+                    <IconClose size={16} />
+                  </button>
+                )}
               </div>
+              {coverName && <span className="caption muted-3">{coverName}</span>}
+              {coverError ? (
+                <span className="error-text">{coverError}</span>
+              ) : (
+                <span className="hint">
+                  Формат 16:9, минимум 640×360; PNG, JPEG, GIF, WEBP или SVG. Показывается
+                  в каталоге и на странице курса. Пусто — останется градиент.
+                </span>
+              )}
               <Note kind="muted">
                 <span className="caption pretty">
-                  Загрузки файла обложки на сервере пока нет: ссылку берут у того, кто
-                  выкладывает картинку, и вставляют сюда. Превью выше обновляется живо
-                  и покажет, открывается ли адрес.
+                  Сохраняется сразу, отдельно от кнопки «Сохранить». У людей новая
+                  картинка появится на месте старой не сразу: адрес раздачи один и тот
+                  же, и браузер помнит его пять минут.
                 </span>
               </Note>
             </div>
@@ -846,7 +1126,7 @@ function CourseEditor() {
                       <input
                         type="checkbox"
                         checked={form[key]}
-                        onChange={(e) => set(key, e.target.checked)}
+                        onChange={(e) => setNow(key, e.target.checked)}
                       />
                       <span className="check-box">
                         <IconCheck size={14} />
@@ -893,7 +1173,7 @@ function CourseEditor() {
                         type="radio"
                         name="order"
                         checked={form.strict_order === v}
-                        onChange={() => set("strict_order", v)}
+                        onChange={() => setNow("strict_order", v)}
                       />
                       <span className="check-box round">
                         <IconCheck size={13} />
@@ -916,6 +1196,7 @@ function CourseEditor() {
                     inputMode="numeric"
                     value={form.hours}
                     onChange={(e) => set("hours", digits(e.target.value))}
+                    onBlur={() => saveField("hours", form.hours)}
                   />
                   <span className="hint">
                     То же поле, что на вкладке «Основное»: в сертификате и в каталоге
@@ -994,35 +1275,75 @@ function CourseEditor() {
           <div className="edit-two">
             <div className="card card-pad stack g16">
               <h2 className="h3">Готовность к публикации</h2>
+              {dirty && (
+                <Note kind="info">
+                  <span className="caption pretty">
+                    В полях есть несохранённые правки, а чек-лист считает по сохранённой
+                    версии курса. Поля уходят на сервер сами, когда из них выходят, —
+                    раз что-то осталось здесь, нажмите «Сохранить» в шапке.
+                  </span>
+                </Note>
+              )}
               <div className="stack g12">
-                {data.readiness.items.map((r) => (
-                  <div key={r.code} className="row g10" style={{ alignItems: "flex-start" }}>
-                    <span
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 999,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                        marginTop: 1,
-                        background: r.ok ? "var(--success)" : "var(--warning)",
-                        color: "#fff",
-                        fontSize: 13,
-                        fontWeight: 800,
-                      }}
-                    >
-                      {r.ok ? <IconCheck size={13} /> : "!"}
-                    </span>
-                    <span className="stack g2 grow">
-                      <span className="small pretty">{r.text}</span>
-                      {r.items.length > 0 && (
-                        <span className="caption muted-3 pretty">{r.items.join(" · ")}</span>
-                      )}
-                    </span>
-                  </div>
-                ))}
+                {data.readiness.items.map((r) => {
+                  /* Пока в программе нет ни одного видимого элемента, проверки
+                     уроков и тестов не над чем было выполнять — сервер отдаёт
+                     их с ok: true просто потому, что нарушений не нашлось.
+                     Зелёная галочка на непроверенном врёт хуже предупреждения,
+                     поэтому такой пункт рисуем нейтрально. Ветвимся по code и
+                     своему подсчёту видимых: текст пункта пишет сервер */
+                  const notChecked =
+                    visible.length === 0 &&
+                    (r.code === "empty_lessons" || r.code === "empty_quizzes");
+                  /* Невыполненный неблокирующий пункт публикацию не держит —
+                     это совет. Тот же знак, но бледной заливкой: сплошной
+                     оранжевый читался бы как невыполненное требование */
+                  const advice = !r.ok && !r.blocking;
+                  return (
+                    <div key={r.code} className="row g10" style={{ alignItems: "flex-start" }}>
+                      <span
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 999,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          marginTop: 1,
+                          background: notChecked
+                            ? "var(--border)"
+                            : r.ok
+                              ? "var(--success)"
+                              : advice
+                                ? "var(--warning-bg)"
+                                : "var(--warning)",
+                          color: notChecked
+                            ? "var(--text-2)"
+                            : advice
+                              ? "var(--warning)"
+                              : "#fff",
+                          fontSize: 13,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {notChecked ? "—" : r.ok ? <IconCheck size={13} /> : "!"}
+                      </span>
+                      <span className="stack g2 grow">
+                        <span
+                          className={
+                            notChecked || advice ? "small pretty muted" : "small pretty"
+                          }
+                        >
+                          {r.text}
+                        </span>
+                        {r.items.length > 0 && (
+                          <span className="caption muted-3 pretty">{r.items.join(" · ")}</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
               <hr className="divider" />
@@ -1090,7 +1411,7 @@ function CourseEditor() {
                 Превью карточки в каталоге
               </div>
               <div className="card" style={{ overflow: "hidden", maxWidth: 340 }}>
-                <Cover src={form.cover || null}>
+                <Cover src={coverSrc}>
                   <div className="cover-badges">
                     <span className="badge badge-lang">{courseLangs(data)}</span>
                   </div>
@@ -1180,6 +1501,15 @@ function CourseEditor() {
         .drag-handle { cursor: grab; color: var(--muted-3); display: flex; }
         .drag-handle:active { cursor: grabbing; }
         .program-module[data-drop="in"] { border-color: var(--primary); }
+        /* Карточка модуля не режет своё содержимое: overflow:hidden обрезал меню
+           «⋮» у нижней строки ровно по её границе. Скругление держат крайние
+           строки сами — на 1px меньше, это радиус изнутри рамки карточки */
+        .program-module > :first-child {
+          border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0;
+        }
+        .program-module > :last-child {
+          border-radius: 0 0 calc(var(--r-card) - 1px) calc(var(--r-card) - 1px);
+        }
         .drop-row[data-drop="before"] { box-shadow: inset 0 2px 0 0 var(--primary); }
         .drop-row[data-drop="after"] { box-shadow: inset 0 -2px 0 0 var(--primary); }
         @media (min-width: 640px) { .edit-row { grid-template-columns: 1fr 1fr; } }
@@ -1316,7 +1646,12 @@ function ProgramTab({
   >([]);
   const [blockMessage, setBlockMessage] = useState("");
 
-  const hiddenCount = program.flatMap((m) => m.items).filter((i) => i.is_hidden).length;
+  const hiddenItems = program.flatMap((m) => m.items).filter((i) => i.is_hidden);
+  const hiddenCount = hiddenItems.length;
+  /* Сервер суммирует только видимое, и «Всего по программе: 0 мин» под
+     строками с числами выглядит потерей данных. Сколько минут спрятано —
+     считаем сами: в ответе такого поля нет */
+  const hiddenMinutes = hiddenItems.reduce((s, i) => s + i.time_required_min, 0);
   const addGroup = groupOf(addKind);
 
   const endDrag = () => {
@@ -1671,11 +2006,13 @@ function ProgramTab({
             const visibleMinutes = m.items
               .filter((i) => !i.is_hidden)
               .reduce((s, i) => s + i.time_required_min, 0);
+            /* Элементы в шапке считаются все, минуты — только видимые, и «4
+               элемента · 0 мин» читается как поломка. Скрытые называем прямо */
+            const hiddenInModule = m.items.filter((i) => i.is_hidden).length;
             return (
               <div
                 key={m.id}
                 className="card program-module"
-                style={{ overflow: "hidden" }}
                 data-drop={over?.key === mKey && drag?.type === "item" ? "in" : undefined}
                 onDragOver={(e) => {
                   if (drag?.type !== "item") return;
@@ -1731,8 +2068,15 @@ function ProgramTab({
                     <strong className="small">{m.title}</strong>
                     <span className="caption muted-3">
                       {m.items.length}{" "}
-                      {plural(m.items.length, "элемент", "элемента", "элементов")} ·{" "}
-                      {duration(visibleMinutes)}
+                      {plural(m.items.length, "элемент", "элемента", "элементов")}
+                      {hiddenInModule > 0 &&
+                        ` (${hiddenInModule} ${plural(
+                          hiddenInModule,
+                          "скрыт",
+                          "скрыты",
+                          "скрыто",
+                        )})`}{" "}
+                      · {duration(visibleMinutes)}
                     </span>
                   </div>
                   <div style={{ position: "relative" }}>
@@ -1863,7 +2207,28 @@ function ProgramTab({
                       <Badge kind={item.is_ready ? "accepted" : "neutral"}>
                         {item.is_ready ? "готов" : "черновик"}
                       </Badge>
-                      {item.is_hidden && <Badge kind="locked">скрыт</Badge>}
+                      {/* Название теста пишет админ, а условие сертификата смотрит
+                          на is_final: без бейджа «Итоговый тест» в списке может
+                          оказаться обычным, и перепутать их нечем */}
+                      {item.kind === "quiz" && item.is_final && (
+                        <Badge kind="new">итоговый</Badge>
+                      )}
+                      {item.is_hidden && (
+                        /* Заготовка заводится скрытой всегда, поэтому «Показать» —
+                           самое частое действие при сборке курса: держать его в «⋮»
+                           дорого. На узком экране бейдж с кнопкой переносятся парой */
+                        <span className="row g6 nowrap">
+                          <Badge kind="locked">скрыт</Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={<IconEye size={15} />}
+                            onClick={() => toggleHidden(item)}
+                          >
+                            Показать
+                          </Button>
+                        </span>
+                      )}
 
                       <div style={{ position: "relative" }}>
                         <button
@@ -1953,9 +2318,14 @@ function ProgramTab({
       {/* Сумма по программе — считает сервер по видимым элементам */}
       <div className="card card-pad row between wrap g10">
         <span className="small muted">Всего по программе</span>
-        <strong style={{ fontSize: 18, letterSpacing: "-0.01em" }}>
-          {duration(programMinutes)}
-        </strong>
+        <span className="row wrap g8" style={{ alignItems: "baseline" }}>
+          <strong style={{ fontSize: 18, letterSpacing: "-0.01em" }}>
+            {duration(programMinutes)}
+          </strong>
+          {hiddenMinutes > 0 && (
+            <span className="caption muted-3">+ {duration(hiddenMinutes)} скрыто</span>
+          )}
+        </span>
       </div>
       <span className="caption muted-3 pretty">
         Объём курса в сертификате задаётся отдельно, на вкладке «Основное»: сейчас

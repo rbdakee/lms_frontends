@@ -18,8 +18,9 @@ import { dayYear } from "@lms/ui/i18n";
 import { useOrigin } from "@lms/ui/useOrigin";
 import { BackHeader, TabBar } from "@/components/layout/Shell";
 import { CertificateSheet } from "@/components/course/CertificateSheet";
-import { Button, Empty, LinkButton, Note, Skeleton } from "@lms/ui";
-import { IconBook, IconDownload, IconLink, IconQr } from "@lms/ui/icons";
+import { useCertificatePdf } from "@/lib/certificatePdf";
+import { Button, Empty, LinkButton, Skeleton } from "@lms/ui";
+import { IconBook, IconDownload, IconLink } from "@lms/ui/icons";
 
 export default function CertificateViewPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +28,7 @@ export default function CertificateViewPage() {
   const { me, status } = useMe();
   const router = useRouter();
   const { verifyUrl } = useOrigin();
+  const { downloading, download } = useCertificatePdf();
 
   useEffect(() => {
     if (status === "guest") router.replace(`/login?next=/certificates/${id}`);
@@ -120,7 +122,8 @@ export default function CertificateViewPage() {
             <Button
               size="lg"
               icon={<IconDownload size={18} />}
-              onClick={() => toast(t.certPdfToast, "success")}
+              loading={downloading}
+              onClick={() => download(cert)}
               style={{ flex: 1, minWidth: 220 }}
             >
               {t.certDownloadPdf}
@@ -146,13 +149,6 @@ export default function CertificateViewPage() {
               {t.certViewCourse}
             </Link>
           </div>
-
-          <Note kind="info" icon={<IconQr size={18} />}>
-            {t.certQrNote}{" "}
-            <LinkButton href="/verify" variant="ghost" size="sm">
-              /verify
-            </LinkButton>
-          </Note>
         </div>
       </main>
 

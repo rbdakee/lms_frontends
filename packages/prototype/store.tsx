@@ -134,18 +134,6 @@ function initialState(): State {
   };
 }
 
-/** Состояние «новый пользователь» — для проверки пустых экранов. */
-function emptyState(): State {
-  const s = initialState();
-  return {
-    ...s,
-    enrolled: [],
-    requests: {},
-    completed: {},
-    profile: { ...s.profile, lastName: "", firstName: "", middleName: "", email: "" },
-  };
-}
-
 interface Ctx extends State {
   t: (typeof dict)["ru"];
   ready: boolean;
@@ -185,7 +173,6 @@ interface Ctx extends State {
   findDraft: (id: string) => DraftItem | undefined;
   enterPreview: () => void;
   exitPreview: () => void;
-  resetDemo: (mode?: "default" | "empty") => void;
   fullName: string;
   initials: string;
   toast: (text: string, kind?: ToastKind) => void;
@@ -348,12 +335,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSnapshot(null);
       },
 
-      resetDemo: (mode = "default") => {
-        const next = mode === "empty" ? emptyState() : initialState();
-        next.lang = state.lang;
-        setSnapshot(null);
-        setState(next);
-      },
       fullName,
       initials,
       toast,

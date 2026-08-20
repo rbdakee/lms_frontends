@@ -30,6 +30,7 @@ import {
   CourseRow,
   MyCourseCard,
   PendingCourseCard,
+  isUnavailable,
   pickVersion,
 } from "@/components/course/CourseCard";
 import { continueHref } from "@/components/course/CourseProgram";
@@ -94,9 +95,13 @@ export default function MyPage() {
   const inProgress = myCourses.filter((c) => !isFinished(c));
   const finished = myCourses.filter(isFinished);
 
-  /** Курс для блока «Продолжить обучение» — самый продвинутый незавершённый. */
+  /**
+   * Курс для блока «Продолжить обучение» — самый продвинутый незавершённый.
+   * Уведённые с платформы курсы сюда не берём: кнопка «Продолжить» привела бы
+   * в «Курс не найден». Из списка ниже они при этом не пропадают.
+   */
   const primary = inProgress
-    .slice()
+    .filter((c) => !isUnavailable(c))
     .sort((a, b) => b.progress_percent - a.progress_percent)[0];
 
   /** Свежие курсы каталога без доступа и заявки — никаких рекомендаций */
@@ -133,7 +138,8 @@ export default function MyPage() {
               }
             />
           </div>
-        ) : myCourses.length > 0 ? (
+        ) : /* Незавершённые есть, но все уведены с платформы — «всё пройдено» было бы неправдой */
+        inProgress.length === 0 && myCourses.length > 0 ? (
           <div className="card card-pad row between g12 wrap">
             <div className="stack g4">
               <strong>Все начатые курсы пройдены</strong>

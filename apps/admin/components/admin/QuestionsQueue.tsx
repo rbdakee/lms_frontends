@@ -11,6 +11,10 @@
  * «Без ответа» — пустой `replies`, отдельного статуса у вопроса нет.
  * Отвечает админ тем же `POST /lessons/{id}/questions` с `parent_id`,
  * что и учитель, — `lesson.id` для этого и лежит в элементе списка.
+ *
+ * Удалить (`DELETE /admin/thread_messages/{id}`) можно любое сообщение — и вопрос,
+ * и ответ. Корневой вопрос уносит из выдачи и ответы под ним: тред без вопроса
+ * нечитаем, поэтому список после такого удаления перечитывается целиком.
  */
 
 import { useEffect, useState } from "react";
@@ -26,8 +30,8 @@ import {
 } from "@lms/api";
 import { dayTime } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
-import { Avatar, Badge, Button, Empty } from "@lms/ui";
-import { IconCheckCircle, IconSearch } from "@lms/ui/icons";
+import { Avatar, Badge, Button, Empty, Sheet } from "@lms/ui";
+import { IconCheckCircle, IconSearch, IconTrash } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 /** Тот же лимит текста, что и у учителя (CONTRACT: 422 при 2000+ символов). */
@@ -39,7 +43,8 @@ export function QuestionsQueue({
 }: {
   /** Курс задан снаружи (вкладка карточки курса) — выбор курса тогда не нужен */
   courseId?: number;
-  /** Ответ ушёл: снаружи можно перечитать счётчик «без ответа» */
+  /** Тред изменился — ответили или удалили сообщение: снаружи можно
+      перечитать счётчик «без ответа» */
   onAnswered?: () => void;
 }) {
   const { t, toast } = useStore();
@@ -103,6 +108,33 @@ export function QuestionsQueue({
             ...d,
             items: d.items.map((it) =>
               it.id === questionId ? { ...it, replies: [...it.replies, reply] } : it,
+            ),
+          }
+        : d,
+    );
+    onAnswered?.();
+  };
+
+  /* Корневой вопрос уносит с собой все ответы — страницу проще перечитать,
+     чем чинить её руками. Если он был на странице последним, перечитывать
+     нечего: уходим на предыдущую, иначе экран останется пустым, а пагинация
+     на пустом экране уже не рисуется */
+  const removeQuestion = () => {
+    if (items.length === 1 && page > 1) setPage((p) => p - 1);
+    else list.reload();
+    onAnswered?.();
+  };
+
+  /** Удалён один ответ — вычёркиваем его из треда, не перечитывая список. */
+  const removeReply = (questionId: number, replyId: number) => {
+    list.setData((d) =>
+      d
+        ? {
+            ...d,
+            items: d.items.map((it) =>
+              it.id === questionId
+                ? { ...it, replies: it.replies.filter((r) => r.id !== replyId) }
+                : it,
             ),
           }
         : d,
@@ -210,6 +242,8 @@ export function QuestionsQueue({
               question={question}
               showCourse={!courseId}
               onReplied={addReply}
+              onDeleted={removeQuestion}
+              onReplyDeleted={removeReply}
               onError={(e) => {
                 if (isApiError(e) && e.status > 0) toast(e.message, "error");
                 else toast(t.qaSendError, "error");
@@ -259,17 +293,24 @@ function QuestionCard({
   question,
   showCourse,
   onReplied,
+  onDeleted,
+  onReplyDeleted,
   onError,
 }: {
   question: AdminQuestion;
   /** В карточке курса название курса не нужно — оно уже в шапке экрана */
   showCourse?: boolean;
   onReplied: (questionId: number, reply: ThreadQuestion) => void;
+  onDeleted: () => void;
+  onReplyDeleted: (questionId: number, replyId: number) => void;
   onError: (e: unknown) => void;
 }) {
   const { t, lang, toast } = useStore();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  /* Что подтверждаем: корневой вопрос или конкретный ответ */
+  const [removing, setRemoving] = useState<"question" | number | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const send = async () => {
     const text = draft.trim();
@@ -289,6 +330,29 @@ function QuestionCard({
       onError(e);
     } finally {
       setSending(false);
+    }
+  };
+
+  /** Удаляет сообщение треда: `null` — корневой вопрос, число — ответ. */
+  const remove = async (replyId: number | null) => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await api<void>(`/admin/thread_messages/${replyId ?? question.id}`, {
+        method: "DELETE",
+      });
+      setRemoving(null);
+      if (replyId === null) {
+        toast("Вопрос удалён вместе с ответами", "success");
+        onDeleted();
+      } else {
+        toast("Ответ удалён", "success");
+        onReplyDeleted(question.id, replyId);
+      }
+    } catch (e) {
+      onError(e);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -326,7 +390,14 @@ function QuestionCard({
                   {r.author_name || (r.author_is_admin ? t.qAdmin : "")}
                 </strong>
                 {r.author_is_admin && <Badge kind="new">{t.qAdmin}</Badge>}
-                <span className="caption muted-3">{dayTime(r.created_at, lang)}</span>
+                <span className="caption muted-3 grow">{dayTime(r.created_at, lang)}</span>
+                <Button
+                  variant="danger-soft"
+                  size="sm"
+                  icon={<IconTrash size={14} />}
+                  aria-label="Удалить ответ"
+                  onClick={() => setRemoving(r.id)}
+                />
               </div>
               <p className="small pretty">{r.text}</p>
             </div>
@@ -345,11 +416,49 @@ function QuestionCard({
         />
         <div className="row between wrap g10">
           <span className="caption muted-3">{t.qaWhoAnswers}</span>
-          <Button size="sm" loading={sending} disabled={!draft.trim()} onClick={send}>
-            {t.reply}
-          </Button>
+          <div className="row g8">
+            <Button
+              variant="danger-soft"
+              size="sm"
+              icon={<IconTrash size={15} />}
+              onClick={() => setRemoving("question")}
+            >
+              Удалить вопрос
+            </Button>
+            <Button size="sm" loading={sending} disabled={!draft.trim()} onClick={send}>
+              {t.reply}
+            </Button>
+          </div>
         </div>
       </div>
+
+      <Sheet
+        open={removing !== null}
+        onClose={() => setRemoving(null)}
+        title={removing === "question" ? "Удалить вопрос?" : "Удалить ответ?"}
+        footer={
+          <div className="stack g8">
+            <Button
+              variant="danger"
+              block
+              size="lg"
+              loading={deleting}
+              onClick={() => remove(removing === "question" ? null : removing)}
+            >
+              Удалить
+            </Button>
+            <Button variant="secondary" block onClick={() => setRemoving(null)}>
+              Отмена
+            </Button>
+          </div>
+        }
+      >
+        <p className="body muted pretty">
+          {removing === "question"
+            ? "Вместе с вопросом из выдачи уйдут и все ответы под ним — тред без вопроса нечитаем. Отменить это нельзя."
+            : "Ответ исчезнет из треда под уроком у всех, кто его видел. Отменить это нельзя."}
+        </p>
+      </Sheet>
     </div>
   );
 }

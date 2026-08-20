@@ -1,45 +1,103 @@
 "use client";
 
 /**
- * Модалка «Открыть доступ к курсу» — одна и та же в заявках (5.26)
- * и в карточке учителя (5.22). В заявке курс и учитель уже подставлены.
+ * Модалка «Открыть доступ к курсу» из карточки учителя (5.22): курс админ
+ * выбирает сам. Выдача из заявки — соседняя `GrantLead.tsx`, там курс уже
+ * известен, и объединять их не нужно: разные экраны и разные входные данные.
+ *
+ * Единственный путь выдачи доступа: `POST /admin/enrollments`. Курсы берём
+ * из `GET /admin/courses`, но показываем не все: черновика и скрытой версии
+ * для площадки не существует, и выдача к ним отвечает 404 «Курс не найден».
  *
  * Отметка «оплата получена» существует только здесь: платформа денег
  * не принимает, админ подтверждает оплату, полученную вне системы.
  */
 
 import { useState } from "react";
-import { catalogCourses, type Course } from "@lms/prototype/data";
+import {
+  api,
+  isApiError,
+  qs,
+  useLoad,
+  type AdminCoursesPage,
+  type Enrollment,
+  type EnrollmentIn,
+} from "@lms/api";
 import { price as fmtPrice } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { Button, Note, Sheet } from "@lms/ui";
 import { IconCheck } from "@lms/ui/icons";
 
+/** Статусы, при которых версия курса для площадки существует: у остальных выдача — 404. */
+const ENROLLABLE: string[] = ["planned", "open", "closed"];
+
 export function GrantAccessSheet({
   open,
   onClose,
+  userId,
   teacherName,
-  course,
-  onGrant,
+  onGranted,
 }: {
   open: boolean;
   onClose: () => void;
+  userId: number;
   teacherName: string;
-  /** Уже выбранный курс — из заявки. Не задан: админ выбирает сам */
-  course?: Course;
-  onGrant: (courseId: string, paid: boolean, note: string) => void;
+  /** Доступ выдан (или уже был выдан) — карточка учителя перечитывается */
+  onGranted: () => void;
 }) {
-  const { lang } = useStore();
-  const [courseId, setCourseId] = useState(course?.id ?? catalogCourses[0].id);
+  const { lang, toast } = useStore();
+  const [courseId, setCourseId] = useState<number | null>(null);
   const [paid, setPaid] = useState(false);
   const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const selected = course ?? catalogCourses.find((c) => c.id === courseId);
+  const courses = useLoad(
+    () => api<AdminCoursesPage>(`/admin/courses${qs({ per_page: 100 })}`),
+    [],
+  );
+  /* Фильтр по `status` у эндпоинта принимает одно значение, а нам нужны три,
+     поэтому отбираем на месте. Черновик стоит в ответе первым (свежие сверху)
+     и без этого оказался бы выбран по умолчанию */
+  const items = (courses.data?.items ?? []).filter((c) =>
+    ENROLLABLE.includes(c.status),
+  );
+  /* Пока админ не выбрал курс сам, выбран первый из списка */
+  const selected = items.find((c) => c.id === courseId) ?? items[0];
 
   const close = () => {
     setPaid(false);
     setNote("");
     onClose();
+  };
+
+  const grant = async () => {
+    if (!selected || busy) return;
+    setBusy(true);
+    try {
+      await api<Enrollment>("/admin/enrollments", {
+        method: "POST",
+        json: {
+          user_id: userId,
+          course_id: selected.id,
+          paid,
+          note: note.trim() || null,
+        } satisfies EnrollmentIn,
+      });
+      toast(`Доступ к «${selected.title}» открыт — учителю ушло уведомление`, "success");
+      onGranted();
+      close();
+    } catch (e) {
+      /* Доступ уже был выдан — это не ошибка админа, а гонка двух вкладок */
+      if (isApiError(e, "already_enrolled")) {
+        toast(e.message, "info");
+        onGranted();
+        close();
+      } else {
+        toast(isApiError(e) ? e.message : "Не удалось открыть доступ", "error");
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -49,14 +107,7 @@ export function GrantAccessSheet({
       title="Открыть доступ к курсу"
       footer={
         <div className="stack g8">
-          <Button
-            block
-            size="lg"
-            onClick={() => {
-              onGrant(selected?.id ?? courseId, paid, note.trim());
-              close();
-            }}
-          >
+          <Button block size="lg" loading={busy} disabled={!selected} onClick={grant}>
             Открыть доступ
           </Button>
           <Button variant="secondary" block onClick={close}>
@@ -78,24 +129,39 @@ export function GrantAccessSheet({
 
         <div className="field">
           <label className="label">Курс</label>
-          {course ? (
-            <input className="input" value={course.title} disabled />
+          {courses.loading ? (
+            <div className="row center" style={{ minHeight: 44 }}>
+              <span className="spinner" style={{ width: 20, height: 20, color: "var(--primary)" }} />
+            </div>
+          ) : courses.error ? (
+            <Note kind="warning">
+              <div className="stack g8">
+                <span className="small">Не удалось загрузить список курсов.</span>
+                <Button variant="secondary" size="sm" onClick={courses.reload}>
+                  Повторить
+                </Button>
+              </div>
+            </Note>
           ) : (
             <select
               className="input"
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
+              value={selected?.id ?? ""}
+              onChange={(e) => setCourseId(Number(e.target.value))}
             >
-              {catalogCourses.map((c) => (
+              {items.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.title} · {fmtPrice(c.price, lang)}
+                  {/* Язык версии — иначе два курса одной группы в списке
+                      различаются только заголовком, и доступ уходит не к тому */}
+                  {c.title} · {c.lang === "kz" ? "ҚАЗ" : "РУС"} ·{" "}
+                  {fmtPrice(c.price ?? undefined, lang)}
                 </option>
               ))}
             </select>
           )}
           {selected && (
             <span className="hint">
-              Цена курса — {fmtPrice(selected.price, lang)}. Оплата принимается вне платформы.
+              Цена курса — {fmtPrice(selected.price ?? undefined, lang)}. Оплата принимается
+              вне платформы.
             </span>
           )}
         </div>
@@ -119,14 +185,20 @@ export function GrantAccessSheet({
             onChange={(e) => setNote(e.target.value)}
             placeholder="Например: перевод Kaspi 45 000 ₸, 14 августа"
           />
-          <span className="hint">Сохранится в истории заявки</span>
+          <span className="hint">
+            {paid
+              ? "Сохранится в истории выдачи доступа"
+              : "Сохранится, только если отмечена оплата"}
+          </span>
         </div>
 
+        {/* Комментарий сервер записывает лишь вместе с отметкой об оплате
+            (`paid_note`), поэтому без неё обещать сохранение нельзя */}
         {!paid && (
           <Note kind="muted">
             <span className="small">
-              Можно открыть доступ и без отметки об оплате — например, по договорённости.
-              Отметка нужна только для истории.
+              Доступ откроется и без отметки об оплате — например, по договорённости.
+              Но комментарий тогда не сохранится: он живёт вместе с отметкой.
             </span>
           </Note>
         )}

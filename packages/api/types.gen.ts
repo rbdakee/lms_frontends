@@ -175,6 +175,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Settings */
+        get: operations["public_settings_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/branding/{slot}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Branding Image */
+        get: operations["branding_image_branding__slot__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/courses": {
         parameters: {
             query?: never;
@@ -201,6 +235,23 @@ export interface paths {
         };
         /** Course Page */
         get: operations["course_page_courses__course_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{course_id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Course Cover */
+        get: operations["course_cover_courses__course_id__cover_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -321,6 +372,23 @@ export interface paths {
         };
         /** Verify */
         get: operations["verify_verify__number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/certificates/{certificate_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Certificate Pdf */
+        get: operations["certificate_pdf_certificates__certificate_id__pdf_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -647,6 +715,37 @@ export interface paths {
         get: operations["lesson_file_link_files__file_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/telegram/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Telegram Webhook
+         * @description Сюда стучится сам Telegram. Отвечает 200 на что угодно, кроме неверного
+         *     секрета: на любой другой ответ Telegram повторяет доставку по нарастающей,
+         *     и один неудачный разбор превращается в бесконечный поток.
+         *
+         *     Единственный `async def` роутер сервиса — только чтобы прочитать сырые
+         *     байты, не занимая поток. Всё остальное — разбор, база и отправка в бот —
+         *     уходит в threadpool: на цикле событий синхронная работа встаёт поперёк
+         *     всех запросов сразу, а два одновременных апдейта с одним кодом вешали
+         *     процесс насмерть (INSERT берёт блокировку строки, второй такой же
+         *     блокирует сам поток цикла, и коммит первого некому запланировать).
+         *     Петля самоподдерживающаяся: Telegram переотправляет апдейт именно тогда,
+         *     когда вебхук отвечал долго.
+         */
+        post: operations["telegram_webhook_telegram_webhook_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1245,6 +1344,75 @@ export interface paths {
         patch: operations["rename_category_admin_categories__category_id__patch"];
         trace?: never;
     };
+    "/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Settings */
+        get: operations["admin_settings_admin_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Settings */
+        patch: operations["patch_settings_admin_settings_patch"];
+        trace?: never;
+    };
+    "/admin/settings/telegram/bind_code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Telegram Bind Code */
+        post: operations["telegram_bind_code_admin_settings_telegram_bind_code_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/telegram/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Telegram Test */
+        post: operations["telegram_test_admin_settings_telegram_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/telegram/unbind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Telegram Unbind */
+        post: operations["telegram_unbind_admin_settings_telegram_unbind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/questions": {
         parameters: {
             query?: never;
@@ -1370,6 +1538,18 @@ export interface components {
             order_index: number;
             /** Courses Count */
             courses_count: number;
+        };
+        /** AdminCertificateImagesIn */
+        AdminCertificateImagesIn: {
+            logo?: components["schemas"]["SettingsImageIn"] | null;
+            sign?: components["schemas"]["SettingsImageIn"] | null;
+            stamp?: components["schemas"]["SettingsImageIn"] | null;
+        };
+        /** AdminCertificateImagesOut */
+        AdminCertificateImagesOut: {
+            logo: components["schemas"]["SettingsImageOut"] | null;
+            sign: components["schemas"]["SettingsImageOut"] | null;
+            stamp: components["schemas"]["SettingsImageOut"] | null;
         };
         /**
          * AdminCourseCardOut
@@ -1497,8 +1677,7 @@ export interface components {
             short?: string | null;
             /** Full */
             full?: string | null;
-            /** Cover */
-            cover?: string | null;
+            cover?: components["schemas"]["CourseCoverIn"] | null;
             /** Category Id */
             category_id?: number | null;
             /** Hours */
@@ -2008,6 +2187,55 @@ export interface components {
             page: number;
             /** Per Page */
             per_page: number;
+        };
+        /**
+         * AdminSettingsOut
+         * @description Настройки площадки одним ответом — все четыре вкладки экрана.
+         */
+        AdminSettingsOut: {
+            /** Platform Name */
+            platform_name: string;
+            /** Org Name */
+            org_name: string;
+            logo: components["schemas"]["SettingsImageOut"] | null;
+            contacts: components["schemas"]["SettingsContactsOut"];
+            certificate_images: components["schemas"]["AdminCertificateImagesOut"];
+            telegram: components["schemas"]["AdminSettingsTelegramOut"];
+        };
+        /** AdminSettingsPatchIn */
+        AdminSettingsPatchIn: {
+            /** Platform Name */
+            platform_name?: string | null;
+            /** Org Name */
+            org_name?: string | null;
+            contacts?: components["schemas"]["SettingsContactsIn"] | null;
+            logo?: components["schemas"]["SettingsImageIn"] | null;
+            certificate_images?: components["schemas"]["AdminCertificateImagesIn"] | null;
+            telegram?: components["schemas"]["AdminSettingsTelegramIn"] | null;
+        };
+        /** AdminSettingsTelegramIn */
+        AdminSettingsTelegramIn: {
+            /** Notify Leads */
+            notify_leads?: boolean | null;
+            /** Notify Submissions */
+            notify_submissions?: boolean | null;
+        };
+        /**
+         * AdminSettingsTelegramOut
+         * @description Привязка бота. chat_id наружу не уходит — от него остаётся признак
+         *     connected и название чата, по которому админ узнаёт, куда идут заявки.
+         */
+        AdminSettingsTelegramOut: {
+            /** Connected */
+            connected: boolean;
+            /** Chat Title */
+            chat_title: string | null;
+            /** Connected At */
+            connected_at: string | null;
+            /** Notify Leads */
+            notify_leads: boolean;
+            /** Notify Submissions */
+            notify_submissions: boolean;
         };
         /** AdminSubmissionCardOut */
         AdminSubmissionCardOut: {
@@ -2569,6 +2797,20 @@ export interface components {
             lessons_count: number;
             /** Students Count */
             students_count: number;
+        };
+        /**
+         * CourseCoverIn
+         * @description Загруженная обложка курса — как картинки настроек: ключ объекта и имя
+         *     файла из ответа POST /files.
+         *
+         *     Имя хранится рядом с ключом: ключи загрузки случайные нарочно, и админу
+         *     досталось бы «9f3c1a7e.jpg» вместо «Обложка курса.jpg».
+         */
+        CourseCoverIn: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
         };
         /** CoursePageOut */
         CoursePageOut: {
@@ -3243,6 +3485,21 @@ export interface components {
              */
             status: "available" | "locked" | "done";
         };
+        /**
+         * PublicSettingsOut
+         * @description Публичный ответ без входа: только то, что лендинг и страница курса
+         *     показывают всем. Ни привязки бота, ни картинок сертификата, ни ключей
+         *     хранилища здесь нет — лишнее поле утекает наружу вместе с ответом.
+         */
+        PublicSettingsOut: {
+            /** Platform Name */
+            platform_name: string;
+            /** Org Name */
+            org_name: string;
+            /** Logo Url */
+            logo_url: string | null;
+            contacts: components["schemas"]["SettingsContactsOut"];
+        };
         /** QuestionCourseOut */
         QuestionCourseOut: {
             /** Id */
@@ -3539,6 +3796,8 @@ export interface components {
             code: string;
             /** Ok */
             ok: boolean;
+            /** Blocking */
+            blocking: boolean;
             /** Text */
             text: string;
             /** Items */
@@ -3756,6 +4015,55 @@ export interface components {
             /** Is Current */
             is_current: boolean;
         };
+        /** SettingsContactsIn */
+        SettingsContactsIn: {
+            /** Name */
+            name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Whatsapp */
+            whatsapp?: string | null;
+            /** Telegram */
+            telegram?: string | null;
+            /** Hours */
+            hours?: string | null;
+        };
+        /**
+         * SettingsContactsOut
+         * @description Контакты администратора: их подставляют в кнопку «Связаться
+         *     с администратором» и в подвал. Не заполняли — приходят пустые строки,
+         *     а не null: экран рисует поля всегда.
+         */
+        SettingsContactsOut: {
+            /** Name */
+            name: string;
+            /** Phone */
+            phone: string;
+            /** Whatsapp */
+            whatsapp: string;
+            /** Telegram */
+            telegram: string;
+            /** Hours */
+            hours: string;
+        };
+        /** SettingsImageIn */
+        SettingsImageIn: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * SettingsImageOut
+         * @description Картинка настроек: адрес публичной раздачи и имя файла. Ключ хранилища
+         *     наружу не уходит — как и у материалов урока.
+         */
+        SettingsImageOut: {
+            /** Url */
+            url: string;
+            /** Name */
+            name: string;
+        };
         /** SubmissionCourseOut */
         SubmissionCourseOut: {
             /** Id */
@@ -3903,6 +4211,25 @@ export interface components {
             quiz_id: number;
             /** Reason */
             reason: string;
+        };
+        /**
+         * TelegramBindCodeOut
+         * @description Код привязки и адрес бота. Админ отправляет боту `/start <код>`,
+         *     и chat_id записывает сервер, приняв сообщение: руками его не вписать
+         *     (CONTRACT, «Telegram-бот: привязка»).
+         */
+        TelegramBindCodeOut: {
+            /** Code */
+            code: string;
+            /** Bot Username */
+            bot_username: string;
+            /** Deep Link */
+            deep_link: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
         };
         /**
          * TemplateFileOut
@@ -4373,6 +4700,57 @@ export interface operations {
             };
         };
     };
+    public_settings_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicSettingsOut"];
+                };
+            };
+        };
+    };
+    branding_image_branding__slot__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slot: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     catalog_courses_get: {
         parameters: {
             query?: never;
@@ -4411,6 +4789,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoursePageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_cover_courses__course_id__cover_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -4655,6 +5064,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VerifyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    certificate_pdf_certificates__certificate_id__pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                certificate_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5310,6 +5750,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    telegram_webhook_telegram_webhook_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -6866,6 +7328,115 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    admin_settings_admin_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSettingsOut"];
+                };
+            };
+        };
+    };
+    patch_settings_admin_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSettingsPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    telegram_bind_code_admin_settings_telegram_bind_code_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramBindCodeOut"];
+                };
+            };
+        };
+    };
+    telegram_test_admin_settings_telegram_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    telegram_unbind_admin_settings_telegram_unbind_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

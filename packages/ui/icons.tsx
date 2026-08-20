@@ -611,20 +611,3 @@ export const IconDevice = (p: P) => (
   </Svg>
 );
 
-/* Логотип платформы */
-export const LogoMark = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path
-      d="M12 3 3 7.2 12 11.4l9-4.2L12 3Z"
-      fill="currentColor"
-      opacity=".95"
-    />
-    <path
-      d="M6.6 10v4.6c0 1.9 2.4 3.4 5.4 3.4s5.4-1.5 5.4-3.4V10"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-    />
-    <path d="M21 7.2v5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-  </svg>
-);

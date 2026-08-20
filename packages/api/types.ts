@@ -200,3 +200,59 @@ export type SubmitFormat = AdminTask["submit_format"];
 /* Предпросмотр как учитель: флаг живёт в сессии, экраны узнают о нём из /me. */
 export type Preview = S["PreviewOut"];
 export type PreviewEnterIn = S["PreviewEnterIn"];
+
+/* ============ Люди и площадка (сессия 7б) ============
+
+   Учителя, отзывы, настройки площадки и категории. Здесь живут персональные
+   данные: ФИО, телефоны, школы и регионы. Наружу они не уходят никак — ни
+   в адрес страницы, ни в текст ошибки, ни в аналитику.
+
+   Ловушка в именах та же, что у курсов: `AdminTeacher` — это ОДНА СТРОКА
+   списка `GET /admin/teachers`, а карточка (`GET/PATCH /admin/teachers/{id}`,
+   `POST /retakes`) отдаёт `AdminTeacherCard`. */
+
+export type AdminTeachersPage = S["AdminTeachersPageOut"];
+export type AdminTeacher = S["AdminTeacherOut"];
+export type AdminTeacherCard = S["AdminTeacherCardOut"];
+export type AdminTeacherPatch = S["AdminTeacherPatchIn"];
+/* Вкладки карточки — все четыре приходят внутри `AdminTeacherCard`,
+   пагинации у них нет. */
+export type AdminTeacherEnrollment = S["AdminTeacherEnrollmentOut"];
+export type AdminTeacherQuiz = S["AdminTeacherQuizOut"];
+export type AdminTeacherAttempt = S["AdminTeacherAttemptOut"];
+export type AdminTeacherSubmission = S["AdminTeacherSubmissionOut"];
+export type AdminTeacherCertificate = S["AdminTeacherCertificateOut"];
+export type TeacherRetakeIn = S["TeacherRetakeIn"];
+/** Почему пересдачу разрешить нельзя — коды те же, что у ошибок `POST /retakes`. */
+export type RetakeBlocker = NonNullable<AdminTeacherQuiz["retake_blocker"]>;
+
+/* Лента отзывов админа. Не путать с `Review` — это тот же отзыв, но в публичном
+   ответе `GET /courses/{id}/reviews`: там автор одной строкой и без телефона. */
+export type AdminReview = S["AdminReviewOut"];
+export type AdminReviewsPage = S["AdminReviewsPageOut"];
+export type ReviewReply = S["ReviewReplyOut"];
+export type ReviewReplyIn = S["ReviewReplyIn"];
+
+/* Настройки площадки. `AdminSettings` — четыре вкладки экрана целиком,
+   `PublicSettings` — то немногое, что `GET /settings` отдаёт без входа. */
+export type AdminSettings = S["AdminSettingsOut"];
+export type AdminSettingsPatch = S["AdminSettingsPatchIn"];
+export type PublicSettings = S["PublicSettingsOut"];
+export type SettingsContacts = S["SettingsContactsOut"];
+export type SettingsContactsIn = S["SettingsContactsIn"];
+/** Картинка настроек: наружу `url` публичной раздачи, внутрь — `{key, name}` из `POST /files`. */
+export type SettingsImage = S["SettingsImageOut"];
+export type SettingsImageIn = S["SettingsImageIn"];
+export type CertificateImages = S["AdminCertificateImagesOut"];
+export type CertificateImagesIn = S["AdminCertificateImagesIn"];
+/* Привязка бота: `chat_id` наружу не отдаётся вовсе, статус виден
+   по `connected` и `chat_title`. Меняется своими ручками, не через PATCH. */
+export type SettingsTelegram = S["AdminSettingsTelegramOut"];
+export type SettingsTelegramIn = S["AdminSettingsTelegramIn"];
+export type TelegramBindCode = S["TelegramBindCodeOut"];
+
+/* Категории в настройках. Не путать с `Category` из `GET /dictionaries`:
+   там только `id` и `title`, здесь ещё порядок и число курсов. */
+export type AdminCategories = S["AdminCategoriesOut"];
+export type AdminCategory = S["AdminCategoryOut"];
+export type AdminCategoryIn = S["AdminCategoryIn"];

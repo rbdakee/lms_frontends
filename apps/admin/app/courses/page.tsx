@@ -71,6 +71,7 @@ export default function AdminCoursesPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<AdminCourse | null>(null);
+  const [hiding, setHiding] = useState<AdminCourse | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -153,13 +154,14 @@ export default function AdminCoursesPage() {
       patchRow(c.id, updated);
       toast(
         next === "hidden"
-          ? "Курс скрыт — из каталога он пропал"
+          ? "Курс скрыт — он не открывается ни в каталоге, ни у тех, кому выдан доступ"
           : "Курс вернулся в черновики — опубликуйте его из редактора",
         "success",
       );
     } catch (e) {
       toast(isApiError(e) ? e.message : "Не удалось поменять статус", "error");
     } finally {
+      setHiding(null);
       setBusyId(null);
     }
   };
@@ -234,7 +236,20 @@ export default function AdminCoursesPage() {
               <MenuButton icon={IconCopy} onClick={() => duplicate(c)}>
                 Дублировать
               </MenuButton>
-              <MenuButton icon={hidden ? IconEye : IconEyeOff} onClick={() => toggleHidden(c)}>
+              <MenuButton
+                icon={hidden ? IconEye : IconEyeOff}
+                onClick={() => {
+                  /* Предупреждаем только там, где есть что ломать: снятие скрытия
+                     безобидно, а черновик и так не существует для площадки —
+                     hidden ничего к этому не добавит */
+                  if (hidden || c.status === "draft") {
+                    toggleHidden(c);
+                    return;
+                  }
+                  setMenuFor(null);
+                  setHiding(c);
+                }}
+              >
                 {hidden ? "Показать" : "Скрыть"}
               </MenuButton>
               <MenuButton
@@ -530,6 +545,56 @@ export default function AdminCoursesPage() {
           и заданиями. Курс, которого кто-то уже коснулся, сервер удалить не даст: доступ,
           заявка или сертификат останавливают удаление. Такой курс скрывают.
         </p>
+      </Sheet>
+
+      {/* Скрытие обратимо, но пока курс скрыт, он закрыт и для тех, кому доступ
+          уже выдан, — тост об этом сказать не успевает, поэтому окно */}
+      <Sheet
+        open={hiding !== null}
+        onClose={() => setHiding(null)}
+        title="Скрыть курс?"
+        footer={
+          <div className="stack g8">
+            <Button
+              block
+              size="lg"
+              loading={busyId !== null && busyId === hiding?.id}
+              onClick={() => hiding && toggleHidden(hiding)}
+            >
+              Скрыть курс
+            </Button>
+            <Button variant="secondary" block onClick={() => setHiding(null)}>
+              Отмена
+            </Button>
+          </div>
+        }
+      >
+        <div className="stack g10">
+          {hiding !== null && hiding.students_count > 0 && (
+            <p className="body pretty">
+              <strong>
+                Доступ к курсу выдан {hiding.students_count}{" "}
+                {plural(hiding.students_count, "участнику", "участникам", "участникам")} —
+                курс закроется и для них.
+              </strong>{" "}
+              Сами доступы при этом целы, возвращать их вручную не придётся.
+            </p>
+          )}
+          <p className="body muted pretty">
+            «{hiding?.title}» пропадёт не только из каталога. Пока курс скрыт, не открываются
+            страница курса, уроки и их материалы, тесты и попытки, задания, завершение курса
+            и выдача сертификата — в том числе у тех, кому доступ уже выдан.
+          </p>
+          <p className="body muted pretty">
+            Уже выданные сертификаты остаются действительными: проверка по номеру на курс
+            не смотрит. Прогресс, попытки и сданные работы тоже никуда не денутся.
+          </p>
+          <p className="body muted pretty">
+            Обратно курс сам не вернётся: «Показать» переводит его в черновики. Чтобы курс
+            снова открылся, поставьте ему «Идёт набор» или «Набор закрыт» — это делается
+            в редакторе курса.
+          </p>
+        </div>
       </Sheet>
 
       <style>{`@media (max-width: 560px) { .hide-sm { display: none; } }`}</style>

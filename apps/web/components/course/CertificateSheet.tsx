@@ -11,13 +11,14 @@
  */
 
 import type { MyCertificate } from "@lms/api";
-import { dayYear } from "@lms/ui/i18n";
+import { dayYear, dict } from "@lms/ui/i18n";
 import { useOrigin } from "@lms/ui/useOrigin";
-import { LogoMark } from "@lms/ui/icons";
+import logo from "@lms/ui/logo.png";
 import { QrCode } from "@/components/course/QrCode";
 
 export function CertificateSheet({ cert }: { cert: MyCertificate }) {
   const kz = cert.lang === "kz";
+  const brand = dict[kz ? "kz" : "ru"];
   const { verifyHost, verifyUrl } = useOrigin();
   const issued = dayYear(cert.issued_at, kz ? "kz" : "ru");
 
@@ -34,22 +35,23 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
             marginBottom: "2.4cqw",
           }}
         >
+          {/* Эмблема круглая и со своим фоном — синей плашки под ней нет.
+              Название разбито на две строки той же парой строк словаря, что
+              и в шапке сайта: автоперенос ломает его на три. */}
+          <img src={logo.src} alt="" style={{ width: "5.4cqw", height: "5.4cqw" }} />
           <span
             style={{
-              width: "4cqw",
-              height: "4cqw",
-              borderRadius: "1.2cqw",
-              background: "#4c6fff",
-              color: "#fff",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              flexDirection: "column",
+              textAlign: "left",
+              fontWeight: 800,
+              fontSize: "1.9cqw",
+              letterSpacing: "-0.01em",
+              lineHeight: 1.2,
             }}
           >
-            <LogoMark size={24} />
-          </span>
-          <span style={{ fontWeight: 800, fontSize: "2.4cqw", letterSpacing: "-0.02em" }}>
-            LMS
+            <span>{brand.brandLine1}</span>
+            <span>{brand.brandLine2}</span>
           </span>
         </div>
 

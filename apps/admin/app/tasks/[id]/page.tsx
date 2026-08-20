@@ -17,6 +17,12 @@
  * Файл-шаблон сохраняется сразу, отдельным `PATCH`: в ответе `GET` у него
  * есть имя, размер и тип, но нет ключа хранилища — а `PATCH` принимает
  * именно ключ, и держать его в форме до кнопки «Сохранить» было бы нечем.
+ *
+ * Остальное сохраняется само: текст и числа — по уходу из поля, галочки,
+ * переключатель и формат сдачи — сразу по клику, потому что «уйти» из них
+ * некуда. По паузе при печати не сохраняем нарочно: на сервер уезжало бы
+ * недописанное слово. Кнопка «Сохранить» осталась — ею отправляют всё разом
+ * и повторяют то, на чём сервер споткнулся.
  */
 
 import { useParams } from "next/navigation";
@@ -107,38 +113,122 @@ function formOf(task: AdminTask): Form {
   };
 }
 
-/** `template_file` здесь не уходит: у сохранённого шаблона нет ключа. */
-function patchBody(f: Form): AdminTaskPatch {
-  const body: AdminTaskPatch = {
-    title: f.title.trim(),
-    statement: { html: f.html },
-    submit_format: f.submit_format,
-    allowed_ext: buildExt(f.groups, f.extra),
-    time_required_min: Number(f.time_required_min),
-    is_hidden: f.is_hidden,
-  };
-  /* Пустым лимит остаётся, только пока поле спрятано форматом сдачи «текст»:
-     видимое пустое поле сохранение не пропускает. Тогда ключ не уходит вовсе,
-     и прежнее число сервера остаётся прежним */
-  if (f.max_size_mb !== "") body.max_size_mb = Number(f.max_size_mb);
-  return body;
+/**
+ * Поля `PATCH` — они же имена, под которыми сервер возвращает ошибки полей,
+ * поэтому одним ключом помечены и отправка, и подпись под полем.
+ * `template_file` сюда не входит: у сохранённого шаблона нет ключа.
+ */
+type Field =
+  | "title"
+  | "statement"
+  | "submit_format"
+  | "allowed_ext"
+  | "max_size_mb"
+  | "time_required_min"
+  | "is_hidden";
+
+const FIELDS: Field[] = [
+  "title",
+  "statement",
+  "submit_format",
+  "allowed_ext",
+  "max_size_mb",
+  "time_required_min",
+  "is_hidden",
+];
+
+/** Значение поля строкой — только чтобы сравнить его с сохранённым. */
+function mark(f: Form, key: Field): string {
+  switch (key) {
+    case "title":
+      return f.title.trim();
+    case "statement":
+      return f.html;
+    case "submit_format":
+      return f.submit_format;
+    case "allowed_ext":
+      return buildExt(f.groups, f.extra).join(" ");
+    case "max_size_mb":
+      return f.max_size_mb;
+    case "time_required_min":
+      return f.time_required_min;
+    case "is_hidden":
+      return String(f.is_hidden);
+  }
 }
 
 /**
- * Обязательные числа проверяем до отправки. `null` сервер читает как
- * «не прислано» и возвращает прежнее значение, форма пересобирается ответом,
- * и стёртое число молча возвращается на место при зелёном тосте.
+ * Поле формы → поле `PATCH`. Расходятся они в одном месте: разрешённые
+ * расширения человек правит двумя списками, а на сервер уходит один.
+ */
+const FIELD_OF: Record<keyof Form, Field> = {
+  title: "title",
+  html: "statement",
+  submit_format: "submit_format",
+  groups: "allowed_ext",
+  extra: "allowed_ext",
+  max_size_mb: "max_size_mb",
+  time_required_min: "time_required_min",
+  is_hidden: "is_hidden",
+};
+
+/** Чем форма разошлась с тем, что подтвердил сервер. */
+function changed(f: Form, saved: Form): Field[] {
+  return FIELDS.filter((key) => mark(f, key) !== mark(saved, key));
+}
+
+/**
+ * Пустое число не уходит вовсе: `Number("") === 0`, а ноль сервер принимает
+ * как значение — минуты обнулились бы молча, а лимит размера отбился бы
+ * `422` про `ge=1`, хотя человек просто не дописал число.
+ */
+function sendable(f: Form, key: Field): boolean {
+  if (key === "time_required_min") return f.time_required_min !== "";
+  if (key === "max_size_mb") return f.max_size_mb !== "";
+  return true;
+}
+
+/** Тело `PATCH` из перечисленных полей: у сервера он частичный. */
+function patchBody(f: Form, fields: Field[]): AdminTaskPatch {
+  const body: AdminTaskPatch = {};
+  for (const key of fields) {
+    if (key === "title") body.title = f.title.trim();
+    if (key === "statement") body.statement = { html: f.html };
+    if (key === "submit_format") body.submit_format = f.submit_format;
+    if (key === "allowed_ext") body.allowed_ext = buildExt(f.groups, f.extra);
+    if (key === "max_size_mb") body.max_size_mb = Number(f.max_size_mb);
+    if (key === "time_required_min") body.time_required_min = Number(f.time_required_min);
+    if (key === "is_hidden") body.is_hidden = f.is_hidden;
+  }
+  return body;
+}
+
+/** Значение поля из ответа сервера — на место набранного. */
+function adopt(f: Form, from: Form, key: Field): Form {
+  if (key === "title") return { ...f, title: from.title };
+  if (key === "statement") return { ...f, html: from.html };
+  if (key === "submit_format") return { ...f, submit_format: from.submit_format };
+  if (key === "allowed_ext") return { ...f, groups: from.groups, extra: from.extra };
+  if (key === "max_size_mb") return { ...f, max_size_mb: from.max_size_mb };
+  if (key === "time_required_min") return { ...f, time_required_min: from.time_required_min };
+  return { ...f, is_hidden: from.is_hidden };
+}
+
+/**
+ * Подписи к пустым числам. Лимит размера подписываем, только пока он виден:
+ * форматом сдачи «текст» поле спрятано, и ошибке негде показаться.
  */
 function validate(f: Form): Record<string, string> {
   const wrong: Record<string, string> = {};
   if (f.time_required_min === "") wrong.time_required_min = "Укажите минуты";
-  /* Лимит размера показан только когда сдают файлом: подписывать ошибкой
-     спрятанное поле некуда */
   if (f.submit_format !== "text" && f.max_size_mb === "") {
     wrong.max_size_mb = "Укажите лимит размера — от 1 до 20 МБ";
   }
   return wrong;
 }
+
+/** Короткая отметка рядом с кнопкой — вместо тоста на каждое поле. */
+type SaveState = { kind: "saving" } | { kind: "ok" } | { kind: "fail"; text: string };
 
 const digits = (v: string) => v.replace(/\D/g, "");
 
@@ -151,9 +241,25 @@ export default function TaskEditorPage() {
 
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState | null>(null);
   const [templateBusy, setTemplateBusy] = useState(false);
   const pickRef = useRef<HTMLInputElement>(null);
+
+  /* Форма и последнее подтверждённое сервером лежат ещё и в ref: сохранение
+     живёт в асинхронном цикле, и состояние из замыкания там уже прошлое */
+  const formRef = useRef<Form | null>(null);
+  const savedRef = useRef<Form | null>(null);
+  /* Запрос идёт один за раз — тогда ответы возвращаются в том же порядке,
+     в каком уходили правки, и ответ первого не может затереть второе.
+     Набежавшее за время запроса уедет следующим, а не потеряется */
+  const busy = useRef(false);
+  /* Поля, которые человек уже дописал: ушёл из поля или щёлкнул галочку.
+     Отправляется только очередь, а не всё расхождение с сервером — иначе
+     после чужого ответа уехало бы недописанное соседнее поле */
+  const queued = useRef(new Set<Field>());
+  /* Значения, на которых сервер уже споткнулся: пока в поле стоит ровно
+     оно, соседние правки не тащат его с собой и не ловят тот же отказ */
+  const refused = useRef(new Map<Field, string>());
 
   /* Форма пересобирается только при смене задания: шаблон ходит на сервер
      своим запросом и не должен стирать набранное */
@@ -161,37 +267,128 @@ export default function TaskEditorPage() {
   useEffect(() => {
     if (data && seeded.current !== data.id) {
       seeded.current = data.id;
-      setForm(formOf(data));
+      const fresh = formOf(data);
+      formRef.current = fresh;
+      savedRef.current = fresh;
+      setForm(fresh);
       setErrors({});
+      setSaveState(null);
+      queued.current.clear();
+      refused.current.clear();
     }
   }, [data]);
 
-  const save = async () => {
-    if (!form || saving) return;
-    const wrong = validate(form);
-    if (Object.keys(wrong).length) {
-      setErrors(wrong);
-      return;
-    }
-    setSaving(true);
-    setErrors({});
+  /**
+   * Прокручивает очередь и повторяет круг, пока она не опустеет: правка,
+   * дописанная во время запроса, уедет следующим кругом, а не потеряется.
+   *
+   * `byHand` — нажали кнопку: тогда отметка «сохранено» появляется и когда
+   * отправлять было нечего, иначе кнопка выглядела бы сломанной.
+   */
+  const run = async (byHand = false) => {
+    if (busy.current) return;
+    busy.current = true;
+    let anySent = false;
     try {
-      const updated = await api<AdminTask>(`/admin/tasks/${id}`, {
-        method: "PATCH",
-        json: patchBody(form),
-      });
-      task.setData(updated);
-      /* Сервер почистил разметку и привёл расширения к своему виду —
-         показываем то, что вернулось, а не то, что было набрано */
-      setForm(formOf(updated));
-      toast("Задание сохранено", "success");
-    } catch (e) {
-      const fields = fieldErrors(e);
-      if (Object.keys(fields).length) setErrors(fields);
-      else toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+      for (;;) {
+        const f = formRef.current;
+        const saved = savedRef.current;
+        if (!f || !saved) return;
+
+        const wrong = validate(f);
+        const dirty = changed(f, saved);
+        const ready = dirty.filter(
+          (key) => queued.current.has(key) && refused.current.get(key) !== mark(f, key),
+        );
+        const fields = ready.filter((key) => sendable(f, key));
+        /* Подписи под отправляемыми полями снимаем заранее: дальше их
+           поставит либо проверка пустого числа, либо ответ сервера */
+        setErrors((prev) => {
+          const next = { ...prev };
+          for (const key of ready) delete next[key];
+          for (const key of ready) if (wrong[key]) next[key] = wrong[key];
+          return next;
+        });
+
+        if (!fields.length) {
+          const marked =
+            ready.some((key) => wrong[key]) ||
+            dirty.some((key) => refused.current.get(key) === mark(f, key));
+          if (marked) setSaveState({ kind: "fail", text: "Проверьте отмеченные поля." });
+          /* Дописанного нет, а расхождение осталось — человек ещё в поле */
+          else if (dirty.length) setSaveState({ kind: "fail", text: "" });
+          else if (anySent || byHand) setSaveState({ kind: "ok" });
+          return;
+        }
+
+        setSaveState({ kind: "saving" });
+        /* Что ушло на сервер — чтобы не затереть ответом то, что успели
+           набрать, пока запрос летел */
+        const sent = new Map(fields.map((key): [Field, string] => [key, mark(f, key)]));
+        let updated: AdminTask;
+        try {
+          updated = await api<AdminTask>(`/admin/tasks/${id}`, {
+            method: "PATCH",
+            json: patchBody(f, fields),
+          });
+        } catch (e) {
+          const bad = fieldErrors(e);
+          if (Object.keys(bad).length) {
+            /* Набранное остаётся в поле: из отказа выходят правкой значения,
+               а не тем, что экран вернёт прежнее */
+            setErrors((prev) => ({ ...prev, ...bad }));
+            for (const key of fields) {
+              if (bad[key] !== undefined) refused.current.set(key, sent.get(key) ?? "");
+            }
+            setSaveState({ kind: "fail", text: "Проверьте отмеченные поля." });
+          } else {
+            setSaveState({
+              kind: "fail",
+              text: isApiError(e) ? e.message : "Не удалось сохранить.",
+            });
+          }
+          return;
+        }
+
+        anySent = true;
+        task.setData(updated);
+        const fresh = formOf(updated);
+        savedRef.current = fresh;
+        /* Сервер почистил разметку и привёл расширения к своему виду —
+           показываем то, что вернулось. Но только там, где поле с момента
+           отправки не трогали: иначе ответ съел бы свежий набор */
+        let next = formRef.current ?? fresh;
+        for (const key of fields) {
+          refused.current.delete(key);
+          /* Из очереди поле уходит только сохранённым: пока запрос летел,
+             в нём могли снова начать печатать — это уедет по уходу из него,
+             а не сейчас */
+          queued.current.delete(key);
+          if (mark(next, key) === sent.get(key)) next = adopt(next, fresh, key);
+        }
+        formRef.current = next;
+        setForm(next);
+      }
     } finally {
-      setSaving(false);
+      busy.current = false;
     }
+  };
+
+  /** Поле дописано — в очередь и на сервер. */
+  const flush = (...keys: Field[]) => {
+    for (const key of keys) queued.current.add(key);
+    run();
+  };
+
+  /* Кнопка отправляет всё разом и заново пробует то, на чём сервер
+     споткнулся: правку рядом отказ одного поля больше не задерживает,
+     а повторить его надо чем-то явным */
+  const saveAll = () => {
+    const f = formRef.current;
+    const saved = savedRef.current;
+    if (f && saved) for (const key of changed(f, saved)) queued.current.add(key);
+    refused.current.clear();
+    run(true);
   };
 
   /* Шаблон сначала уезжает в хранилище, и только потом ключ привязывается
@@ -283,11 +480,27 @@ export default function TaskEditorPage() {
     );
   }
 
+  /* Единственное место, где меняется форма: рядом с состоянием пишется ref,
+     из которого читает сохранение */
+  const write = (next: Form) => {
+    formRef.current = next;
+    setForm(next);
+    /* «Сохранено» относилось к прошлому значению — снимаем */
+    setSaveState((s) => (s?.kind === "ok" ? null : s));
+  };
+
   const set = <K extends keyof Form>(key: K, value: Form[K]) =>
-    setForm((f) => (f ? { ...f, [key]: value } : f));
+    write({ ...form, [key]: value });
+
+  /* У галочки, переключателя и формата сдачи ухода из поля нет — сохраняем
+     сразу по клику */
+  const setNow = <K extends keyof Form>(key: K, value: Form[K]) => {
+    write({ ...form, [key]: value });
+    flush(FIELD_OF[key]);
+  };
 
   const toggleGroup = (label: string) =>
-    set("groups", form.groups.includes(label)
+    setNow("groups", form.groups.includes(label)
       ? form.groups.filter((g) => g !== label)
       : [...form.groups, label]);
 
@@ -298,9 +511,38 @@ export default function TaskEditorPage() {
       title={form.title || "Редактор задания"}
       subtitle={`${data.course.title} · ${data.module.title}`}
       actions={
-        <Button size="sm" loading={saving} onClick={save}>
-          Сохранить
-        </Button>
+        <div className="row g10" style={{ flexShrink: 0 }}>
+          {saveState && (
+            <span
+              className="caption save-note"
+              style={{
+                color:
+                  saveState.kind === "fail"
+                    ? "var(--danger)"
+                    : saveState.kind === "ok"
+                      ? "var(--success)"
+                      : "var(--text-2)",
+              }}
+            >
+              {saveState.kind === "saving" && "Сохраняем…"}
+              {saveState.kind === "ok" && "Сохранено"}
+              {saveState.kind === "fail" && (
+                <>
+                  Не сохранено
+                  {saveState.text && <span className="save-why">. {saveState.text}</span>}
+                </>
+              )}
+            </span>
+          )}
+          <Button
+            size="sm"
+            style={{ flexShrink: 0 }}
+            loading={saveState?.kind === "saving"}
+            onClick={saveAll}
+          >
+            Сохранить
+          </Button>
+        </div>
       }
     >
       <div className="stack g16" style={{ maxWidth: 860 }}>
@@ -329,11 +571,20 @@ export default function TaskEditorPage() {
               className={`input${errors.title ? " input-error" : ""}`}
               value={form.title}
               onChange={(e) => set("title", e.target.value)}
+              onBlur={() => flush("title")}
             />
             {errors.title && <span className="error-text">{errors.title}</span>}
           </div>
 
-          <div className="field">
+          {/* Своего onBlur у редактора условия нет — он живёт в contentEditable,
+              а focusout всплывает сюда. Уход внутрь самого редактора (окно
+              ссылки) уходом из поля не считается */}
+          <div
+            className="field"
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) flush("statement");
+            }}
+          >
             <label className="label">Условие</label>
             <RichEditor
               value={form.html}
@@ -415,7 +666,7 @@ export default function TaskEditorPage() {
                 <button
                   key={v}
                   data-active={form.submit_format === v}
-                  onClick={() => set("submit_format", v)}
+                  onClick={() => setNow("submit_format", v)}
                   style={{ flex: 1 }}
                 >
                   {label}
@@ -461,7 +712,7 @@ export default function TaskEditorPage() {
                             className="ext-drop"
                             aria-label={`Убрать формат ${e}`}
                             onClick={() =>
-                              set("extra", form.extra.filter((x) => x !== e))
+                              setNow("extra", form.extra.filter((x) => x !== e))
                             }
                           >
                             <IconClose size={12} />
@@ -493,6 +744,7 @@ export default function TaskEditorPage() {
                   inputMode="numeric"
                   value={form.max_size_mb}
                   onChange={(e) => set("max_size_mb", digits(e.target.value))}
+                  onBlur={() => flush("max_size_mb")}
                 />
                 {errors.max_size_mb ? (
                   <span className="error-text">{errors.max_size_mb}</span>
@@ -534,6 +786,7 @@ export default function TaskEditorPage() {
               inputMode="numeric"
               value={form.time_required_min}
               onChange={(e) => set("time_required_min", digits(e.target.value))}
+              onBlur={() => flush("time_required_min")}
             />
             {errors.time_required_min ? (
               <span className="error-text">{errors.time_required_min}</span>
@@ -567,7 +820,7 @@ export default function TaskEditorPage() {
             <button
               className="switch"
               data-on={form.is_hidden}
-              onClick={() => set("is_hidden", !form.is_hidden)}
+              onClick={() => setNow("is_hidden", !form.is_hidden)}
               aria-pressed={form.is_hidden}
               aria-label="Скрыто от учителей"
             />
@@ -576,6 +829,14 @@ export default function TaskEditorPage() {
       </div>
 
       <style>{`
+        .save-note { max-width: 220px; text-align: right; }
+        /* На телефоне в шапке помещается только само состояние: с причиной
+           она выдавливает кнопку «Сохранить» за край. Причина при отказе поля
+           всё равно подписана под самим полем */
+        @media (max-width: 720px) {
+          .save-note { max-width: 96px; }
+          .save-why { display: none; }
+        }
         .ext-drop {
           display: inline-flex; align-items: center; justify-content: center;
           margin-left: 6px; padding: 0; border: none; background: none;

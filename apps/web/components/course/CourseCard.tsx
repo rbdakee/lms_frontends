@@ -20,7 +20,7 @@ import { dayYear, rating as fmtRating, type UiLang } from "@lms/ui/i18n";
 import { Badge, Button, Cover, LangBadge, Progress, Stars } from "@lms/ui";
 import { ContactAdmin, EnrollBadge, Price } from "@/components/course/CourseMeta";
 import { continueHref } from "@/components/course/CourseProgram";
-import { IconCheck, IconClock, IconPlay, IconStar } from "@lms/ui/icons";
+import { IconCheck, IconClock, IconLock, IconPlay, IconStar } from "@lms/ui/icons";
 
 /** Версия языковой группы под язык интерфейса; своей нет — первая (ru первой). */
 export function pickVersion(group: CatalogGroup, lang: UiLang): CatalogCourse {
@@ -29,6 +29,17 @@ export function pickVersion(group: CatalogGroup, lang: UiLang): CatalogCourse {
 
 /** Состояние доступа для бейджа на карточке — считается из `GET /me/courses`. */
 export type AccessState = "none" | "requested" | "granted";
+
+/**
+ * Курс, уведённый админом с платформы. Для площадки `draft` и `hidden`
+ * одинаковы: страница курса, уроки, тесты и задания отвечают «не найден».
+ * Доступ, прогресс и выданный сертификат при этом целы, поэтому карточка
+ * из «Моих курсов» не пропадает — просто никуда не ведёт.
+ * В каталоге таких курсов не бывает, там проверять нечего.
+ */
+export function isUnavailable(course: { status: string }): boolean {
+  return course.status === "draft" || course.status === "hidden";
+}
 
 /* ============ Карточка каталога ============ */
 
@@ -117,31 +128,50 @@ export function MyCourseCard({ course }: { course: MyCourse }) {
   const finished =
     course.completed_at !== null ||
     (course.total_count > 0 && course.done_count >= course.total_count);
+  /* Курс уведён с платформы: карточка остаётся с прогрессом, но без ссылок —
+     любая из них привела бы в «Курс не найден» */
+  const unavailable = isUnavailable(course);
+
+  const cover = (
+    <Cover tone="cover-c1" src={course.cover}>
+      <div className="cover-badges">
+        <LangBadge langs={[course.lang as UiLang]} />
+        {unavailable ? (
+          <Badge kind="locked" icon={<IconLock size={12} />}>
+            {t.stUnavailable}
+          </Badge>
+        ) : finished ? (
+          <Badge kind="done" icon={<IconCheck size={13} />}>
+            {t.stDone}
+          </Badge>
+        ) : (
+          <Badge kind="progress">{t.stProgress}</Badge>
+        )}
+      </div>
+    </Cover>
+  );
+
+  const heading = (
+    <>
+      <span className="caption" style={{ color: "var(--primary)" }}>
+        {categoryTitle(dictionaries.data?.categories, course.category_id)}
+      </span>
+      <h3 className="h3 pretty">{course.title}</h3>
+    </>
+  );
 
   return (
     <div className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <Link href={`/courses/${course.id}`}>
-        <Cover tone="cover-c1" src={course.cover}>
-          <div className="cover-badges">
-            <LangBadge langs={[course.lang as UiLang]} />
-            {finished ? (
-              <Badge kind="done" icon={<IconCheck size={13} />}>
-                {t.stDone}
-              </Badge>
-            ) : (
-              <Badge kind="progress">{t.stProgress}</Badge>
-            )}
-          </div>
-        </Cover>
-      </Link>
+      {unavailable ? cover : <Link href={`/courses/${course.id}`}>{cover}</Link>}
 
       <div className="stack g10 card-pad grow">
-        <Link href={`/courses/${course.id}`} className="stack g6">
-          <span className="caption" style={{ color: "var(--primary)" }}>
-            {categoryTitle(dictionaries.data?.categories, course.category_id)}
-          </span>
-          <h3 className="h3 pretty">{course.title}</h3>
-        </Link>
+        {unavailable ? (
+          <div className="stack g6">{heading}</div>
+        ) : (
+          <Link href={`/courses/${course.id}`} className="stack g6">
+            {heading}
+          </Link>
+        )}
 
         <div className="stack g6" style={{ marginTop: "auto" }}>
           <div className="row between small">
@@ -153,13 +183,17 @@ export function MyCourseCard({ course }: { course: MyCourse }) {
           <Progress value={course.progress_percent} />
         </div>
 
-        <Link
-          href={continueHref(course.id, course.next_lesson)}
-          className="btn btn-primary btn-block"
-        >
-          <IconPlay size={16} />
-          {t.continueShort}
-        </Link>
+        {unavailable ? (
+          <span className="caption muted pretty">{t.unavailableHint}</span>
+        ) : (
+          <Link
+            href={continueHref(course.id, course.next_lesson)}
+            className="btn btn-primary btn-block"
+          >
+            <IconPlay size={16} />
+            {t.continueShort}
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -241,7 +275,7 @@ const REVIEWS_PER_PAGE = 10;
 /**
  * `GET /courses/{id}/reviews`: свежие сверху, гистограмма — из `breakdown`
  * (по последнему отзыву каждого автора). Премодерации нет — отзыв виден сразу.
- * `reply` пока всегда `null` — блок ответа админа рисуется только при непустом.
+ * `reply` — ответ админа объектом, если он отвечал; блок рисуется при непустом.
  */
 export function ReviewsBlock({ course_id }: { course_id: number }) {
   const { t, lang } = useStore();
@@ -357,7 +391,7 @@ export function ReviewsBlock({ course_id }: { course_id: number }) {
                   style={{ borderLeft: "3px solid var(--primary)", paddingLeft: 12, marginLeft: 4 }}
                 >
                   <strong className="caption" style={{ color: "var(--primary)" }}>
-                    Ответ администратора
+                    {t.reviewReply}
                   </strong>
                   <p className="small pretty">{r.reply.text}</p>
                 </div>

@@ -39,28 +39,28 @@ import {
   IconSettings,
   IconShield,
   IconUser,
-  LogoMark,
 } from "@lms/ui/icons";
+import logo from "@lms/ui/logo.png";
 
 /* ============ Логотип ============ */
 
-/** Логотип всегда ведёт на лендинг — из любого раздела, включая админку. */
-export function Logo({ subtitle }: { subtitle?: string }) {
+/**
+ * Логотип всегда ведёт на лендинг — из любого раздела, включая админку.
+ *
+ * В самой эмблеме название написано по кругу, но на 38 px этот текст
+ * не читается — поэтому рядом стоит наборное название. Оно длинное и потому
+ * разбито на две строки; на телефоне в шапке остаётся одна эмблема
+ * (см. `.logo-text` в globals.css).
+ */
+export function Logo() {
+  const { t } = useStore();
   return (
-    <Link href="/" className="logo" aria-label="LMS — на лендинг">
-      <span className="logo-mark">
-        <LogoMark size={20} />
+    <Link href="/" className="logo" aria-label={`${t.brandName} — на лендинг`}>
+      <img src={logo.src} alt="" className="logo-emblem" width={38} height={38} />
+      <span className="logo-text stack">
+        <span>{t.brandLine1}</span>
+        <span>{t.brandLine2}</span>
       </span>
-      {subtitle ? (
-        <span className="stack" style={{ lineHeight: 1.2 }}>
-          <span className="logo-text" style={{ fontSize: 15 }}>
-            LMS
-          </span>
-          <span className="caption muted-3">{subtitle}</span>
-        </span>
-      ) : (
-        <span className="logo-text">LMS</span>
-      )}
     </Link>
   );
 }
@@ -719,15 +719,7 @@ export function Footer() {
           </div>
         </div>
         <hr className="divider" />
-        <div className="row between wrap g12">
-          <span className="small muted-3">© 2026 LMS · Повышение квалификации учителей</span>
-          <span className="row g10">
-            <span className="small muted-3">Прототип · данные демонстрационные</span>
-            <Link href="/map" className="small" style={{ color: "var(--primary)" }}>
-              Карта экранов
-            </Link>
-          </span>
-        </div>
+        <span className="small muted-3">© 2026 {t.brandName}</span>
       </div>
       <style>{`
         /* Колонки ссылок стоят рядом уже на телефоне — иначе подвал уезжает

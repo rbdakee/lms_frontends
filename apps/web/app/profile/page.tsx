@@ -35,7 +35,6 @@ import {
   IconDevice,
   IconLogout,
   IconPhone,
-  IconSettings,
 } from "@lms/ui/icons";
 
 /** «Mozilla/5.0 (iPhone; …) … Safari/…» → «iPhone · Safari» */
@@ -94,13 +93,12 @@ export default function ProfilePage() {
 function ProfileScreen({ user }: { user: User }) {
   const router = useRouter();
   const { setMe, logout: apiLogout } = useMe();
-  const { t, setLang, lang, resetDemo, toast } = useStore();
+  const { t, setLang, lang, toast } = useStore();
   const dictionaries = useDictionaries();
 
   const [form, setForm] = useState(() => formFromUser(user));
   const [saving, setSaving] = useState(false);
   const [logout, setLogout] = useState(false);
-  const [reset, setReset] = useState(false);
 
   const sessions = useLoad(() => api<SessionList>("/me/sessions"), []);
 
@@ -430,6 +428,17 @@ function ProfileScreen({ user }: { user: User }) {
                 </Button>
               </div>
 
+              {/* Админка — на своём домене, поэтому ссылка полным адресом */}
+              {user.is_admin && (
+                <>
+                  <hr className="divider" />
+                  <LinkButton href={admin()} variant="ghost" block>
+                    Открыть админку
+                    <IconChevronRight size={16} />
+                  </LinkButton>
+                </>
+              )}
+
               <hr className="divider" />
               <button
                 className="btn btn-danger-soft btn-block"
@@ -438,33 +447,6 @@ function ProfileScreen({ user }: { user: User }) {
                 <IconLogout size={17} />
                 {t.logout}
               </button>
-            </section>
-
-            {/* Служебный блок прототипа — для непереведённых на API разделов
-                (уроки, сертификаты, уведомления) */}
-            <section className="card card-pad stack g12" style={{ background: "#fbfcff" }}>
-              <div className="row g10">
-                <span style={{ color: "var(--text-2)" }}>
-                  <IconSettings size={20} />
-                </span>
-                <h2 className="h3">Управление прототипом</h2>
-              </div>
-              <p className="small muted pretty">
-                Сбрасывает демо-данные прототипных разделов: прогресс уроков,
-                результаты тестов и сертификаты. Профиль и заявки живут в API
-                и сбросом не затрагиваются.
-              </p>
-              <div className="stack g8">
-                <Button variant="secondary" block onClick={() => setReset(true)}>
-                  Сбросить прототип
-                </Button>
-                {user.is_admin && (
-                  <LinkButton href={admin()} variant="ghost" block>
-                    Открыть админку
-                    <IconChevronRight size={16} />
-                  </LinkButton>
-                )}
-              </div>
             </section>
           </div>
         </div>
@@ -523,48 +505,6 @@ function ProfileScreen({ user }: { user: User }) {
         <p className="body muted pretty">
           Прогресс и сертификаты сохранятся. Чтобы вернуться, войдите по номеру телефона.
         </p>
-      </Sheet>
-
-      <Sheet
-        open={reset}
-        onClose={() => setReset(false)}
-        title="Сбросить прототип"
-        footer={
-          <div className="stack g8">
-            <Button
-              block
-              onClick={() => {
-                resetDemo("default");
-                setReset(false);
-                toast("Демо-данные восстановлены", "success");
-              }}
-            >
-              Вернуть демо-состояние
-            </Button>
-            <Button
-              variant="secondary"
-              block
-              onClick={() => {
-                resetDemo("empty");
-                setReset(false);
-                router.push("/");
-              }}
-            >
-              Пустое состояние
-            </Button>
-          </div>
-        }
-      >
-        <div className="stack g10">
-          <p className="small muted pretty">
-            <strong>Демо-состояние</strong> — прототипные разделы с данными: прогресс
-            уроков, задания, сертификат.
-          </p>
-          <p className="small muted pretty">
-            <strong>Пустое состояние</strong> — прототипные разделы без данных, для
-            проверки пустых экранов. На вход и профиль не влияет.
-          </p>
-        </div>
       </Sheet>
 
       <style>{`
