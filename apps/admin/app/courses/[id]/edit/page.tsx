@@ -48,6 +48,7 @@ import {
   COURSE_STATUS_LABEL,
   COURSE_STATUS_ORDER,
 } from "@/components/admin/courseStatus";
+import { CROPPABLE, CropImageSheet } from "@/components/admin/CropImage";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { AdminShell } from "@/components/layout/AdminShell";
 import {
@@ -83,10 +84,10 @@ import {
 type Tab = "main" | "program" | "cert" | "publish";
 
 /**
- * Какой вкладке принадлежит поле формы. Кнопка «Сохранить» живёт в шапке
- * и нажимается с любой вкладки, а подписи полей — только на «Основном»
- * и «Условиях»: без этой таблицы `422` с «Программы» и «Публикации»
- * выглядел бы удавшимся сохранением.
+ * Какой вкладке принадлежит поле формы. Ответ автосохранения может прийти,
+ * когда админ уже ушёл на «Программу» или «Публикацию», а подписи полей —
+ * только на «Основном» и «Условиях»: без этой таблицы такой `422` выглядел бы
+ * удавшимся сохранением.
  */
 const FIELD_TAB: Record<string, Tab> = {
   title: "main",
@@ -245,10 +246,9 @@ function formOf(c: AdminCourseCard): Form {
 type PatchValue = string | number | boolean | null;
 
 /**
- * Одно поле формы в том виде, в каком его принимает сервер. Автосохранение
- * шлёт поля по одному, кнопка «Сохранить» — все разом, и превращение формы
- * в тело запроса у них обязано быть одно: разойдись они, кнопка чинила бы
- * то, что автосохранение записало иначе.
+ * Одно поле формы в том виде, в каком его принимает сервер: автосохранение
+ * шлёт поля по одному. Тем же превращением считается `dirty` — сравнивать
+ * буквы в полях с ответом сервера напрямую нельзя, он нормализует присланное.
  *
  * Пустое поле — это `null`, а не пустая строка: «цены нет» и «цена 0» разное.
  */
@@ -267,12 +267,6 @@ function fieldValue(f: Form, key: keyof Form): PatchValue {
     default:
       return f[key];
   }
-}
-
-function patchBody(f: Form): Record<string, PatchValue> {
-  return Object.fromEntries(
-    (Object.keys(f) as (keyof Form)[]).map((k) => [k, fieldValue(f, k)]),
-  );
 }
 
 /**
@@ -336,7 +330,6 @@ function CourseEditor() {
   const [tab, setTab] = useState<Tab>("main");
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
   /* Тоста на каждое поле не будет — их было бы столько же, сколько полей,
      и они забили бы экран. Единственный след автосохранения — эта строка */
   const [auto, setAuto] = useState<AutoSave>({ kind: "idle" });
@@ -421,9 +414,9 @@ function CourseEditor() {
     );
 
   /**
-   * `422` от «Сохранить»: кнопка живёт в шапке и нажимается с любой вкладки.
-   * Подписи у полей остаются, но с «Программы» и «Публикации» их не видно —
-   * поэтому уводим на вкладку поля и повторяем причину тостом.
+   * `422` с именем поля. Ответ автосохранения может прийти уже с другой
+   * вкладки, где подписи поля не видно, — поэтому уводим на вкладку поля
+   * и повторяем причину тостом.
    */
   const showFieldErrors = (fields: Record<string, string>) => {
     setErrors(fields);
@@ -434,37 +427,7 @@ function CourseEditor() {
     toast(first[1] || "Проверьте заполнение полей", "error");
   };
 
-  /** «Сохранить» в шапке — поля «Основного» и «Условий сертификата» одним PATCH */
-  const save = async () => {
-    if (!form || saving) return;
-    setSaving(true);
-    setErrors({});
-    setAuto({ kind: "saving" });
-    const my = ++writeSeq.current;
-    try {
-      const updated = await api<AdminCourseCard>(`/admin/courses/${id}`, {
-        method: "PATCH",
-        json: patchBody(form),
-      });
-      if (writeSeq.current !== my) return;
-      sent.current = {};
-      course.setData(updated);
-      /* Сервер мог поправить присланное — показываем его значения, а не свои */
-      setForm(formOf(updated));
-      setAuto({ kind: "saved" });
-      toast("Сохранено", "success");
-    } catch (e) {
-      if (writeSeq.current !== my) return;
-      const fields = fieldErrors(e);
-      if (Object.keys(fields).length) showFieldErrors(fields);
-      else toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
-      setAuto({ kind: "failed", why: whyFailed(e, fields) });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  /** Три кнопки «Публикации» — это тот же PATCH со сменой статуса */
+  /** Кнопки «Публикации» и «Сохранить» у статуса — PATCH со сменой статуса */
   const setStatus = async (status: CourseStatus, message: string) => {
     if (busy) return;
     setBusy(true);
@@ -701,9 +664,22 @@ function CourseEditor() {
     else toast(isApiError(e) && e.status > 0 ? e.message : fallback, "error");
   };
 
-  const uploadCover = async (picked: FileList | null) => {
+  /* Что выбрали в проводнике: растровые форматы сперва проходят обрезку
+     под рамку 16:9 — как обложка стоит в каталоге, — SVG и GIF грузятся
+     как есть (обрезка убила бы масштабируемость и анимацию) */
+  const [cropping, setCropping] = useState<File | null>(null);
+  const pickCover = (picked: FileList | null) => {
     const file = picked?.[0];
     if (!file || coverBusy) return;
+    /* Тот же файл после отмены выбирают заново — без сброса `change`
+       на нём не случится */
+    if (coverPick.current) coverPick.current.value = "";
+    if (CROPPABLE.includes(file.type)) setCropping(file);
+    else void uploadCover(file);
+  };
+
+  const uploadCover = async (file: File) => {
+    if (coverBusy) return;
     setCoverBusy(true);
     setCoverError("");
     try {
@@ -718,9 +694,6 @@ function CourseEditor() {
       coverFail(e, "Не удалось загрузить обложку");
     } finally {
       setCoverBusy(false);
-      /* Тот же файл после отказа выбирают заново — без сброса `change`
-         на нём не случится */
-      if (coverPick.current) coverPick.current.value = "";
     }
   };
 
@@ -766,28 +739,25 @@ function CourseEditor() {
     <AdminShell
       title={data.title || "Курс без названия"}
       subtitle="Редактирование содержимого"
+      /* Кнопки «Сохранить» в шапке нет: поля уходят на сервер сами
+         (решение владельца 20.08.2026). Статус — своей кнопкой у селекта */
       actions={
-        <div className="row g10">
-          {autoText && (
-            <span
-              className={`caption nowrap${auto.kind === "failed" ? "" : " muted"}`}
-              /* Причина от сервера бывает в предложение — в шапке ей столько
-                 места нет, целиком её уже сказал тост */
-              style={{
-                maxWidth: 230,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                color: auto.kind === "failed" ? "var(--warning)" : undefined,
-              }}
-              title={autoText}
-            >
-              {autoText}
-            </span>
-          )}
-          <Button variant="secondary" size="sm" loading={saving} onClick={save}>
-            Сохранить
-          </Button>
-        </div>
+        autoText && (
+          <span
+            className={`caption nowrap${auto.kind === "failed" ? "" : " muted"}`}
+            /* Причина от сервера бывает в предложение — в шапке ей столько
+               места нет, целиком её уже сказал тост */
+            style={{
+              maxWidth: 230,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              color: auto.kind === "failed" ? "var(--warning)" : undefined,
+            }}
+            title={autoText}
+          >
+            {autoText}
+          </span>
+        )
       }
     >
       <div className="stack g20">
@@ -985,20 +955,38 @@ function CourseEditor() {
                   </div>
                   <div className="field">
                     <label className="label">Статус набора</label>
-                    <select
-                      className={`input${errors.status ? " input-error" : ""}`}
-                      value={form.status}
-                      onChange={(e) => set("status", e.target.value as CourseStatus)}
-                    >
-                      {COURSE_STATUS_ORDER.map((s) => (
-                        <option key={s} value={s}>
-                          {COURSE_STATUS_LABEL[s]}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Единственное поле со своей кнопкой: смена статуса —
+                        действие с последствиями, само оно не уходит
+                        (решение владельца 20.08.2026) */}
+                    <div className="row g8">
+                      <select
+                        className={`input grow${errors.status ? " input-error" : ""}`}
+                        value={form.status}
+                        onChange={(e) => set("status", e.target.value as CourseStatus)}
+                      >
+                        {COURSE_STATUS_ORDER.map((s) => (
+                          <option key={s} value={s}>
+                            {COURSE_STATUS_LABEL[s]}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        variant="secondary"
+                        loading={busy}
+                        disabled={form.status === saved.status}
+                        onClick={() =>
+                          setStatus(
+                            form.status,
+                            `Статус сохранён — «${COURSE_STATUS_LABEL[form.status]}»`,
+                          )
+                        }
+                      >
+                        Сохранить
+                      </Button>
+                    </div>
                     <span className="hint">
-                      Само не сохраняется: статус меняют кнопки «Публикации» или
-                      «Сохранить» в шапке.
+                      Остальные поля сохраняются сами, статус — только этой кнопкой
+                      или кнопками «Публикации».
                     </span>
                     {errors.status && <span className="error-text">{errors.status}</span>}
                   </div>
@@ -1049,7 +1037,7 @@ function CourseEditor() {
                    файла на сервере, и имя картинки её не обманет */
                 accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
                 hidden
-                onChange={(e) => uploadCover(e.target.files)}
+                onChange={(e) => pickCover(e.target.files)}
               />
               <div className="row g8">
                 <Button
@@ -1085,9 +1073,9 @@ function CourseEditor() {
               )}
               <Note kind="muted">
                 <span className="caption pretty">
-                  Сохраняется сразу, отдельно от кнопки «Сохранить». У людей новая
-                  картинка появится на месте старой не сразу: адрес раздачи один и тот
-                  же, и браузер помнит его пять минут.
+                  Сохраняется сразу, как и остальные поля. У людей новая картинка
+                  появится на месте старой не сразу: адрес раздачи один и тот же,
+                  и браузер помнит его пять минут.
                 </span>
               </Note>
             </div>
@@ -1279,8 +1267,8 @@ function CourseEditor() {
                 <Note kind="info">
                   <span className="caption pretty">
                     В полях есть несохранённые правки, а чек-лист считает по сохранённой
-                    версии курса. Поля уходят на сервер сами, когда из них выходят, —
-                    раз что-то осталось здесь, нажмите «Сохранить» в шапке.
+                    версии курса. Поля уходят на сервер сами, когда из них выходят;
+                    статус набора сохраняется своей кнопкой на «Основном».
                   </span>
                 </Note>
               )}
@@ -1442,6 +1430,23 @@ function CourseEditor() {
           </div>
         )}
       </div>
+
+      {/* Обрезка обложки перед загрузкой: рамка 16:9 — как в каталоге */}
+      {cropping && (
+        <CropImageSheet
+          file={cropping}
+          aspect={16 / 9}
+          outWidth={1280}
+          title="Обложка курса"
+          hint="В рамке — то, что увидят в каталоге и на странице курса.
+            Двигайте картинку, масштаб — колесом мыши или щипком."
+          onCancel={() => setCropping(null)}
+          onDone={(cropped) => {
+            setCropping(null);
+            void uploadCover(cropped);
+          }}
+        />
+      )}
 
       {/* Создание второй языковой версии */}
       <Sheet
