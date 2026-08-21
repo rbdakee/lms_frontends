@@ -22,7 +22,8 @@ import {
   type SubmissionVerdict,
 } from "@lms/api";
 import { dayTime, fileSize } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import {
   nextPendingId,
   SubmissionStatusBadge,
@@ -52,7 +53,8 @@ type Files = AdminSubmissionCard["files"];
 export default function SubmissionReviewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { t, lang, toast } = useStore();
+  const { t, lang } = useLang();
+  const toast = useToast();
 
   const card = useLoad(() => api<AdminSubmissionCard>(`/admin/submissions/${id}`), [id]);
 
@@ -375,7 +377,7 @@ export default function SubmissionReviewPage() {
  * в новой вкладке, чтобы не терять начатую проверку.
  */
 function SubmissionFiles({ files, compact }: { files: Files; compact?: boolean }) {
-  const { t } = useStore();
+  const { t } = useLang();
 
   if (files.length === 0) {
     return compact ? null : <span className="caption muted-3">{t.subNoFiles}</span>;

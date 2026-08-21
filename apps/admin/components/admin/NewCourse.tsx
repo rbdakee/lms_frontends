@@ -20,13 +20,13 @@ import {
   type AdminCourseCard,
   type CourseLang,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { Button, Sheet } from "@lms/ui";
 import { fieldErrors } from "@/lib/fieldErrors";
 
 export function NewCourseSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
-  const { toast } = useStore();
+  const toast = useToast();
   const dicts = useDictionaries();
 
   const [title, setTitle] = useState("");

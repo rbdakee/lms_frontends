@@ -33,7 +33,8 @@ import {
 } from "@lms/api";
 import { dayTime, dayYear, phoneFmt, plural } from "@lms/ui/i18n";
 import { PhoneInput } from "@lms/ui/PhoneInput";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { GrantAccessSheet } from "@/components/admin/GrantAccess";
 import { SubmissionStatusBadge } from "@/components/admin/submissionsApi";
@@ -72,7 +73,8 @@ const RETAKE_BLOCKER: Record<RetakeBlocker, string> = {
 
 export default function TeacherCardPage() {
   const { id } = useParams<{ id: string }>();
-  const { lang, toast } = useStore();
+  const { lang } = useLang();
+  const toast = useToast();
   const card = useLoad(() => api<AdminTeacherCard>(`/admin/teachers/${id}`), [id]);
 
   const [tab, setTab] = useState<Tab>("courses");

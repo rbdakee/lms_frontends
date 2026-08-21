@@ -3,8 +3,9 @@ import { Manrope } from "next/font/google";
 import "@lms/ui/globals.css";
 import "@lms/ui/admin.css";
 import { MeProvider } from "@lms/api";
+import { LangProvider } from "@lms/ui/lang";
+import { ToastProvider } from "@lms/ui/toast";
 import { StoreProvider } from "@lms/prototype";
-import { ToastHost } from "@lms/prototype/ToastHost";
 
 /**
  * Тот же Manrope, что и в клиентском приложении. Настройка повторяется здесь,
@@ -37,10 +38,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ru" className={manrope.variable}>
       <body>
         <MeProvider>
-          <StoreProvider>
-            {children}
-            <ToastHost />
-          </StoreProvider>
+          <LangProvider>
+            <ToastProvider>
+              {/* Прототип остался ради модерации отзывов в карточке курса */}
+              <StoreProvider>{children}</StoreProvider>
+            </ToastProvider>
+          </LangProvider>
         </MeProvider>
       </body>
     </html>

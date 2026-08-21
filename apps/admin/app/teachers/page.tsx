@@ -33,7 +33,7 @@ import {
   type AdminTeachersPage,
 } from "@lms/api";
 import { fmt, phoneFmt } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Avatar, Button, Empty, Sheet, StatusBadge } from "@lms/ui";
 import { IconChevronRight, IconFilter, IconSearch } from "@lms/ui/icons";
@@ -51,7 +51,7 @@ function initialsOf(t: AdminTeacher): string {
 }
 
 export default function TeachersPage() {
-  const { t } = useStore();
+  const { t } = useLang();
   const [query, setQuery] = useState("");
   /* Поиск и школа уходят на сервер — печать не должна слать запрос на каждую букву */
   const [q, setQ] = useState("");

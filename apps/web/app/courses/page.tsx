@@ -20,10 +20,10 @@ import {
   type CatalogOut,
   type MyCourses,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { type UiLang } from "@lms/ui/i18n";
 import { PublicShell, TeacherShell } from "@/components/layout/Shell";
-import { CourseCard, pickVersion, type AccessState } from "@/components/course/CourseCard";
+import { CourseCard, pickVersion, type AccessState } from "@lms/course";
 import { Button, CourseCardSkeleton, Empty, Note, Sheet } from "@lms/ui";
 import { IconCheck, IconClose, IconFilter, IconSearch } from "@lms/ui/icons";
 
@@ -45,7 +45,7 @@ const ENROLL_LABEL: Record<Exclude<Enroll, "default">, string> = {
 };
 
 export default function CatalogPage() {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const { me } = useMe();
   const authed = Boolean(me);
 

@@ -6,7 +6,7 @@
  */
 
 import { api, qs, type AdminSubmission, type AdminSubmissionsPage } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { Avatar, Badge, type BadgeKind } from "@lms/ui";
 
 export type SubmissionStatus = AdminSubmission["status"];
@@ -19,7 +19,7 @@ const STATUS_KIND: Record<SubmissionStatus, BadgeKind> = {
 };
 
 export function SubmissionStatusBadge({ status }: { status: SubmissionStatus }) {
-  const { t } = useStore();
+  const { t } = useLang();
   const label =
     status === "accepted" ? t.stAccepted : status === "rework" ? t.stRework : t.stReview;
   return <Badge kind={STATUS_KIND[status]}>{label}</Badge>;

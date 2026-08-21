@@ -9,7 +9,7 @@
  */
 
 import type { QuizAttemptHistory } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { Badge } from "@lms/ui";
 import { dayMonth } from "@lms/ui/i18n";
 
@@ -20,7 +20,7 @@ export function AttemptsHistory({
   attempts: QuizAttemptHistory[];
   retakable: boolean;
 }) {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   if (attempts.length === 0) return null;
 
   return (

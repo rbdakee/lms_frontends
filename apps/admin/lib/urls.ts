@@ -6,8 +6,6 @@
  * (`https://domain.kz`). Переменная читается на сборке: без неё
  * работает локальный запуск, с ней — боевой домен.
  */
-import { api } from "@lms/api";
-
 export const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000";
 
 /** Адрес страницы клиентского приложения: `web("/my")`. */
@@ -16,18 +14,10 @@ export function web(path = "/"): string {
 }
 
 /**
- * «Предпросмотр как учитель» — переход между приложениями.
- *
- * Флаг живёт в серверной сессии, а не в адресе: кука `sid` одна на оба
- * домена, поэтому режим сначала включается запросом, и только потом
- * происходит переход — уже без `?preview=1`. Выход из режима делает сам
- * клиент полосой «Предпросмотр — данные не сохраняются».
- *
- * Режим привязан к курсу: записи по нему становятся no-op, доступ считается
- * открытым, а строгий порядок уроков не запирает программу. Черновик тоже
- * годится — курс в редакторе почти всегда черновик.
+ * «Предпросмотр как учитель» живёт в самой админке — маршрут `/preview/:id`.
+ * Режим включает его layout запросом `POST /admin/preview/enter`, поэтому
+ * отсюда достаточно обычной ссылки.
  */
-export async function enterPreview(course_id: number): Promise<void> {
-  await api<undefined>("/admin/preview/enter", { method: "POST", json: { course_id } });
-  window.location.href = web(`/courses/${course_id}`);
+export function preview(course_id: number | string): string {
+  return `/preview/${course_id}`;
 }

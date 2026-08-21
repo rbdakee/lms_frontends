@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, isApiError, NETWORK_ERROR, type Verify } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { dayTime, dayYear } from "@lms/ui/i18n";
 import { Footer, PublicShell } from "@/components/layout/Shell";
 import { Button, Note } from "@lms/ui";
@@ -37,7 +37,7 @@ type Result =
   | { kind: "error"; text: string };
 
 export function VerifyPanel({ preset = "" }: { preset?: string }) {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const [value, setValue] = useState(preset);
   const [result, setResult] = useState<Result | null>(null);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);

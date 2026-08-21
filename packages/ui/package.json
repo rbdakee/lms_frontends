@@ -7,6 +7,8 @@
     ".": "./components.tsx",
     "./icons": "./icons.tsx",
     "./i18n": "./i18n.ts",
+    "./lang": "./lang.tsx",
+    "./toast": "./toast.tsx",
     "./PhoneInput": "./PhoneInput.tsx",
     "./useOrigin": "./useOrigin.ts",
     "./logo.png": "./logo.png",

@@ -15,7 +15,7 @@ import {
   type Notification,
   type NotificationsPage,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { dayTime, phoneFmt } from "@lms/ui/i18n";
 import { admin } from "@/lib/urls";
 import {
@@ -54,7 +54,7 @@ import logo from "@lms/ui/logo.png";
  * (см. `.logo-text` в globals.css).
  */
 export function Logo() {
-  const { t } = useStore();
+  const { t } = useLang();
   return (
     <Link href="/" className="logo" aria-label={`${t.brandName} — на лендинг`}>
       <img src={logo.src} alt="" className="logo-emblem" width={38} height={38} />
@@ -69,7 +69,7 @@ export function Logo() {
 /* ============ Переключатель языка ============ */
 
 export function LangSwitch() {
-  const { lang, setLang } = useStore();
+  const { lang, setLang } = useLang();
   return (
     <div className="lang-switch" role="group" aria-label="Язык интерфейса">
       <button data-active={lang === "ru"} onClick={() => setLang("ru")}>
@@ -93,7 +93,7 @@ export function LangSwitch() {
  * это одно и то же действие, и вести себя оно должно одинаково.
  */
 function NotificationsBell() {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const { me } = useMe();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -288,7 +288,7 @@ function NavLinks({ items, label }: { items: NavItem[]; label: string }) {
 /* ============ Публичная шапка (лендинг, каталог, проверка) ============ */
 
 export function PublicHeader() {
-  const { t } = useStore();
+  const { t } = useLang();
   const authed = Boolean(useMe().me);
   const [menu, setMenu] = useState(false);
 
@@ -414,7 +414,7 @@ export function PublicHeader() {
 /* ============ Шапка кабинета учителя ============ */
 
 export function TeacherHeader({ title }: { title?: string }) {
-  const { t } = useStore();
+  const { t } = useLang();
 
   /** «Моё обучение» подсвечивается и внутри уроков, «Каталог» — на странице курса. */
   const links: NavItem[] = [
@@ -457,7 +457,7 @@ export function TeacherHeader({ title }: { title?: string }) {
 /* ============ Меню пользователя ============ */
 
 function UserMenu() {
-  const { t, lang, setLang } = useStore();
+  const { t, lang, setLang } = useLang();
   const { me, logout } = useMe();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -581,7 +581,7 @@ function UserMenu() {
 /* ============ Нижняя таб-панель ============ */
 
 export function TabBar() {
-  const { t } = useStore();
+  const { t } = useLang();
   const pathname = usePathname();
   const tabs = [
     { href: "/my", label: t.navHome, icon: IconHome },
@@ -656,7 +656,7 @@ export function PublicShell({
 /* ============ Подвал ============ */
 
 export function Footer() {
-  const { t } = useStore();
+  const { t } = useLang();
   /* Контакты — из настроек площадки; оба канала хранятся номерами,
      ссылку wa.me собираем сами. Пока не пришли — колонка без ссылок */
   const contacts = usePublicSettings().data?.contacts;
@@ -742,65 +742,6 @@ export function Footer() {
 }
 
 /* ============ Хедер с кнопкой «назад» (плеер, тест, задание) ============ */
-
-export function BackHeader({
-  href,
-  title,
-  subtitle,
-  right,
-}: {
-  href: string;
-  title: string;
-  subtitle?: string;
-  right?: ReactNode;
-}) {
-  return (
-    <header className="appbar">
-      <div className="page appbar-inner g10">
-        <Link href={href} className="btn btn-icon" aria-label="Назад">
-          <IconArrowLeftLocal />
-        </Link>
-        <div className="grow" style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              lineHeight: "20px",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {title}
-          </div>
-          {subtitle && <div className="caption muted-3">{subtitle}</div>}
-        </div>
-        {right}
-      </div>
-    </header>
-  );
-}
-
-function IconArrowLeftLocal() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 12H4" />
-      <path d="m10 6-6 6 6 6" />
-    </svg>
-  );
-}
-
-/* ============ Индикатор «сертификат» в шапке лендинга ============ */
 
 export function TrustRow() {
   return (

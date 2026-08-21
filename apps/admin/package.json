@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@lms/api": "*",
+    "@lms/course": "*",
     "@lms/prototype": "*",
     "@lms/ui": "*",
     "next": "15.1.11",

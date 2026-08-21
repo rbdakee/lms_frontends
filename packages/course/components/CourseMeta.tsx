@@ -13,7 +13,7 @@
 
 import { usePublicSettings, waHref } from "@lms/api";
 import { day, price as fmtPrice } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { Badge } from "@lms/ui";
 import { IconPhone, IconWhatsapp } from "@lms/ui/icons";
 
@@ -23,7 +23,7 @@ export function EnrollBadge({
 }: {
   course: { status: string; starts_at?: string | null };
 }) {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   if (course.status === "planned")
     return <Badge kind="new">{t.setPlanned(day(course.starts_at, lang))}</Badge>;
   if (course.status === "closed") return <Badge kind="locked">{t.setClosed}</Badge>;
@@ -38,7 +38,7 @@ export function Price({
   course: { price: number | null };
   size?: "sm" | "md" | "lg";
 }) {
-  const { lang } = useStore();
+  const { lang } = useLang();
   const fontSize = size === "lg" ? 24 : size === "sm" ? 14 : 17;
   return (
     <strong
@@ -64,7 +64,7 @@ export function Price({
  * не заполнен — не рисуем ничего: скелет на вторичной кнопке шумнее пользы.
  */
 export function ContactAdmin({ variant = "button" }: { variant?: "button" | "link" }) {
-  const { t } = useStore();
+  const { t } = useLang();
   const settings = usePublicSettings();
   const contacts = settings.data?.contacts;
   if (!contacts) return null;

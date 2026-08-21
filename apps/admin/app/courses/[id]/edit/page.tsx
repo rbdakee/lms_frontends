@@ -42,7 +42,8 @@ import {
   type UploadedFile,
 } from "@lms/api";
 import { day, duration, price as fmtPrice, plural } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import {
   courseLangs,
   COURSE_STATUS_LABEL,
@@ -50,6 +51,7 @@ import {
 } from "@/components/admin/courseStatus";
 import { CROPPABLE, CropImageSheet } from "@/components/admin/CropImage";
 import { fieldErrors } from "@/lib/fieldErrors";
+import { preview } from "@/lib/urls";
 import { AdminShell } from "@/components/layout/AdminShell";
 import {
   Badge,
@@ -307,7 +309,8 @@ export default function CourseEditorPage() {
 function CourseEditor() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const { toast, lang: uiLang } = useStore();
+  const { lang: uiLang } = useLang();
+  const toast = useToast();
   const dicts = useDictionaries();
 
   /* Карточка курса «/courses/{слаг}» осталась на прототипе и уводит в редактор
@@ -742,22 +745,30 @@ function CourseEditor() {
       /* Кнопки «Сохранить» в шапке нет: поля уходят на сервер сами
          (решение владельца 20.08.2026). Статус — своей кнопкой у селекта */
       actions={
-        autoText && (
-          <span
-            className={`caption nowrap${auto.kind === "failed" ? "" : " muted"}`}
-            /* Причина от сервера бывает в предложение — в шапке ей столько
-               места нет, целиком её уже сказал тост */
-            style={{
-              maxWidth: 230,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              color: auto.kind === "failed" ? "var(--warning)" : undefined,
-            }}
-            title={autoText}
-          >
-            {autoText}
-          </span>
-        )
+        <div className="row g8">
+          {autoText && (
+            <span
+              className={`caption nowrap${auto.kind === "failed" ? "" : " muted"}`}
+              /* Причина от сервера бывает в предложение — в шапке ей столько
+                 места нет, целиком её уже сказал тост */
+              style={{
+                maxWidth: 230,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                color: auto.kind === "failed" ? "var(--warning)" : undefined,
+              }}
+              title={autoText}
+            >
+              {autoText}
+            </span>
+          )}
+          {/* Правки уходят на сервер сами, поэтому предпросмотр всегда
+              показывает то, что уже сохранено */}
+          <Link href={preview(data.id)} className="btn btn-secondary btn-sm">
+            <IconEye size={16} />
+            <span className="desktop-only">Как видит учитель</span>
+          </Link>
+        </div>
       }
     >
       <div className="stack g20">
@@ -1601,7 +1612,7 @@ function ProgramTab({
   refresh: () => Promise<void>;
 }) {
   const router = useRouter();
-  const { toast } = useStore();
+  const toast = useToast();
 
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [moduleMenu, setModuleMenu] = useState<number | null>(null);

@@ -23,7 +23,7 @@ import {
   type CatalogOut,
 } from "@lms/api";
 import { dayMonth } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import {
   SubmissionStatusBadge,
   TeacherAvatar,
@@ -43,7 +43,7 @@ const RED_AFTER_DAYS = 3;
 type StatusFilter = SubmissionStatus | "all";
 
 export default function SubmissionsPage() {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
 
   const [status, setStatus] = useState<StatusFilter>("pending");
   const [courseId, setCourseId] = useState<"all" | number>("all");

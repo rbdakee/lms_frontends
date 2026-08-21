@@ -38,6 +38,7 @@ export type FileLink = S["FileLinkOut"];
 export type UploadedFile = S["UploadedFileOut"];
 
 export type Review = S["ReviewOut"];
+export type ReviewIn = S["ReviewIn"];
 export type ReviewsPage = S["ReviewsPageOut"];
 export type Lead = S["LeadOut"];
 

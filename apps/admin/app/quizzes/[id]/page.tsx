@@ -55,7 +55,7 @@ import {
   type QuizQuestionIn,
   type QuizQuestionPatch,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Badge, Breadcrumbs, Button, Empty, LinkButton, Note, Sheet } from "@lms/ui";
@@ -337,7 +337,7 @@ const digits = (v: string) => v.replace(/\D/g, "");
 
 export default function QuizEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { toast } = useStore();
+  const toast = useToast();
 
   const quiz = useLoad(() => api<AdminQuiz>(`/admin/quizzes/${id}`), [id]);
   const data = quiz.data;

@@ -22,7 +22,7 @@ import {
   type AdminCategoryIn,
 } from "@lms/api";
 import { plural } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { Button, Empty, Sheet } from "@lms/ui";
 import { IconPlus, IconTrash } from "@lms/ui/icons";
 
@@ -39,7 +39,7 @@ function CategoryRow({
   onRenamed: () => void;
   onDelete: () => void;
 }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const [title, setTitle] = useState(cat.title);
   const [busy, setBusy] = useState(false);
 
@@ -106,7 +106,7 @@ function CategoryRow({
 }
 
 export function SettingsCategories() {
-  const { toast } = useStore();
+  const toast = useToast();
   const cats = useLoad(() => api<AdminCategories>("/admin/categories"), []);
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(false);

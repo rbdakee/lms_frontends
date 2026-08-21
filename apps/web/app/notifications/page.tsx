@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, qs, useLoad, useMe, type Notification, type NotificationsPage } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { dayTime } from "@lms/ui/i18n";
 import { TeacherShell } from "@/components/layout/Shell";
 import {
@@ -28,7 +28,7 @@ import { IconBell, IconChevronRight } from "@lms/ui/icons";
 const PER_PAGE = 20;
 
 export default function NotificationsPage() {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const { me, status } = useMe();
   const router = useRouter();
   /* Догруженные страницы: «Показать ещё» не перечитывает первую */

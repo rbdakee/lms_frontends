@@ -21,7 +21,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, isApiError, useMe, type User } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { web } from "@/lib/urls";
 import { Button, Empty, Note } from "@lms/ui";
 import { IconArrowLeft, IconCheck, IconInfo, IconLock } from "@lms/ui/icons";
@@ -81,7 +81,7 @@ type CodeError =
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { toast } = useStore();
+  const toast = useToast();
   const { me, setMe } = useMe();
 
   const [step, setStep] = useState<1 | 2>(1);

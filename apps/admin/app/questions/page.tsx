@@ -10,12 +10,12 @@
  */
 
 import { api, qs, useLoad, type AdminQuestionsPage } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { QuestionsQueue } from "@/components/admin/QuestionsQueue";
 
 export default function AdminQuestionsPage() {
-  const { t } = useStore();
+  const { t } = useLang();
   /* Счётчик «без ответа» не зависит от фильтров списка — отдельный запрос,
      сам список для него не нужен */
   const open = useLoad(

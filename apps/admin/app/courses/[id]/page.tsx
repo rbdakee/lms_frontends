@@ -22,8 +22,10 @@ import {
 } from "@lms/prototype/data";
 import { api, qs, useLoad, type AdminQuestionsPage } from "@lms/api";
 import { day, plural, price as fmtPrice } from "@lms/ui/i18n";
-import { useModeration, useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useModeration } from "@lms/prototype";
 import { COURSE_STATUS_LABEL } from "@/components/admin/courseStatus";
+import { preview } from "@/lib/urls";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { CourseParticipants } from "@/components/admin/CourseParticipants";
 import { QuestionsQueue } from "@/components/admin/QuestionsQueue";
@@ -41,7 +43,7 @@ type Tab = "overview" | "participants" | "reviews" | "questions";
 export default function CoursePage() {
   const { id } = useParams<{ id: string }>();
   const params = useSearchParams();
-  const { lang } = useStore();
+  const { lang } = useLang();
   const { isHidden } = useModeration();
   const course = getCourse(id);
 
@@ -98,7 +100,9 @@ export default function CoursePage() {
       actions={
         <div className="row g8">
           <StatusBadge status={COURSE_STATUS_LABEL[course.status]} />
-          <Link href={`/courses/${course.id}`} className="btn btn-ghost btn-sm">
+          {/* Предпросмотр — маршрут админки: экраны курса общие с кабинетом
+              учителя, но доступ и видимость подменяются на время режима */}
+          <Link href={preview(course.id)} className="btn btn-ghost btn-sm">
             <IconEye size={16} />
             <span className="desktop-only">Как видит учитель</span>
           </Link>
@@ -139,7 +143,7 @@ function Overview({
   course: NonNullable<ReturnType<typeof getCourse>>;
   summary: ReturnType<typeof courseReviewSummary>;
 }) {
-  const { lang } = useStore();
+  const { lang } = useLang();
   const stats = adminCourses.find((c) => c.id === course.id);
   const donePct = stats && stats.enrolled ? Math.round((stats.finished / stats.enrolled) * 100) : 0;
   const other = groupVersions(course).find((c) => c.id !== course.id);
@@ -345,7 +349,7 @@ function Reviews({ items }: { items: typeof adminReviews }) {
 /* ============ Вопросы по курсу ============ */
 
 function Questions({ courseId, onAnswered }: { courseId?: number; onAnswered: () => void }) {
-  const { t } = useStore();
+  const { t } = useLang();
   return (
     <div className="stack g14" style={{ maxWidth: 860 }}>
       <QuestionsQueue courseId={courseId} onAnswered={onAnswered} />

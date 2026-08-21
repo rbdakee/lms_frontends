@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   IconAlert,
+  IconArrowLeft,
   IconCheck,
   IconCheckCircle,
   IconClose,
@@ -56,6 +57,52 @@ export function Button({
       {children}
       {iconRight}
     </button>
+  );
+}
+
+/* ============ Шапка с кнопкой «Назад» ============ */
+
+/**
+ * Шапка экрана «внутри чего-то»: урока, теста, задания, сертификата.
+ * Вместо навигации — возврат туда, откуда пришли, поэтому адрес возврата
+ * всегда задаётся снаружи: у кабинета учителя и у предпросмотра в админке
+ * он разный.
+ */
+export function BackHeader({
+  href,
+  title,
+  subtitle,
+  right,
+}: {
+  href: string;
+  title: string;
+  subtitle?: string;
+  right?: ReactNode;
+}) {
+  return (
+    <header className="appbar">
+      <div className="page appbar-inner g10">
+        <Link href={href} className="btn btn-icon" aria-label="Назад">
+          <IconArrowLeft />
+        </Link>
+        <div className="grow" style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              lineHeight: "20px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {title}
+          </div>
+          {subtitle && <div className="caption muted-3">{subtitle}</div>}
+        </div>
+        {right}
+      </div>
+    </header>
   );
 }
 

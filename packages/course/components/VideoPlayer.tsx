@@ -15,7 +15,7 @@
 
 import { useState } from "react";
 import { api, useLoad, type Playback } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { Button } from "@lms/ui";
 import { IconAlert, IconExternal, IconRefresh } from "@lms/ui/icons";
 
@@ -59,7 +59,7 @@ function PlayerNotice({
 }
 
 export function VideoPlayer({ lessonId, title }: { lessonId: number; title: string }) {
-  const { t } = useStore();
+  const { t } = useLang();
   const playback = useLoad(
     () => api<Playback>(`/lessons/${lessonId}/playback`),
     [lessonId],

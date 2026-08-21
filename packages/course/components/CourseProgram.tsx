@@ -18,7 +18,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Completion, Condition, ProgramItem, ProgramStatusItem } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
+import { useRoutes, type CourseRoutes } from "../host";
 import { Accordion, Badge, Button, LinkButton, Skeleton } from "@lms/ui";
 import {
   IconCheck,
@@ -40,12 +42,13 @@ type AnyModule = { id: number; title: string; items: AnyItem[] };
  * поэтому совпадение чисел у урока и теста ничего не значит.
  */
 export function itemHref(
+  routes: CourseRoutes,
   courseId: number | string,
   item: { kind: ProgramItem["kind"]; id: number },
 ): string {
-  if (item.kind === "quiz") return `/learn/${courseId}/quiz/${item.id}`;
-  if (item.kind === "task") return `/learn/${courseId}/task/${item.id}`;
-  return `/learn/${courseId}/${item.id}`;
+  if (item.kind === "quiz") return routes.quiz(courseId, item.id);
+  if (item.kind === "task") return routes.task(courseId, item.id);
+  return routes.lesson(courseId, item.id);
 }
 
 /**
@@ -53,11 +56,12 @@ export function itemHref(
  * урок, тест или задание. Продолжать нечего (курс пройден) — к программе.
  */
 export function continueHref(
+  routes: CourseRoutes,
   courseId: number | string,
   next: { kind: ProgramItem["kind"]; id: number } | null | undefined,
 ): string {
-  if (!next) return `/courses/${courseId}`;
-  return itemHref(courseId, next);
+  if (!next) return routes.course(courseId);
+  return itemHref(routes, courseId, next);
 }
 
 function ItemIcon({ kind }: { kind: ProgramItem["kind"] }) {
@@ -97,8 +101,10 @@ export function CourseProgram({
   /** Закрыть шторку программы на мобильном перед переходом. */
   onNavigate?: () => void;
 }) {
-  const { t, toast } = useStore();
+  const { t } = useLang();
+  const toast = useToast();
   const router = useRouter();
+  const routes = useRoutes();
   /* Переходы возможны только там, где есть куда идти и доступ уже выдан */
   const live = courseId !== undefined && !locked;
 
@@ -158,7 +164,7 @@ export function CourseProgram({
       return;
     }
     onNavigate?.();
-    router.push(itemHref(courseId!, item));
+    router.push(itemHref(routes, courseId!, item));
   };
 
   return (
@@ -285,7 +291,7 @@ export function CourseProgram({
  * курса показывает его теми же строками, что и страница курса.
  */
 export function ConditionRow({ condition }: { condition: Condition }) {
-  const { t } = useStore();
+  const { t } = useLang();
   const done = condition.status === "done";
   const started = condition.status === "in_progress";
   /* Проходной балл есть только у итогового теста: у тестов модулей он свой */
@@ -350,7 +356,8 @@ export function CourseCertChecklist({
   loading?: boolean;
   onRetry?: () => void;
 }) {
-  const { t } = useStore();
+  const { t } = useLang();
+  const routes = useRoutes();
 
   if (loading) {
     return (
@@ -390,12 +397,15 @@ export function CourseCertChecklist({
       )}
 
       {certificate ? (
-        <LinkButton href={`/certificates/${certificate.id}`} variant="secondary" block>
-          {t.certOpen}
-        </LinkButton>
+        /* Экрана сертификата может не быть — тогда показывать нечего */
+        routes.certificate && (
+          <LinkButton href={routes.certificate(certificate.id)} variant="secondary" block>
+            {t.certOpen}
+          </LinkButton>
+        )
       ) : can_issue ? (
         <div className="stack g6">
-          <LinkButton href={`/courses/${course.id}/complete`} block>
+          <LinkButton href={routes.complete(course.id)} block>
             {t.certGet}
           </LinkButton>
           <span className="caption muted" style={{ textAlign: "center" }}>

@@ -13,13 +13,14 @@
 import type { MyCertificate } from "@lms/api";
 import { dayYear, dict } from "@lms/ui/i18n";
 import { useOrigin } from "@lms/ui/useOrigin";
+import { useRoutes } from "../host";
 import logo from "@lms/ui/logo.png";
-import { QrCode } from "@/components/course/QrCode";
+import { QrCode } from "./QrCode";
 
 export function CertificateSheet({ cert }: { cert: MyCertificate }) {
   const kz = cert.lang === "kz";
   const brand = dict[kz ? "kz" : "ru"];
-  const { verifyHost, verifyUrl } = useOrigin();
+  const { verifyHost, verifyUrl } = useOrigin(useRoutes().verifyOrigin);
   const issued = dayYear(cert.issued_at, kz ? "kz" : "ru");
 
   return (

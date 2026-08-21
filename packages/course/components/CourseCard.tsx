@@ -15,11 +15,12 @@ import {
   type Review,
   type ReviewsPage,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useRoutes } from "../host";
 import { dayYear, rating as fmtRating, type UiLang } from "@lms/ui/i18n";
 import { Badge, Button, Cover, LangBadge, Progress, Stars } from "@lms/ui";
-import { ContactAdmin, EnrollBadge, Price } from "@/components/course/CourseMeta";
-import { continueHref } from "@/components/course/CourseProgram";
+import { ContactAdmin, EnrollBadge, Price } from "./CourseMeta";
+import { continueHref } from "./CourseProgram";
 import { IconCheck, IconClock, IconLock, IconPlay, IconStar } from "@lms/ui/icons";
 
 /** Версия языковой группы под язык интерфейса; своей нет — первая (ru первой). */
@@ -55,7 +56,8 @@ export function CourseCard({
   group: CatalogGroup;
   access?: AccessState;
 }) {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
+  const routes = useRoutes();
   const dictionaries = useDictionaries();
   const course = pickVersion(group, lang);
   const langs = group.langs as UiLang[];
@@ -63,7 +65,7 @@ export function CourseCard({
   const otherLangOnly = !langs.includes(lang);
 
   return (
-    <Link href={`/courses/${course.id}`} className="card card-link" style={{ overflow: "hidden" }}>
+    <Link href={routes.course(course.id)} className="card card-link" style={{ overflow: "hidden" }}>
       <Cover tone="cover-c1" src={course.cover}>
         <div className="cover-badges">
           <LangBadge langs={langs} />
@@ -123,7 +125,8 @@ export function CourseCard({
  * тест и задание — через страницу курса (их экраны с сессии 5).
  */
 export function MyCourseCard({ course }: { course: MyCourse }) {
-  const { t } = useStore();
+  const { t } = useLang();
+  const routes = useRoutes();
   const dictionaries = useDictionaries();
   const finished =
     course.completed_at !== null ||
@@ -162,13 +165,13 @@ export function MyCourseCard({ course }: { course: MyCourse }) {
 
   return (
     <div className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      {unavailable ? cover : <Link href={`/courses/${course.id}`}>{cover}</Link>}
+      {unavailable ? cover : <Link href={routes.course(course.id)}>{cover}</Link>}
 
       <div className="stack g10 card-pad grow">
         {unavailable ? (
           <div className="stack g6">{heading}</div>
         ) : (
-          <Link href={`/courses/${course.id}`} className="stack g6">
+          <Link href={routes.course(course.id)} className="stack g6">
             {heading}
           </Link>
         )}
@@ -187,7 +190,7 @@ export function MyCourseCard({ course }: { course: MyCourse }) {
           <span className="caption muted pretty">{t.unavailableHint}</span>
         ) : (
           <Link
-            href={continueHref(course.id, course.next_lesson)}
+            href={continueHref(routes, course.id, course.next_lesson)}
             className="btn btn-primary btn-block"
           >
             <IconPlay size={16} />
@@ -207,11 +210,12 @@ export function MyCourseCard({ course }: { course: MyCourse }) {
  * `waiting_days` считает сервер, цена — снимок на момент заявки.
  */
 export function PendingCourseCard({ lead }: { lead: MyLead }) {
-  const { t } = useStore();
+  const { t } = useLang();
+  const routes = useRoutes();
   return (
     <div className="card card-pad stack g12">
       <div className="row g12" style={{ alignItems: "flex-start" }}>
-        <Link href={`/courses/${lead.course.id}`} style={{ flexShrink: 0 }}>
+        <Link href={routes.course(lead.course.id)} style={{ flexShrink: 0 }}>
           <Cover
             tone="cover-c1"
             src={lead.course.cover}
@@ -220,7 +224,7 @@ export function PendingCourseCard({ lead }: { lead: MyLead }) {
           />
         </Link>
         <div className="grow stack g6" style={{ minWidth: 0 }}>
-          <Link href={`/courses/${lead.course.id}`}>
+          <Link href={routes.course(lead.course.id)}>
             <strong className="small pretty">{lead.course.title}</strong>
           </Link>
           <div className="row wrap g8">
@@ -241,9 +245,10 @@ export function PendingCourseCard({ lead }: { lead: MyLead }) {
 /* ============ Компактная строка курса («Новые курсы») ============ */
 
 export function CourseRow({ course }: { course: CatalogCourse }) {
-  const { t } = useStore();
+  const { t } = useLang();
+  const routes = useRoutes();
   return (
-    <Link href={`/courses/${course.id}`} className="card card-link card-pad row g12">
+    <Link href={routes.course(course.id)} className="card card-link card-pad row g12">
       <Cover
         tone="cover-c1"
         src={course.cover}
@@ -278,7 +283,7 @@ const REVIEWS_PER_PAGE = 10;
  * `reply` — ответ админа объектом, если он отвечал; блок рисуется при непустом.
  */
 export function ReviewsBlock({ course_id }: { course_id: number }) {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const [more, setMore] = useState<Review[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const first = useLoad(

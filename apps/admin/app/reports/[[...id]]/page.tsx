@@ -24,7 +24,7 @@ import {
   type ReportParticipant,
 } from "@lms/api";
 import { dayTime } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Badge, Button, Empty, Note, Progress, type BadgeKind } from "@lms/ui";
 import { IconChart, IconSearch } from "@lms/ui/icons";
@@ -39,7 +39,7 @@ const PER_PAGE = 20;
 const DROP_SHARE = 0.2;
 
 export default function ReportPage() {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const router = useRouter();
   /* Сегмент необязательный: «/reports» — это выбор курса, «/reports/2» — отчёт */
   const params = useParams<{ id?: string[] }>();
@@ -177,7 +177,7 @@ export default function ReportPage() {
 const dash = (v: number | null, suffix = "") => (v === null ? "—" : `${v}${suffix}`);
 
 function Summary({ data }: { data: AdminReport }) {
-  const { t } = useStore();
+  const { t } = useLang();
   const s = data.summary;
   const kpis: [string, string][] = [
     [String(s.granted), t.repGranted],
@@ -211,7 +211,7 @@ function Summary({ data }: { data: AdminReport }) {
  * считается здесь и называет только самый заметный отвал.
  */
 function Funnel({ data }: { data: AdminReport }) {
-  const { t } = useStore();
+  const { t } = useLang();
   const items = data.funnel;
 
   if (items.length === 0) {
@@ -306,7 +306,7 @@ function Participants({
   page: number;
   onPage: (p: number) => void;
 }) {
-  const { t } = useStore();
+  const { t } = useLang();
   const { items, total } = data.participants;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
 

@@ -16,7 +16,7 @@
 import Link from "next/link";
 import { api, useLoad, type AdminOverview } from "@lms/api";
 import { dayTime, fmt, price as fmtPrice } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { Waiting } from "@/components/admin/Waiting";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Avatar, Button, Empty } from "@lms/ui";
@@ -43,7 +43,7 @@ const teacherInitials = (t: Teacher) =>
   ((t.first_name[0] ?? "") + (t.last_name[0] ?? "")).toUpperCase() || "??";
 
 export default function AdminDashboard() {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const overview = useLoad(() => api<AdminOverview>("/admin/overview"), []);
 
   if (overview.loading) {
@@ -217,7 +217,7 @@ function Panel({
   total: number;
   children: ReactNode;
 }) {
-  const { t } = useStore();
+  const { t } = useLang();
   return (
     <section className="card card-pad stack g12">
       <div className="row between g8">

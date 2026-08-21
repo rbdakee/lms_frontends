@@ -27,7 +27,7 @@ import {
   type SettingsImageIn,
   type UploadedFile,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { Button } from "@lms/ui";
 import { IconClose, IconImage, IconUpload } from "@lms/ui/icons";
@@ -88,7 +88,7 @@ export function SettingsImageSlot({
   image: SettingsImage | null;
   onSaved: (settings: AdminSettings) => void;
 }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pickRef = useRef<HTMLInputElement>(null);

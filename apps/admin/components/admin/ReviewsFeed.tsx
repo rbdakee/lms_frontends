@@ -26,7 +26,8 @@ import {
   type ReviewReplyIn,
 } from "@lms/api";
 import { dayTime, dayYear } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { Avatar, Button, Empty, Sheet, Stars } from "@lms/ui";
 import { IconFilter, IconMessage, IconStar, IconTrash } from "@lms/ui/icons";
 
@@ -41,7 +42,7 @@ export function ReviewsFeed({
       отфильтрованное число за «сколько отзывов на платформе» */
   onTotal: (total: number, filtered: boolean) => void;
 }) {
-  const { toast } = useStore();
+  const toast = useToast();
 
   const [courseId, setCourseId] = useState<"all" | number>("all");
   const [rating, setRating] = useState<"all" | number>("all");
@@ -333,7 +334,8 @@ function ReviewItem({
   onGone: (id: number) => void;
   onError: (e: unknown) => void;
 }) {
-  const { lang, toast } = useStore();
+  const { lang } = useLang();
+  const toast = useToast();
   const [draft, setDraft] = useState("");
   const [answering, setAnswering] = useState(false);
   const [confirm, setConfirm] = useState(false);

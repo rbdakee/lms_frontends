@@ -23,7 +23,8 @@ import {
   type SessionList,
   type User,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { dayTime, phoneFmt } from "@lms/ui/i18n";
 import { buildPatch, formFromUser } from "@/lib/userForm";
 import { admin } from "@/lib/urls";
@@ -93,7 +94,8 @@ export default function ProfilePage() {
 function ProfileScreen({ user }: { user: User }) {
   const router = useRouter();
   const { setMe, logout: apiLogout } = useMe();
-  const { t, setLang, lang, toast } = useStore();
+  const { t, setLang, lang } = useLang();
+  const toast = useToast();
   const dictionaries = useDictionaries();
 
   const [form, setForm] = useState(() => formFromUser(user));

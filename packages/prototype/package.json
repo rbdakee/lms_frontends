@@ -2,11 +2,10 @@
   "name": "@lms/prototype",
   "version": "0.1.0",
   "private": true,
-  "description": "ВРЕМЕННЫЙ пакет: моки и состояние прототипа в localStorage. Уезжает в API по мере сессий бэкенда, см. BACKEND_PLAN.md.",
+  "description": "ВРЕМЕННЫЙ пакет: моки и состояние прототипа в localStorage. Остался только у админки — админские редакторы и модерация отзывов, см. BACKEND_PLAN.md.",
   "exports": {
     ".": "./store.tsx",
-    "./data": "./data.ts",
-    "./ToastHost": "./ToastHost.tsx"
+    "./data": "./data.ts"
   },
   "dependencies": {
     "@lms/ui": "*"

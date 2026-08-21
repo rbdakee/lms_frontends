@@ -7,14 +7,14 @@
  */
 
 import { useMe } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { Empty } from "@lms/ui";
 import { IconLock } from "@lms/ui/icons";
-import { ContactAdmin } from "@/components/course/CourseMeta";
+import { ContactAdmin } from "@lms/course";
 
 export function BlockedGate({ children }: { children: React.ReactNode }) {
   const { status, blocked_message } = useMe();
-  const { t } = useStore();
+  const { t } = useLang();
 
   if (status !== "blocked") return <>{children}</>;
 

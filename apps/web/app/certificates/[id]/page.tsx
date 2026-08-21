@@ -13,18 +13,19 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { api, useLoad, useMe, type MyCertificates } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { dayYear } from "@lms/ui/i18n";
 import { useOrigin } from "@lms/ui/useOrigin";
-import { BackHeader, TabBar } from "@/components/layout/Shell";
-import { CertificateSheet } from "@/components/course/CertificateSheet";
-import { useCertificatePdf } from "@/lib/certificatePdf";
-import { Button, Empty, LinkButton, Skeleton } from "@lms/ui";
+import { TabBar } from "@/components/layout/Shell";
+import { CertificateSheet, useCertificatePdf } from "@lms/course";
+import { BackHeader, Button, Empty, LinkButton, Skeleton } from "@lms/ui";
 import { IconBook, IconDownload, IconLink } from "@lms/ui/icons";
 
 export default function CertificateViewPage() {
   const { id } = useParams<{ id: string }>();
-  const { t, lang, toast } = useStore();
+  const { t, lang } = useLang();
+  const toast = useToast();
   const { me, status } = useMe();
   const router = useRouter();
   const { verifyUrl } = useOrigin();

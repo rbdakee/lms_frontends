@@ -21,7 +21,7 @@
 import { useState } from "react";
 import { api, isApiError, type AdminLead, type LeadStatus } from "@lms/api";
 import { phoneFmt } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "./leadsApi";
 import { Button, Sheet } from "@lms/ui";
 import { IconChevronDown, IconPhone, IconWhatsapp } from "@lms/ui/icons";
@@ -57,7 +57,7 @@ export function LeadStatusPicker({
   /** PATCH вернул обновлённую заявку — экран подставляет её на место старой */
   onChanged: (updated: AdminLead) => void;
 }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const [declining, setDeclining] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -174,7 +174,7 @@ export function DeclineLeadSheet({
   onClose: () => void;
   onDone: (updated: AdminLead) => void;
 }) {
-  const { toast } = useStore();
+  const toast = useToast();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 

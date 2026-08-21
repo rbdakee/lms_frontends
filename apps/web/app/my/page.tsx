@@ -24,16 +24,17 @@ import {
   type MyCourse,
   type MyCourses,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useRoutes } from "@lms/course/host";
 import { TeacherShell } from "@/components/layout/Shell";
 import {
   CourseRow,
   MyCourseCard,
   PendingCourseCard,
+  continueHref,
   isUnavailable,
   pickVersion,
-} from "@/components/course/CourseCard";
-import { continueHref } from "@/components/course/CourseProgram";
+} from "@lms/course";
 import {
   Cover,
   CourseCardSkeleton,
@@ -53,7 +54,7 @@ function isFinished(c: MyCourse): boolean {
 
 export default function MyPage() {
   const router = useRouter();
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const { me, status } = useMe();
   const [tab, setTab] = useState<"progress" | "done">("progress");
 
@@ -245,7 +246,8 @@ export default function MyPage() {
  * до сессии 5, туда ведём через страницу курса.
  */
 function ContinueBlock({ course }: { course: MyCourse }) {
-  const { t } = useStore();
+  const { t } = useLang();
+  const routes = useRoutes();
   const dictionaries = useDictionaries();
 
   return (
@@ -278,7 +280,7 @@ function ContinueBlock({ course }: { course: MyCourse }) {
             <Progress value={course.progress_percent} thick />
           </div>
 
-          <LinkButton href={continueHref(course.id, course.next_lesson)} size="lg" block>
+          <LinkButton href={continueHref(routes, course.id, course.next_lesson)} size="lg" block>
             {t.continueShort}
           </LinkButton>
         </div>

@@ -12,15 +12,15 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api, useLoad, useMe, type MyCertificates } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { dayYear } from "@lms/ui/i18n";
 import { TeacherShell } from "@/components/layout/Shell";
-import { CertificateThumb } from "@/components/course/CertificateSheet";
+import { CertificateThumb } from "@lms/course";
 import { Button, Empty, LinkButton, Skeleton } from "@lms/ui";
 import { IconCertificate, IconChevronRight } from "@lms/ui/icons";
 
 export default function CertificatesPage() {
-  const { t, lang } = useStore();
+  const { t, lang } = useLang();
   const { me, status } = useMe();
   const router = useRouter();
 

@@ -37,7 +37,7 @@ import {
   type UploadedFile,
 } from "@lms/api";
 import { fileSize } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { htmlOf, isEmptyHtml, RichEditor } from "@/components/admin/RichEditor";
@@ -234,7 +234,7 @@ const digits = (v: string) => v.replace(/\D/g, "");
 
 export default function TaskEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { toast } = useStore();
+  const toast = useToast();
 
   const task = useLoad(() => api<AdminTask>(`/admin/tasks/${id}`), [id]);
   const data = task.data;

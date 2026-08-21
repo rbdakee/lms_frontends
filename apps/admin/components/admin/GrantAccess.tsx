@@ -24,7 +24,8 @@ import {
   type EnrollmentIn,
 } from "@lms/api";
 import { price as fmtPrice } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { Button, Note, Sheet } from "@lms/ui";
 import { IconCheck } from "@lms/ui/icons";
 
@@ -45,7 +46,8 @@ export function GrantAccessSheet({
   /** Доступ выдан (или уже был выдан) — карточка учителя перечитывается */
   onGranted: () => void;
 }) {
-  const { lang, toast } = useStore();
+  const { lang } = useLang();
+  const toast = useToast();
   const [courseId, setCourseId] = useState<number | null>(null);
   const [paid, setPaid] = useState(false);
   const [note, setNote] = useState("");

@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   /* Пакеты монорепо лежат исходниками, без сборки — Next компилирует их сам */
-  transpilePackages: ["@lms/ui", "@lms/prototype"],
+  transpilePackages: ["@lms/ui", "@lms/course"],
 };
 
 export default nextConfig;

@@ -34,7 +34,7 @@ import {
   type AdminSettingsPatch,
   type SettingsContacts,
 } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { SettingsCategories } from "@/components/admin/SettingsCategories";
@@ -114,7 +114,7 @@ function brandPatch(f: BrandForm): AdminSettingsPatch {
 }
 
 export default function AdminSettingsPage() {
-  const { toast } = useStore();
+  const toast = useToast();
   const [tab, setTab] = useState<Tab>("brand");
 
   const settings = useLoad(() => api<AdminSettings>("/admin/settings"), []);

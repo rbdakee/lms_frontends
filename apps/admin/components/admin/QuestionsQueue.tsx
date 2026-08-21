@@ -29,7 +29,8 @@ import {
   type ThreadQuestion,
 } from "@lms/api";
 import { dayTime } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { Avatar, Badge, Button, Empty, Sheet } from "@lms/ui";
 import { IconCheckCircle, IconFilter, IconSearch, IconTrash } from "@lms/ui/icons";
 
@@ -47,7 +48,8 @@ export function QuestionsQueue({
       перечитать счётчик «без ответа» */
   onAnswered?: () => void;
 }) {
-  const { t, toast } = useStore();
+  const { t } = useLang();
+  const toast = useToast();
 
   const [onlyOpen, setOnlyOpen] = useState(true);
   const [query, setQuery] = useState("");
@@ -399,7 +401,8 @@ function QuestionCard({
   onReplyDeleted: (questionId: number, replyId: number) => void;
   onError: (e: unknown) => void;
 }) {
-  const { t, lang, toast } = useStore();
+  const { t, lang } = useLang();
+  const toast = useToast();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   /* Что подтверждаем: корневой вопрос или конкретный ответ */

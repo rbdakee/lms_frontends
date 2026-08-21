@@ -14,7 +14,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, isApiError, useDictionaries, useMe, type User } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useToast } from "@lms/ui/toast";
 import { buildPatch, formFromUser, type UserForm } from "@/lib/userForm";
 import { Logo } from "@/components/layout/Shell";
 import { Button, Note, Progress } from "@lms/ui";
@@ -36,7 +36,7 @@ export default function OnboardingPage() {
 function OnboardingForm({ user }: { user: User }) {
   const router = useRouter();
   const { setMe } = useMe();
-  const { set, toast } = useStore();
+  const toast = useToast();
   const dictionaries = useDictionaries();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -133,7 +133,6 @@ function OnboardingForm({ user }: { user: User }) {
                         icon={<IconUpload size={16} />}
                         onClick={() => {
                           setPhoto(true);
-                          set({ hasPhoto: true });
                           toast("Фото загружено", "success");
                         }}
                       >
@@ -145,7 +144,6 @@ function OnboardingForm({ user }: { user: User }) {
                         icon={<IconCamera size={16} />}
                         onClick={() => {
                           setPhoto(true);
-                          set({ hasPhoto: true });
                           toast("Снимок сделан", "success");
                         }}
                       >

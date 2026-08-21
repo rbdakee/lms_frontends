@@ -29,7 +29,8 @@ import {
   type CourseStatus,
 } from "@lms/api";
 import { day, plural, price as fmtPrice } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import {
   changedAgo,
   courseLangs,
@@ -58,7 +59,8 @@ const PER_PAGE = 20;
 const courseWord = (n: number) => plural(n, "курс", "курса", "курсов");
 
 export default function AdminCoursesPage() {
-  const { lang, toast } = useStore();
+  const { lang } = useLang();
+  const toast = useToast();
   const router = useRouter();
 
   const [query, setQuery] = useState("");

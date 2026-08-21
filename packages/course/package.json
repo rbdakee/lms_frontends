@@ -1,0 +1,20 @@
+{
+  "name": "@lms/course",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Экраны курса глазами учителя: страница курса, урок, тест, задание, завершение. Общие у кабинета учителя и предпросмотра в админке — копий быть не должно.",
+  "exports": {
+    ".": "./index.ts",
+    "./screens": "./screens/index.ts",
+    "./host": "./host.tsx"
+  },
+  "dependencies": {
+    "@lms/api": "*",
+    "@lms/ui": "*"
+  },
+  "peerDependencies": {
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}

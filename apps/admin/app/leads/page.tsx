@@ -35,7 +35,8 @@ import {
   type LeadStatus,
 } from "@lms/api";
 import { dayMonth, price as fmtPrice } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { isOpenLead, LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "@/components/admin/leadsApi";
 import { DeclineLeadSheet, LeadStatusPicker, PhoneActions } from "@/components/admin/LeadStatus";
 import { MultiOptions, MultiSelect } from "@/components/admin/MultiSelect";
@@ -58,7 +59,8 @@ const STATUS_OPTIONS = LEAD_STATUS_ORDER.map((s) => ({
 }));
 
 export default function LeadsPage() {
-  const { lang, toast } = useStore();
+  const { lang } = useLang();
+  const toast = useToast();
 
   const [query, setQuery] = useState("");
   /* Поиск уходит на сервер — печать не должна слать запрос на каждую букву */

@@ -6,9 +6,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { api, useLoad, useMe, type CatalogOut } from "@lms/api";
 import { fmt, rating as fmtRating } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
 import { Footer, PublicShell } from "@/components/layout/Shell";
-import { CourseCard } from "@/components/course/CourseCard";
+import { CourseCard } from "@lms/course";
 import { Badge, CourseCardSkeleton, Cover, Stars } from "@lms/ui";
 import {
   IconArrowRight,
@@ -90,7 +90,7 @@ const faq = [
 ];
 
 export default function LandingPage() {
-  const { t } = useStore();
+  const { t } = useLang();
   const authed = Boolean(useMe().me);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   /* Витрина каталога — те же живые данные, что и на «/courses» */

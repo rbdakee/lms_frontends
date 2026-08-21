@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import "@lms/ui/globals.css";
 import { MeProvider } from "@lms/api";
-import { StoreProvider } from "@lms/prototype";
-import { ToastHost } from "@lms/prototype/ToastHost";
+import { LangProvider } from "@lms/ui/lang";
+import { ToastProvider } from "@lms/ui/toast";
 import { BlockedGate } from "@/components/layout/BlockedGate";
-import { PreviewBar } from "@/components/layout/PreviewBar";
+import { CourseHost } from "@/components/layout/CourseHost";
 
 /**
  * Manrope поддерживает кириллицу и казахские глифы (ә ғ қ ң ө ұ ү һ і) —
@@ -36,11 +36,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ru" className={manrope.variable}>
       <body>
         <MeProvider>
-          <StoreProvider>
-            <PreviewBar />
-            <BlockedGate>{children}</BlockedGate>
-            <ToastHost />
-          </StoreProvider>
+          <LangProvider>
+            <ToastProvider>
+              <CourseHost>
+                <BlockedGate>{children}</BlockedGate>
+              </CourseHost>
+            </ToastProvider>
+          </LangProvider>
         </MeProvider>
       </body>
     </html>

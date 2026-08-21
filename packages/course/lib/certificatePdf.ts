@@ -21,15 +21,19 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { API_URL } from "@lms/api";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
+import { useRoutes } from "../host";
 
 /** Экрану хватает номера и id — форма сертификата у них разная. */
 type Downloadable = { id: number; number: string };
 
 export function useCertificatePdf() {
-  const { t, toast } = useStore();
+  const { t } = useLang();
+  const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
+  const routes = useRoutes();
   const [downloading, setDownloading] = useState(false);
 
   const download = async (cert: Downloadable) => {
@@ -53,7 +57,7 @@ export function useCertificatePdf() {
         /* Протухшая сессия чинится входом, а не повтором: ведём на вход,
            как это делают остальные экраны кабинета */
         if (code === "unauthorized") {
-          router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+          router.replace(routes.login(pathname));
           return;
         }
         /* Отозванный сертификат — не сбой, а решение админа: говорим об этом

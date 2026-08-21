@@ -27,11 +27,10 @@
  * всё разом и повторяют после отказа, а рядом с ней строка состояния —
  * тост на каждое поле означал бы столько же тостов, сколько полей.
  *
- * «Предпросмотр как учитель» включает режим на сервере (`POST /admin/preview/enter`)
- * и уводит в кабинет учителя: записи по курсу становятся no-op, доступ
- * считается открытым, строгий порядок уроков не запирает программу. Флаг живёт
- * в сессии, а не в адресе, поэтому режим работает и для черновика. Полоса
- * «Предпросмотр — данные не сохраняются» рисуется клиентским приложением.
+ * «Предпросмотр как учитель» — маршрут самой админки, `/preview/:courseId`:
+ * записи по курсу становятся no-op, доступ считается открытым, строгий порядок
+ * уроков не запирает программу. Режим живёт в серверной сессии, а не в адресе,
+ * поэтому работает и для черновика, — включает его layout предпросмотра.
  */
 
 import Link from "next/link";
@@ -48,8 +47,9 @@ import {
   type UploadedFile,
 } from "@lms/api";
 import { fileSize } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
-import { enterPreview } from "@/lib/urls";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
+import { preview } from "@/lib/urls";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { htmlOf, isEmptyHtml, RichEditor } from "@/components/admin/RichEditor";
@@ -188,7 +188,8 @@ type Auto = { kind: "idle" | "saving" | "saved" } | { kind: "failed"; why: strin
 
 export default function LessonEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { t, toast } = useStore();
+  const { t } = useLang();
+  const toast = useToast();
 
   const lesson = useLoad(() => api<AdminLesson>(`/admin/lessons/${id}`), [id]);
   const data = lesson.data;
@@ -197,7 +198,6 @@ export default function LessonEditorPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [auto, setAuto] = useState<Auto>({ kind: "idle" });
   const [uploading, setUploading] = useState(false);
-  const [entering, setEntering] = useState(false);
   const [removing, setRemoving] = useState<LessonFile | null>(null);
   const [removingBusy, setRemovingBusy] = useState(false);
   const pickRef = useRef<HTMLInputElement>(null);
@@ -351,17 +351,6 @@ export default function LessonEditorPage() {
     }
   };
 
-  const startPreview = async () => {
-    if (!data || entering) return;
-    setEntering(true);
-    try {
-      await enterPreview(data.course.id);
-    } catch {
-      setEntering(false);
-      toast(t.pvError, "error");
-    }
-  };
-
   if (lesson.loading && !data) {
     return (
       <AdminShell title="Редактор урока">
@@ -479,15 +468,14 @@ export default function LessonEditorPage() {
               {autoText}
             </span>
           )}
-          <Button
+          <LinkButton
             variant="secondary"
             size="sm"
             icon={<IconEye size={16} />}
-            loading={entering}
-            onClick={startPreview}
+            href={preview(data.course.id)}
           >
             <span className="hide-sm">{t.pvTitle}</span>
-          </Button>
+          </LinkButton>
           <Button size="sm" loading={auto.kind === "saving"} onClick={() => flush(true)}>
             Сохранить
           </Button>

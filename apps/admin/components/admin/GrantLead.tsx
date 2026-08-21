@@ -17,7 +17,8 @@
 import { useState } from "react";
 import { api, isApiError, type AdminLead, type Enrollment } from "@lms/api";
 import { price as fmtPrice } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { Button, Note, Sheet } from "@lms/ui";
 import { IconCheck } from "@lms/ui/icons";
 
@@ -33,7 +34,8 @@ export function GrantLeadSheet({
   /** Доступ выдан (или уже был выдан) — экран перечитывает заявки */
   onGranted: () => void;
 }) {
-  const { lang, toast } = useStore();
+  const { lang } = useLang();
+  const toast = useToast();
   const [paid, setPaid] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);

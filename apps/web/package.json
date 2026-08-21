@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@lms/api": "*",
-    "@lms/prototype": "*",
+    "@lms/course": "*",
     "@lms/ui": "*",
     "next": "15.1.11",
     "react": "19.0.0",

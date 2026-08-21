@@ -18,7 +18,8 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { api, isApiError, useLoad, type AdminLead, type LeadStatus } from "@lms/api";
 import { dayTime, phoneFmt, price as fmtPrice } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { findLead, isOpenLead, LEAD_STATUS_LABEL } from "@/components/admin/leadsApi";
 import { LeadStatusPicker, PhoneActions } from "@/components/admin/LeadStatus";
 import { Waiting } from "@/components/admin/Waiting";
@@ -37,7 +38,8 @@ import { IconCheck } from "@lms/ui/icons";
 
 export default function LeadCardPage() {
   const { id } = useParams<{ id: string }>();
-  const { lang, toast } = useStore();
+  const { lang } = useLang();
+  const toast = useToast();
 
   const lead = useLoad(() => findLead(Number(id)), [id]);
 

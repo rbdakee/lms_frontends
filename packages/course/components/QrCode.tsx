@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from "react";
-import { qrMatrix, qrPath } from "@/lib/qr";
+import { qrMatrix, qrPath } from "../lib/qr";
 
 /** Белое поле вокруг кода в модулях — без него сканеры не находят границу */
 const QUIET = 3;

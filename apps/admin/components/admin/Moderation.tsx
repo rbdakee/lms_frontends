@@ -15,6 +15,7 @@
 
 import { useState } from "react";
 import type { adminReviews } from "@lms/prototype/data";
+import { useToast } from "@lms/ui/toast";
 import { useModeration, useStore } from "@lms/prototype";
 import { Avatar, Button, Sheet, Stars } from "@lms/ui";
 import { IconMessage, IconTrash } from "@lms/ui/icons";
@@ -30,7 +31,8 @@ export function ReviewCard({
   review: Review;
   showCourse?: boolean;
 }) {
-  const { toast, replyToReview, hideReview } = useStore();
+  const toast = useToast();
+  const { replyToReview, hideReview } = useStore();
   const { reviewReply, isHidden } = useModeration();
   const [draft, setDraft] = useState("");
   const [answering, setAnswering] = useState(false);

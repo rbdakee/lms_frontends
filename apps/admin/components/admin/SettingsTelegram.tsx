@@ -24,7 +24,8 @@ import {
   type TelegramBindCode,
 } from "@lms/api";
 import { dayMonth } from "@lms/ui/i18n";
-import { useStore } from "@lms/prototype";
+import { useLang } from "@lms/ui/lang";
+import { useToast } from "@lms/ui/toast";
 import { Badge, Button, Note, Sheet } from "@lms/ui";
 import { IconExternal, IconRefresh, IconTelegram } from "@lms/ui/icons";
 
@@ -79,7 +80,8 @@ export function SettingsTelegram({
   telegram: SettingsTelegram;
   onSaved: (settings: AdminSettings) => void;
 }) {
-  const { lang, toast } = useStore();
+  const { lang } = useLang();
+  const toast = useToast();
   const [bind, setBind] = useState<TelegramBindCode | null>(null);
   const [busy, setBusy] = useState<"" | "bind" | "check" | "test" | "unbind" | "flag">("");
   const [confirm, setConfirm] = useState(false);

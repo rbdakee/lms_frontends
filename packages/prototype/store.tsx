@@ -7,8 +7,11 @@
  * Пакет временный и выключается поэкранно: авторизованность здесь больше
  * не живёт (её определяет `GET /me` из `@lms/api`), каталог, заявки, «Мои
  * курсы», уроки, тесты, задания, сертификаты, уведомления, вопросы под
- * уроком, дашборд, отчёты и очередь вопросов ходят в API. Остались язык,
- * тосты, оценка курса и админские редакторы — до своих сессий бэкенда.
+ * уроком, дашборд, отчёты, очередь вопросов и отзывы ходят в API, а язык
+ * и тосты переехали в `@lms/ui` — они не про прототип. Остались админские
+ * редакторы и модерация отзывов, до своих сессий бэкенда.
+ *
+ * Клиентское приложение этот пакет больше не подключает вовсе.
  */
 
 import {
@@ -26,7 +29,6 @@ import {
   teacherProfile,
   type LessonKind,
 } from "./data";
-import { dict, type UiLang } from "@lms/ui/i18n";
 
 /**
  * Элементы программы, добавленные админом прямо в прототипе — раздел 5.17.
@@ -66,7 +68,6 @@ export interface Profile {
 }
 
 interface State {
-  lang: UiLang;
   /** Курсы, к которым админ открыл доступ */
   enrolled: string[];
   /** Отправленные заявки: courseId → сколько дней назад отправлена */
@@ -76,8 +77,6 @@ interface State {
   profile: Profile;
   /** есть ли загруженное фото — без него показываем инициалы */
   hasPhoto: boolean;
-  /** оценки курсов */
-  ratings: Record<string, number>;
   /** курсы со строгим последовательным порядком уроков (настройка админа) */
   strictCourses: string[];
   /** Ответы админа на отзывы: id отзыва → текст */
@@ -99,7 +98,6 @@ interface State {
 /** Стартовое состояние — сразу все интересные случаи, как просит бриф. */
 function initialState(): State {
   return {
-    lang: "ru",
     /* Доступ открыт к двум курсам: один в процессе, один завершён */
     enrolled: [DEMO_COURSE_ID, "formative-assessment"],
     /* Заявка отправлена два дня назад — курса ещё нет, ждём администратора */
@@ -122,7 +120,6 @@ function initialState(): State {
       phone: teacherProfile.phone,
     },
     hasPhoto: false,
-    ratings: {},
     strictCourses: [],
     reviewReplies: {},
     hiddenReviews: [],
@@ -135,10 +132,8 @@ function initialState(): State {
 }
 
 interface Ctx extends State {
-  t: (typeof dict)["ru"];
   ready: boolean;
   set: (patch: Partial<State> | ((s: State) => Partial<State>)) => void;
-  setLang: (l: UiLang) => void;
   /** Учитель нажал «Записаться» — заявка ушла администратору */
   requestAccess: (courseId: string) => void;
   /** Админ открыл доступ — курс появился у учителя */
@@ -151,7 +146,6 @@ interface Ctx extends State {
   completeLesson: (courseId: string, lessonId: string) => void;
   uncompleteLesson: (courseId: string, lessonId: string) => void;
   isCompleted: (courseId: string, lessonId: string) => boolean;
-  rateCourse: (courseId: string, stars: number) => void;
   setStrict: (courseId: string, strict: boolean) => void;
   isStrict: (courseId: string) => boolean;
   replyToReview: (id: string, text: string) => void;
@@ -175,15 +169,6 @@ interface Ctx extends State {
   exitPreview: () => void;
   fullName: string;
   initials: string;
-  toast: (text: string, kind?: ToastKind) => void;
-  toasts: Toast[];
-}
-
-type ToastKind = "info" | "success" | "error";
-interface Toast {
-  id: number;
-  text: string;
-  kind: ToastKind;
 }
 
 const StoreContext = createContext<Ctx | null>(null);
@@ -192,7 +177,6 @@ const KEY = "lms-preview-v2";
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(initialState);
   const [ready, setReady] = useState(false);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   /** Снимок состояния на входе в предпросмотр — выход возвращает всё как было */
   const [snapshot, setSnapshot] = useState<State | null>(null);
 
@@ -219,12 +203,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
   }, []);
 
-  const toast = useCallback((text: string, kind: ToastKind = "info") => {
-    const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, text, kind }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200);
-  }, []);
-
   const value = useMemo<Ctx>(() => {
     const p = state.profile;
     const fullName = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(" ");
@@ -234,9 +212,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return {
       ...state,
       ready,
-      t: dict[state.lang],
       set,
-      setLang: (l) => set({ lang: l }),
 
       requestAccess: (courseId) =>
         set((s) =>
@@ -280,8 +256,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       isCompleted: (courseId, lessonId) => (state.completed[courseId] ?? []).includes(lessonId),
 
-      rateCourse: (courseId, stars) =>
-        set((s) => ({ ratings: { ...s.ratings, [courseId]: stars } })),
       setStrict: (courseId, strict) =>
         set((s) => ({
           strictCourses: strict
@@ -330,17 +304,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         set({ preview: true });
       },
       exitPreview: () => {
-        if (snapshot) setState({ ...snapshot, preview: false, lang: state.lang });
+        if (snapshot) setState({ ...snapshot, preview: false });
         else set({ preview: false });
         setSnapshot(null);
       },
 
       fullName,
       initials,
-      toast,
-      toasts,
     };
-  }, [state, ready, set, toast, toasts, snapshot]);
+  }, [state, ready, set, snapshot]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
