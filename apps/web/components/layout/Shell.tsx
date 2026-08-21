@@ -156,7 +156,7 @@ function NotificationsBell() {
   };
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="bell-wrap">
       <button
         className="btn btn-icon bell"
         onClick={() => setOpen((v) => !v)}
@@ -167,18 +167,7 @@ function NotificationsBell() {
       </button>
 
       {open && (
-        <div
-          className="card"
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 8px)",
-            width: "min(380px, calc(100vw - 32px))",
-            boxShadow: "var(--shadow-lg)",
-            zIndex: 60,
-            overflow: "hidden",
-          }}
-        >
+        <div className="card bell-menu">
           <div className="row between g12" style={{ padding: "12px 14px" }}>
             <strong style={{ fontSize: 15 }}>{t.navNotifications}</strong>
             {unread > 0 && (

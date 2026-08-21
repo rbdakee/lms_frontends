@@ -1153,6 +1153,34 @@ select.input {
 .bell {
   position: relative;
 }
+.bell-wrap {
+  position: relative;
+}
+/* Окно уведомлений: на широком экране висит под колокольчиком, прижатое
+   к его правому краю. */
+.bell-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(380px, calc(100vw - 32px));
+  z-index: 60;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+/* На телефоне окно почти во всю ширину, а колокольчик стоит не у края шапки —
+   справа от него аватар. Отсчёт от колокольчика уводил левый край окна за
+   границу экрана, поэтому края считаются от шапки: обёртка перестаёт быть
+   точкой отсчёта, и ею становится сама `.appbar`. */
+@media (max-width: 560px) {
+  .bell-wrap {
+    position: static;
+  }
+  .bell-menu {
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}
 .bell-dot {
   position: absolute;
   top: 6px;
