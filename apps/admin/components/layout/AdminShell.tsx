@@ -5,14 +5,17 @@
  * На узких экранах боковое меню превращается в шторку.
  *
  * Вход по коду у админки свой — `/login` на её домене, чтобы за кодом
- * не уходить в приложение учителя. Кука `sid` при этом одна на оба фронта,
- * права — `is_admin` у пользователя. Каркас проверяет `GET /me` и не пускает
- * гостей и учителей без прав — права при этом проверяются и на сервере,
- * гейт здесь только чтобы не показывать пустые экраны с ошибками 403.
+ * не уходить в приложение учителя. Права — `is_admin` у пользователя. Каркас
+ * проверяет `GET /me` и не пускает гостей и учителей без прав — права при этом
+ * проверяются и на сервере, гейт здесь только чтобы не показывать пустые экраны
+ * с ошибками 403.
+ *
+ * Профиль и выход у админки свои: раньше и то и другое было только
+ * в приложении учителя и держалось на общей куке.
  */
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { api, useLoad, useMe, userInitials, type AdminOverview } from "@lms/api";
 import { web } from "@/lib/urls";
@@ -20,6 +23,7 @@ import { Avatar, Empty, Sheet } from "@lms/ui";
 import {
   IconChart,
   IconChevronRight,
+  IconExternal,
   IconInbox,
   IconLayers,
   IconLogout,
@@ -29,6 +33,7 @@ import {
   IconMessage,
   IconSettings,
   IconStar,
+  IconUser,
   IconUsers,
 } from "@lms/ui/icons";
 import logo from "@lms/ui/logo.png";
@@ -192,7 +197,16 @@ export function AdminShell({
   actions?: ReactNode;
 }) {
   const [menu, setMenu] = useState(false);
-  const { me } = useMe();
+  const { me, logout } = useMe();
+  const router = useRouter();
+
+  /* Подтверждения нет намеренно: оно стоит на экране профиля, а здесь выход —
+     то же, что пункт меню пользователя у учителя */
+  const signOut = async () => {
+    setMenu(false);
+    await logout();
+    router.push("/login");
+  };
 
   if (!me?.is_admin) return <AdminGate />;
 
@@ -226,17 +240,40 @@ export function AdminShell({
 
         <div style={{ marginTop: "auto", paddingTop: 16 }}>
           <hr className="divider" style={{ marginBottom: 12 }} />
-          <div className="row g10" style={{ padding: "4px 8px" }}>
+          {/* Сам блок с именем и ведёт в профиль — отдельного пункта не нужно */}
+          <Link
+            href="/profile"
+            className="admin-nav-item"
+            style={{ minHeight: 52, padding: "6px 8px" }}
+          >
             <Avatar initials={userInitials(me)} size={34} tone="neutral" />
-            <div className="stack grow" style={{ minWidth: 0, lineHeight: 1.25 }}>
-              <strong className="small">{adminName}</strong>
+            <span className="stack grow" style={{ minWidth: 0, lineHeight: 1.25 }}>
+              <strong className="small" style={{ color: "var(--text)" }}>
+                {adminName}
+              </strong>
               <span className="caption muted-3">администратор</span>
-            </div>
-          </div>
-          <Link href={web("/my")} className="admin-nav-item" style={{ marginTop: 6 }}>
-            <IconLogout size={19} />
-            <span>Кабинет учителя</span>
+            </span>
+            <IconChevronRight size={16} />
           </Link>
+          {/* Кабинет учителя — другой домен, поэтому полный адрес, а не маршрут */}
+          <a href={web("/my")} className="admin-nav-item">
+            <IconExternal size={19} />
+            <span>Кабинет учителя</span>
+          </a>
+          <button
+            className="admin-nav-item"
+            style={{
+              color: "var(--danger)",
+              width: "100%",
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+            }}
+            onClick={signOut}
+          >
+            <IconLogout size={19} />
+            <span>Выйти</span>
+          </button>
         </div>
       </aside>
 
@@ -287,15 +324,36 @@ export function AdminShell({
         <div className="stack g2">
           <NavList onNavigate={() => setMenu(false)} />
           <Link
-            href={web("/my")}
+            href="/profile"
             onClick={() => setMenu(false)}
             className="admin-nav-item"
             style={{ marginTop: 12 }}
           >
-            <IconLogout size={19} />
-            <span className="grow">Кабинет учителя</span>
+            <IconUser size={19} />
+            <span className="grow">Профиль</span>
             <IconChevronRight size={16} />
           </Link>
+          {/* Кабинет учителя — другой домен, поэтому полный адрес, а не маршрут */}
+          <a href={web("/my")} onClick={() => setMenu(false)} className="admin-nav-item">
+            <IconExternal size={19} />
+            <span className="grow">Кабинет учителя</span>
+          </a>
+          <button
+            className="admin-nav-item"
+            style={{
+              color: "var(--danger)",
+              width: "100%",
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+            }}
+            onClick={signOut}
+          >
+            <IconLogout size={19} />
+            <span className="grow" style={{ textAlign: "left" }}>
+              Выйти
+            </span>
+          </button>
         </div>
       </Sheet>
 
