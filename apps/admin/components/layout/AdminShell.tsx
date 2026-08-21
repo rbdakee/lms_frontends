@@ -32,6 +32,7 @@ import {
   IconMenu,
   IconMessage,
   IconSettings,
+  IconShield,
   IconStar,
   IconUser,
   IconUsers,
@@ -75,7 +76,12 @@ const NAV: { group: string; items: NavItem[] }[] = [
   },
   {
     group: "Система",
-    items: [{ href: "/settings", label: "Настройки", icon: IconSettings }],
+    items: [
+      /* `exact` у настроек: без него страница администраторов подсвечивала бы
+         оба пункта разом — она лежит внутри `/settings` */
+      { href: "/settings", label: "Настройки", icon: IconSettings, exact: true },
+      { href: "/settings/admins", label: "Администраторы", icon: IconShield },
+    ],
   },
 ];
 

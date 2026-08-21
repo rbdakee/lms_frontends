@@ -1344,6 +1344,24 @@ export interface paths {
         patch: operations["rename_category_admin_categories__category_id__patch"];
         trace?: never;
     };
+    "/admin/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Admins */
+        get: operations["admin_admins_admin_admins_get"];
+        put?: never;
+        /** Add Admin */
+        post: operations["add_admin_admin_admins_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/settings": {
         parameters: {
             query?: never;
@@ -1517,6 +1535,40 @@ export interface components {
             state: "requested";
             /** Waiting Days */
             waiting_days: number;
+        };
+        /** AdminAdminIn */
+        AdminAdminIn: {
+            /** Phone */
+            phone: string;
+        };
+        /**
+         * AdminAdminOut
+         * @description Строка списка администраторов в настройках. ФИО приходит пустым, пока
+         *     человек не заполнил профиль сам: добавляют по одному телефону.
+         */
+        AdminAdminOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+            /** Phone */
+            phone: string;
+            /** Is Current */
+            is_current: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminAdminsOut */
+        AdminAdminsOut: {
+            /** Items */
+            items: components["schemas"]["AdminAdminOut"][];
         };
         /** AdminCategoriesOut */
         AdminCategoriesOut: {
@@ -7317,6 +7369,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminCategoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_admins_admin_admins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAdminsOut"];
+                };
+            };
+        };
+    };
+    add_admin_admin_admins_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminAdminIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAdminOut"];
                 };
             };
             /** @description Validation Error */

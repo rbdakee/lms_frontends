@@ -257,3 +257,9 @@ export type TelegramBindCode = S["TelegramBindCodeOut"];
 export type AdminCategories = S["AdminCategoriesOut"];
 export type AdminCategory = S["AdminCategoryOut"];
 export type AdminCategoryIn = S["AdminCategoryIn"];
+
+/* Администраторы в настройках. `AdminAdmin` — строка списка: ФИО там пустое,
+   пока человек не заполнил профиль сам, добавляют по одному телефону. */
+export type AdminAdmins = S["AdminAdminsOut"];
+export type AdminAdmin = S["AdminAdminOut"];
+export type AdminAdminIn = S["AdminAdminIn"];
