@@ -32,8 +32,8 @@ import {
 } from "@/components/admin/submissionsApi";
 import { Waiting } from "@/components/admin/Waiting";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { Badge, Button, Empty, LinkButton } from "@lms/ui";
-import { IconCheckCircle, IconChevronRight, IconSearch } from "@lms/ui/icons";
+import { Badge, Button, Empty, LinkButton, Sheet } from "@lms/ui";
+import { IconCheckCircle, IconChevronRight, IconFilter, IconSearch } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 
@@ -48,6 +48,9 @@ export default function SubmissionsPage() {
   const [status, setStatus] = useState<StatusFilter>("pending");
   const [courseId, setCourseId] = useState<"all" | number>("all");
   const [page, setPage] = useState(1);
+  /* Мобильный: статус и курс за одной кнопкой-иконкой, окно выезжает снизу —
+     как на курсах и заявках */
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const list = useLoad(
     () =>
@@ -75,6 +78,9 @@ export default function SubmissionsPage() {
   const queueTotal = queue.data?.total ?? 0;
   /* Пустая очередь — это хорошая новость; пусто из-за фильтров — другой текст */
   const filtered = status !== "pending" || courseId !== "all";
+  /* Счётчик на кнопке-иконке: очередь «ждут проверки» — это состояние
+     по умолчанию, а не фильтр, и в счёт не идёт */
+  const mobileFilters = (status !== "pending" ? 1 : 0) + (courseId !== "all" ? 1 : 0);
   const courseOptions = (catalog.data?.items ?? []).flatMap((g) => g.versions);
 
   const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -96,39 +102,51 @@ export default function SubmissionsPage() {
       subtitle={`${t.subInQueue(queueTotal)} · ${t.subByFilter(total)}`}
     >
       <div className="stack g16">
-        {/* ===== Фильтры ===== */}
-        <div className="row wrap g10">
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 190 }}
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as StatusFilter);
-              setPage(1);
-            }}
+        {/* ===== Фильтры: на десктопе строкой, на мобильном — кнопка-иконка
+            и окно снизу ===== */}
+        <div className="row g10">
+          <div className="row wrap g10 subs-filters-inline">
+            <select
+              className="input"
+              style={{ width: "auto", minWidth: 190 }}
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value as StatusFilter);
+                setPage(1);
+              }}
+            >
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="input"
+              style={{ width: "auto", minWidth: 190 }}
+              value={courseId}
+              onChange={(e) => {
+                setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="all">{t.subAllCourses}</option>
+              {courseOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            variant="secondary"
+            className="subs-filter-btn"
+            aria-label={t.filters}
+            icon={<IconFilter size={17} />}
+            onClick={() => setFiltersOpen(true)}
           >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 190 }}
-            value={courseId}
-            onChange={(e) => {
-              setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
-              setPage(1);
-            }}
-          >
-            <option value="all">{t.subAllCourses}</option>
-            {courseOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
+            {mobileFilters > 0 ? mobileFilters : null}
+          </Button>
         </div>
 
         {list.loading ? (
@@ -282,6 +300,72 @@ export default function SubmissionsPage() {
           </>
         )}
       </div>
+
+      {/* Фильтры на мобильном. Значения общие со строкой фильтров и
+          применяются сразу — «Готово» просто закрывает окно */}
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title={t.filters}
+        footer={
+          <div className="stack g8">
+            <Button block size="lg" onClick={() => setFiltersOpen(false)}>
+              {t.ready}
+            </Button>
+            {mobileFilters > 0 && (
+              <Button variant="secondary" block onClick={resetFilters}>
+                {t.resetFilters}
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <div className="stack g14">
+          <div className="field">
+            <label className="label">{t.subStatus}</label>
+            <select
+              className="input"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value as StatusFilter);
+                setPage(1);
+              }}
+            >
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label className="label">{t.subCourse}</label>
+            <select
+              className="input"
+              value={courseId}
+              onChange={(e) => {
+                setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="all">{t.subAllCourses}</option>
+              {courseOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Sheet>
+
+      <style>{`
+        .subs-filter-btn { display: none; }
+        @media (max-width: 899px) {
+          .subs-filters-inline { display: none; }
+          .subs-filter-btn { display: inline-flex; flex-shrink: 0; }
+        }
+      `}</style>
     </AdminShell>
   );
 }

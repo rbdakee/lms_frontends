@@ -31,7 +31,7 @@ import {
 import { dayTime } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { Avatar, Badge, Button, Empty, Sheet } from "@lms/ui";
-import { IconCheckCircle, IconSearch, IconTrash } from "@lms/ui/icons";
+import { IconCheckCircle, IconFilter, IconSearch, IconTrash } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 /** Тот же лимит текста, что и у учителя (CONTRACT: 422 при 2000+ символов). */
@@ -55,6 +55,9 @@ export function QuestionsQueue({
   const [q, setQ] = useState("");
   const [course, setCourse] = useState<"all" | number>("all");
   const [page, setPage] = useState(1);
+  /* Мобильный: поиск, курс и «только без ответа» за одной кнопкой-иконкой,
+     окно выезжает снизу — как на курсах и заявках */
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -90,6 +93,10 @@ export function QuestionsQueue({
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const courseOptions = (catalog.data?.items ?? []).flatMap((g) => g.versions);
   const filtered = q !== "" || course !== "all";
+  /* Счётчик на кнопке-иконке: «только без ответа» — состояние по умолчанию,
+     в счёт идёт снятая галка, а не выставленная */
+  const mobileFilters =
+    (q !== "" ? 1 : 0) + (course !== "all" ? 1 : 0) + (onlyOpen ? 0 : 1);
   /* Пусто из-за фильтров, пустая очередь и «вопросов нет вовсе» — три разных
      сообщения: первое чинится сбросом, второе — хорошая новость */
   const emptyTitle = filtered
@@ -151,45 +158,57 @@ export function QuestionsQueue({
 
   return (
     <div className="stack g14" style={{ maxWidth: 860 }}>
-      {/* ===== Фильтры ===== */}
-      <div className="row wrap g10">
-        <div className="input-wrap" style={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
-          <span className="input-icon">
-            <IconSearch size={19} />
-          </span>
-          <input
-            className="input"
-            placeholder={t.qaSearch}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        {!courseId && (
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 190 }}
-            value={course}
-            onChange={(e) => {
-              setCourse(e.target.value === "all" ? "all" : Number(e.target.value));
+      {/* ===== Фильтры: на десктопе строкой, на мобильном — кнопка-иконка
+          и окно снизу ===== */}
+      <div className="row g10">
+        <div className="row wrap g10 grow qa-filters-inline" style={{ minWidth: 0 }}>
+          <div className="input-wrap" style={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
+            <span className="input-icon">
+              <IconSearch size={19} />
+            </span>
+            <input
+              className="input"
+              placeholder={t.qaSearch}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {!courseId && (
+            <select
+              className="input"
+              style={{ width: "auto", minWidth: 190 }}
+              value={course}
+              onChange={(e) => {
+                setCourse(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="all">{t.subAllCourses}</option>
+              {courseOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button
+            variant={onlyOpen ? "primary" : "secondary"}
+            onClick={() => {
+              setOnlyOpen((v) => !v);
               setPage(1);
             }}
           >
-            <option value="all">{t.subAllCourses}</option>
-            {courseOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-        )}
+            {t.qaOnlyOpen}
+          </Button>
+        </div>
         <Button
-          variant={onlyOpen ? "primary" : "secondary"}
-          onClick={() => {
-            setOnlyOpen((v) => !v);
-            setPage(1);
-          }}
+          variant="secondary"
+          className="qa-filter-btn"
+          aria-label={t.filters}
+          icon={<IconFilter size={17} />}
+          onClick={() => setFiltersOpen(true)}
         >
-          {t.qaOnlyOpen}
+          {mobileFilters > 0 ? mobileFilters : null}
         </Button>
       </div>
 
@@ -274,6 +293,81 @@ export function QuestionsQueue({
           )}
         </>
       )}
+
+      {/* Фильтры на мобильном. Значения общие со строкой фильтров и
+          применяются сразу — «Готово» просто закрывает окно */}
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title={t.filters}
+        footer={
+          <div className="stack g8">
+            <Button block size="lg" onClick={() => setFiltersOpen(false)}>
+              {t.ready}
+            </Button>
+            {mobileFilters > 0 && (
+              <Button variant="secondary" block onClick={resetFilters}>
+                {t.resetFilters}
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <div className="stack g14">
+          <div className="field">
+            <label className="label">{t.search}</label>
+            <div className="input-wrap">
+              <span className="input-icon">
+                <IconSearch size={19} />
+              </span>
+              <input
+                className="input"
+                placeholder={t.qaSearch}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          {!courseId && (
+            <div className="field">
+              <label className="label">{t.subCourse}</label>
+              <select
+                className="input"
+                value={course}
+                onChange={(e) => {
+                  setCourse(e.target.value === "all" ? "all" : Number(e.target.value));
+                  setPage(1);
+                }}
+              >
+                <option value="all">{t.subAllCourses}</option>
+                {courseOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <Button
+            block
+            variant={onlyOpen ? "primary" : "secondary"}
+            onClick={() => {
+              setOnlyOpen((v) => !v);
+              setPage(1);
+            }}
+          >
+            {t.qaOnlyOpen}
+          </Button>
+        </div>
+      </Sheet>
+
+      <style>{`
+        .qa-filter-btn { display: none; }
+        @media (max-width: 899px) {
+          .qa-filters-inline { display: none; }
+          .qa-filter-btn { display: inline-flex; flex-shrink: 0; }
+        }
+      `}</style>
     </div>
   );
 }

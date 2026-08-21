@@ -28,7 +28,7 @@ import {
 import { dayTime, dayYear } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { Avatar, Button, Empty, Sheet, Stars } from "@lms/ui";
-import { IconMessage, IconStar, IconTrash } from "@lms/ui/icons";
+import { IconFilter, IconMessage, IconStar, IconTrash } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 /** Тот же лимит, что у сервера: 422 при 2000+ символов. */
@@ -46,6 +46,9 @@ export function ReviewsFeed({
   const [courseId, setCourseId] = useState<"all" | number>("all");
   const [rating, setRating] = useState<"all" | number>("all");
   const [page, setPage] = useState(1);
+  /* Мобильный: курс и оценка за одной кнопкой-иконкой, окно выезжает снизу —
+     как на курсах и заявках */
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const list = useLoad(
     () =>
@@ -70,6 +73,8 @@ export function ReviewsFeed({
   const total = list.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const filtered = courseId !== "all" || rating !== "all";
+  /* Счётчик на кнопке-иконке — сколько фильтров выставлено */
+  const mobileFilters = (courseId !== "all" ? 1 : 0) + (rating !== "all" ? 1 : 0);
 
   /* Счётчик в шапке экрана — тот же `total`, что и у ленты */
   useEffect(() => {
@@ -109,40 +114,52 @@ export function ReviewsFeed({
 
   return (
     <div className="stack g16" style={{ maxWidth: 860 }}>
-      {/* ===== Фильтры ===== */}
-      <div className="row wrap g10">
-        <select
-          className="input"
-          style={{ width: "auto", minWidth: 220 }}
-          value={courseId}
-          onChange={(e) => {
-            setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
-            setPage(1);
-          }}
+      {/* ===== Фильтры: на десктопе строкой, на мобильном — кнопка-иконка
+          и окно снизу ===== */}
+      <div className="row g10">
+        <div className="row wrap g10 reviews-filters-inline">
+          <select
+            className="input"
+            style={{ width: "auto", minWidth: 220 }}
+            value={courseId}
+            onChange={(e) => {
+              setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            <option value="all">Все курсы</option>
+            {(courses.data?.items ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+          <select
+            className="input"
+            style={{ width: "auto", minWidth: 150 }}
+            value={rating}
+            onChange={(e) => {
+              setRating(e.target.value === "all" ? "all" : Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            <option value="all">Любая оценка</option>
+            {[5, 4, 3, 2, 1].map((n) => (
+              <option key={n} value={n}>
+                {n} ★
+              </option>
+            ))}
+          </select>
+        </div>
+        <Button
+          variant="secondary"
+          className="reviews-filter-btn"
+          aria-label="Фильтры"
+          icon={<IconFilter size={17} />}
+          onClick={() => setFiltersOpen(true)}
         >
-          <option value="all">Все курсы</option>
-          {(courses.data?.items ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input"
-          style={{ width: "auto", minWidth: 150 }}
-          value={rating}
-          onChange={(e) => {
-            setRating(e.target.value === "all" ? "all" : Number(e.target.value));
-            setPage(1);
-          }}
-        >
-          <option value="all">Любая оценка</option>
-          {[5, 4, 3, 2, 1].map((n) => (
-            <option key={n} value={n}>
-              {n} ★
-            </option>
-          ))}
-        </select>
+          {mobileFilters > 0 ? mobileFilters : null}
+        </Button>
       </div>
 
       {list.loading && !list.data ? (
@@ -221,6 +238,73 @@ export function ReviewsFeed({
           )}
         </>
       )}
+
+      {/* Фильтры на мобильном. Значения общие со строкой фильтров и
+          применяются сразу — «Готово» просто закрывает окно */}
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Фильтры"
+        footer={
+          <div className="stack g8">
+            <Button block size="lg" onClick={() => setFiltersOpen(false)}>
+              Готово
+            </Button>
+            {mobileFilters > 0 && (
+              <Button variant="secondary" block onClick={resetFilters}>
+                Сбросить фильтры
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <div className="stack g14">
+          <div className="field">
+            <label className="label">Курс</label>
+            <select
+              className="input"
+              value={courseId}
+              onChange={(e) => {
+                setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="all">Все курсы</option>
+              {(courses.data?.items ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label className="label">Оценка</label>
+            <select
+              className="input"
+              value={rating}
+              onChange={(e) => {
+                setRating(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="all">Любая оценка</option>
+              {[5, 4, 3, 2, 1].map((n) => (
+                <option key={n} value={n}>
+                  {n} ★
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Sheet>
+
+      <style>{`
+        .reviews-filter-btn { display: none; }
+        @media (max-width: 899px) {
+          .reviews-filters-inline { display: none; }
+          .reviews-filter-btn { display: inline-flex; flex-shrink: 0; }
+        }
+      `}</style>
     </div>
   );
 }

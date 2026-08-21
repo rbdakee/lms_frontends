@@ -35,8 +35,8 @@ import {
 import { fmt, phoneFmt } from "@lms/ui/i18n";
 import { useStore } from "@lms/prototype";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { Avatar, Button, Empty, StatusBadge } from "@lms/ui";
-import { IconChevronRight, IconSearch } from "@lms/ui/icons";
+import { Avatar, Button, Empty, Sheet, StatusBadge } from "@lms/ui";
+import { IconChevronRight, IconFilter, IconSearch } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 
@@ -58,6 +58,9 @@ export default function TeachersPage() {
   const [region, setRegion] = useState("all");
   const [courseId, setCourseId] = useState<"all" | number>("all");
   const [page, setPage] = useState(1);
+  /* Мобильный: поиск, регион и курс за одной кнопкой-иконкой, окно выезжает
+     снизу — как на курсах и заявках */
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -92,6 +95,10 @@ export default function TeachersPage() {
   const total = teachers.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const hasFilters = region !== "all" || courseId !== "all" || q !== "";
+  /* Счётчик на кнопке-иконке — сколько фильтров выставлено; поиск на мобильном
+     тоже спрятан за кнопкой и потому идёт в счёт */
+  const mobileFilters =
+    (q !== "" ? 1 : 0) + (region !== "all" ? 1 : 0) + (courseId !== "all" ? 1 : 0);
 
   const resetFilters = () => {
     setQuery("");
@@ -115,52 +122,65 @@ export default function TeachersPage() {
          кнопка — лишний шум (решение владельца 20.08.2026) */
     >
       <div className="stack g16">
-        <div className="row wrap g10">
-          <div className="input-wrap" style={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
-            <span className="input-icon">
-              <IconSearch size={19} />
-            </span>
-            <input
+        {/* ===== Фильтры: на десктопе строкой, на мобильном — кнопка-иконка
+            и окно снизу ===== */}
+        <div className="row g10">
+          <div className="row wrap g10 grow teachers-filters-inline" style={{ minWidth: 0 }}>
+            <div className="input-wrap" style={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
+              <span className="input-icon">
+                <IconSearch size={19} />
+              </span>
+              <input
+                className="input"
+                placeholder="Поиск по ФИО или телефону"
+                /* Сервер отбивает больше 100 символов как 422 — до него не доводим */
+                maxLength={100}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            <select
               className="input"
-              placeholder="Поиск по ФИО или телефону"
-              /* Сервер отбивает больше 100 символов как 422 — до него не доводим */
-              maxLength={100}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+              style={{ width: "auto", minWidth: 180 }}
+              value={region}
+              onChange={(e) => {
+                setRegion(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">Все регионы</option>
+              {(dictionaries.data?.regions ?? []).map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <select
+              className="input"
+              style={{ width: "auto", minWidth: 190 }}
+              value={courseId}
+              onChange={(e) => {
+                setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="all">Все курсы</option>
+              {(courses.data?.items ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 180 }}
-            value={region}
-            onChange={(e) => {
-              setRegion(e.target.value);
-              setPage(1);
-            }}
+          <Button
+            variant="secondary"
+            className="teachers-filter-btn"
+            aria-label="Фильтры"
+            icon={<IconFilter size={17} />}
+            onClick={() => setFiltersOpen(true)}
           >
-            <option value="all">Все регионы</option>
-            {(dictionaries.data?.regions ?? []).map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <select
-            className="input"
-            style={{ width: "auto", minWidth: 190 }}
-            value={courseId}
-            onChange={(e) => {
-              setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
-              setPage(1);
-            }}
-          >
-            <option value="all">Все курсы</option>
-            {(courses.data?.items ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
+            {mobileFilters > 0 ? mobileFilters : null}
+          </Button>
         </div>
 
         {teachers.loading ? (
@@ -318,6 +338,88 @@ export default function TeachersPage() {
           </>
         )}
       </div>
+
+      {/* Фильтры на мобильном. Значения общие со строкой фильтров и
+          применяются сразу — «Готово» просто закрывает окно */}
+      <Sheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Фильтры"
+        footer={
+          <div className="stack g8">
+            <Button block size="lg" onClick={() => setFiltersOpen(false)}>
+              Готово
+            </Button>
+            {mobileFilters > 0 && (
+              <Button variant="secondary" block onClick={resetFilters}>
+                Сбросить фильтры
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <div className="stack g14">
+          <div className="field">
+            <label className="label">Поиск</label>
+            <div className="input-wrap">
+              <span className="input-icon">
+                <IconSearch size={19} />
+              </span>
+              <input
+                className="input"
+                placeholder="ФИО или телефон"
+                maxLength={100}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label className="label">Регион</label>
+            <select
+              className="input"
+              value={region}
+              onChange={(e) => {
+                setRegion(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">Все регионы</option>
+              {(dictionaries.data?.regions ?? []).map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label className="label">Курс</label>
+            <select
+              className="input"
+              value={courseId}
+              onChange={(e) => {
+                setCourseId(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="all">Все курсы</option>
+              {(courses.data?.items ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Sheet>
+
+      <style>{`
+        .teachers-filter-btn { display: none; }
+        @media (max-width: 899px) {
+          .teachers-filters-inline { display: none; }
+          .teachers-filter-btn { display: inline-flex; flex-shrink: 0; }
+        }
+      `}</style>
     </AdminShell>
   );
 }
