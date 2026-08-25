@@ -18,7 +18,16 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 function phoneDigits(raw: string): string {
-  return raw.replace(/\D/g, "").replace(/^8/, "7").replace(/^7/, "").slice(0, 10);
+  let d = raw.replace(/\D/g, "");
+  /* Ведущую цифру считаем кодом страны, только когда это видно наверняка:
+     «+7…» — маска или вставка с плюсом, «8…» — межгород, 11 цифр подряд —
+     вставили полный номер. Одиночная «7» в начале — первая цифра кода
+     оператора: казахстанские коды сами начинаются с семёрки (707, 747, 777…),
+     и съедать её нельзя. */
+  if (raw.trimStart().startsWith("+7")) d = d.slice(1);
+  else if (d[0] === "8") d = d.slice(1);
+  else if (d.length >= 11 && d[0] === "7") d = d.slice(1);
+  return d.slice(0, 10);
 }
 
 function maskPhone(d: string): string {
