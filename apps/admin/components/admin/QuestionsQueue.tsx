@@ -12,6 +12,11 @@
  * Отвечает админ тем же `POST /lessons/{id}/questions` с `parent_id`,
  * что и учитель, — `lesson.id` для этого и лежит в элементе списка.
  *
+ * Площадок две, админка одна на обе и по умолчанию показывает обе. Фильтр
+ * площадки живёт в адресе (`?platform=`) и есть только в сводной очереди:
+ * в карточке курса вопросы и так сужены курсом, а адрес там принадлежит
+ * карточке. Метка площадки в строке нужна в обоих случаях.
+ *
  * Удалить (`DELETE /admin/thread_messages/{id}`) можно любое сообщение — и вопрос,
  * и ответ. Корневой вопрос уносит из выдачи и ответы под ним: тред без вопроса
  * нечитаем, поэтому список после такого удаления перечитывается целиком.
@@ -26,11 +31,17 @@ import {
   type AdminQuestion,
   type AdminQuestionsPage,
   type CatalogOut,
+  type Platform,
   type ThreadQuestion,
 } from "@lms/api";
 import { dayTime } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
+import {
+  PlatformChip,
+  PlatformFilter,
+  usePlatformFilter,
+} from "@/components/admin/platforms";
 import { Avatar, Badge, Button, Empty, Sheet } from "@lms/ui";
 import { IconCheckCircle, IconFilter, IconSearch, IconTrash } from "@lms/ui/icons";
 
@@ -40,10 +51,17 @@ const TEXT_MAX = 2000;
 
 export function QuestionsQueue({
   courseId,
+  standalone = false,
   onAnswered,
 }: {
   /** Курс задан снаружи (вкладка карточки курса) — выбор курса тогда не нужен */
   courseId?: number;
+  /** Сводная очередь «/questions», а не вкладка карточки курса.
+      Признак отдельный от `courseId`: у курса на демо-данных числового id нет,
+      и `courseId` там приходит пустым — по нему вкладку карточки от очереди
+      не отличить. Фильтр площадки живёт в адресе, и класть его в адрес
+      карточки курса, где уже есть свой `?tab=`, нельзя. */
+  standalone?: boolean;
   /** Тред изменился — ответили или удалили сообщение: снаружи можно
       перечитать счётчик «без ответа» */
   onAnswered?: () => void;
@@ -56,6 +74,9 @@ export function QuestionsQueue({
   /* Поиск уходит на сервер — печать не должна слать запрос на каждую букву */
   const [q, setQ] = useState("");
   const [course, setCourse] = useState<"all" | number>("all");
+  /* Площадка — единственный фильтр очереди, который живёт в адресе: им
+     делятся ссылкой, и он переживает перезагрузку */
+  const [platform, setPlatform] = usePlatformFilter();
   const [page, setPage] = useState(1);
   /* Мобильный: поиск, курс и «только без ответа» за одной кнопкой-иконкой,
      окно выезжает снизу — как на курсах и заявках */
@@ -70,6 +91,9 @@ export function QuestionsQueue({
   }, [query]);
 
   const filterCourse = courseId ?? (course === "all" ? undefined : course);
+  /* В карточке курса фильтра площадки нет вовсе: очередь там про один курс,
+     а `?platform=` в адресе принадлежит карточке, а не встроенному блоку */
+  const filterPlatform = standalone ? platform : null;
 
   const list = useLoad(
     () =>
@@ -79,10 +103,11 @@ export function QuestionsQueue({
           per_page: PER_PAGE,
           answered: onlyOpen ? false : undefined,
           course_id: filterCourse,
+          platform: filterPlatform,
           q,
         })}`,
       ),
-    [page, onlyOpen, filterCourse, q],
+    [page, onlyOpen, filterCourse, filterPlatform, q],
   );
   /* Выбор курса нужен, только когда курс не задан снаружи */
   const catalog = useLoad(
@@ -94,11 +119,14 @@ export function QuestionsQueue({
   const total = list.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const courseOptions = (catalog.data?.items ?? []).flatMap((g) => g.versions);
-  const filtered = q !== "" || course !== "all";
+  const filtered = q !== "" || course !== "all" || filterPlatform !== null;
   /* Счётчик на кнопке-иконке: «только без ответа» — состояние по умолчанию,
      в счёт идёт снятая галка, а не выставленная */
   const mobileFilters =
-    (q !== "" ? 1 : 0) + (course !== "all" ? 1 : 0) + (onlyOpen ? 0 : 1);
+    (q !== "" ? 1 : 0) +
+    (course !== "all" ? 1 : 0) +
+    (filterPlatform !== null ? 1 : 0) +
+    (onlyOpen ? 0 : 1);
   /* Пусто из-за фильтров, пустая очередь и «вопросов нет вовсе» — три разных
      сообщения: первое чинится сбросом, второе — хорошая новость */
   const emptyTitle = filtered
@@ -151,10 +179,17 @@ export function QuestionsQueue({
     onAnswered?.();
   };
 
+  const changePlatform = (next: Platform | null) => {
+    setPlatform(next);
+    setPage(1);
+  };
+
   const resetFilters = () => {
     setQuery("");
     setCourse("all");
     setOnlyOpen(true);
+    /* Адрес чистим только там, где чипы площадки видны */
+    if (standalone) setPlatform(null);
     setPage(1);
   };
 
@@ -193,6 +228,7 @@ export function QuestionsQueue({
               ))}
             </select>
           )}
+          {standalone && <PlatformFilter value={platform} onChange={changePlatform} />}
           <Button
             variant={onlyOpen ? "primary" : "secondary"}
             onClick={() => {
@@ -350,6 +386,9 @@ export function QuestionsQueue({
               </select>
             </div>
           )}
+          {/* Без подписи «Площадка»: чипы сами начинаются со слова «Все
+              площадки», а при одной площадке фильтр не рисуется вовсе */}
+          {standalone && <PlatformFilter value={platform} onChange={changePlatform} />}
           <Button
             block
             variant={onlyOpen ? "primary" : "secondary"}
@@ -464,6 +503,7 @@ function QuestionCard({
             {dayTime(question.created_at, lang)}
           </span>
         </div>
+        <PlatformChip platform={question.platform} />
         <Badge kind={question.replies.length ? "accepted" : "review"}>
           {question.replies.length ? t.qaInThread(question.replies.length) : t.qaNoAnswer}
         </Badge>

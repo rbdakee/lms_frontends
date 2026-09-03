@@ -11,6 +11,11 @@
  *
  * Отметка «оплата получена» существует только здесь: платформа денег
  * не принимает, админ подтверждает оплату, полученную вне системы.
+ *
+ * **Единственное место, где площадку называет человек.** У заявки она своя,
+ * здесь заявки нет — и угадать её неоткуда. Поэтому ни одна не выбрана заранее:
+ * доступ, открытый не на той, это чужая учёба на сайте, которым человек
+ * не пользуется, со своим прогрессом и своим сертификатом.
  */
 
 import { useState } from "react";
@@ -19,18 +24,31 @@ import {
   isApiError,
   qs,
   useLoad,
+  type AdminCourse,
   type AdminCoursesPage,
   type Enrollment,
   type EnrollmentIn,
+  type Platform,
 } from "@lms/api";
 import { price as fmtPrice } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { Button, Note, Sheet } from "@lms/ui";
 import { IconCheck } from "@lms/ui/icons";
+import { usePlatformName, usePlatforms } from "@/components/admin/platforms";
 
 /** Статусы, при которых версия курса для площадки существует: у остальных выдача — 404. */
 const ENROLLABLE: string[] = ["planned", "open", "closed"];
+
+/**
+ * Цена — свойство пары «курс и площадка», а не курса: на второй площадке
+ * у того же курса она своя. Площадка не названа — цены нет: показать чужую
+ * хуже, чем не показать никакой.
+ */
+function priceOn(course: AdminCourse, platform: Platform | null): number | undefined {
+  if (!platform) return undefined;
+  return course.platforms.find((p) => p.platform === platform)?.price ?? undefined;
+}
 
 export function GrantAccessSheet({
   open,
@@ -46,9 +64,13 @@ export function GrantAccessSheet({
   /** Доступ выдан (или уже был выдан) — карточка учителя перечитывается */
   onGranted: () => void;
 }) {
-  const { lang } = useLang();
+  const { lang, t } = useLang();
   const toast = useToast();
+  const platformName = usePlatformName();
+  const platforms = usePlatforms();
   const [courseId, setCourseId] = useState<number | null>(null);
+  /* Молча подставленная площадка — это выбор, которого админ не делал */
+  const [platform, setPlatform] = useState<Platform | null>(null);
   const [paid, setPaid] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,13 +89,14 @@ export function GrantAccessSheet({
   const selected = items.find((c) => c.id === courseId) ?? items[0];
 
   const close = () => {
+    setPlatform(null);
     setPaid(false);
     setNote("");
     onClose();
   };
 
   const grant = async () => {
-    if (!selected || busy) return;
+    if (!selected || !platform || busy) return;
     setBusy(true);
     try {
       await api<Enrollment>("/admin/enrollments", {
@@ -81,11 +104,17 @@ export function GrantAccessSheet({
         json: {
           user_id: userId,
           course_id: selected.id,
+          platform,
           paid,
           note: note.trim() || null,
         } satisfies EnrollmentIn,
       });
-      toast(`Доступ к «${selected.title}» открыт — учителю ушло уведомление`, "success");
+      /* Площадка называется в подтверждении: перепутанную видно сразу,
+         а не через неделю, когда человек не найдёт курс на своём сайте */
+      toast(
+        `Доступ к «${selected.title}» открыт на площадке «${platformName(platform)}» — учителю ушло уведомление`,
+        "success",
+      );
       onGranted();
       close();
     } catch (e) {
@@ -109,7 +138,13 @@ export function GrantAccessSheet({
       title="Открыть доступ к курсу"
       footer={
         <div className="stack g8">
-          <Button block size="lg" loading={busy} disabled={!selected} onClick={grant}>
+          <Button
+            block
+            size="lg"
+            loading={busy}
+            disabled={!selected || !platform}
+            onClick={grant}
+          >
             Открыть доступ
           </Button>
           <Button variant="secondary" block onClick={close}>
@@ -153,19 +188,78 @@ export function GrantAccessSheet({
               {items.map((c) => (
                 <option key={c.id} value={c.id}>
                   {/* Язык версии — иначе два курса одной группы в списке
-                      различаются только заголовком, и доступ уходит не к тому */}
-                  {c.title} · {c.lang === "kz" ? "ҚАЗ" : "РУС"} ·{" "}
-                  {fmtPrice(c.price ?? undefined, lang)}
+                      различаются только заголовком, и доступ уходит не к тому.
+                      Цена появляется, только когда названа площадка: до этого
+                      её попросту нет */}
+                  {c.title} · {c.lang === "kz" ? "ҚАЗ" : "РУС"}
+                  {platform ? ` · ${fmtPrice(priceOn(c, platform), lang)}` : ""}
                 </option>
               ))}
             </select>
           )}
           {selected && (
             <span className="hint">
-              Цена курса — {fmtPrice(selected.price ?? undefined, lang)}. Оплата принимается
-              вне платформы.
+              {platform
+                ? `Цена курса на выбранной площадке — ${fmtPrice(priceOn(selected, platform), lang)}. `
+                : "Цена у каждой площадки своя — она появится, когда выберете площадку. "}
+              Оплата принимается вне платформы.
             </span>
           )}
+        </div>
+
+        <div className="field">
+          <label className="label">{t.pfPickTitle}</label>
+          {platforms.loading ? (
+            <div className="row center" style={{ minHeight: 44 }}>
+              <span className="spinner" style={{ width: 20, height: 20, color: "var(--primary)" }} />
+            </div>
+          ) : platforms.error || !platforms.data ? (
+            <Note kind="warning">
+              <div className="stack g8">
+                <span className="small">
+                  Не удалось загрузить список площадок — без него доступ открыть нельзя.
+                </span>
+                <Button variant="secondary" size="sm" onClick={platforms.reload}>
+                  Повторить
+                </Button>
+              </div>
+            </Note>
+          ) : (
+            <div className="stack g2">
+              {platforms.data.map((p) => {
+                /* Показываем обе площадки всегда (решение владельца 03.09.2026):
+                   доступ на невыложенной законен — курс работает, его просто нет
+                   в каталоге. Но молчать об этом нельзя: чаще это опечатка */
+                const published =
+                  !selected || selected.platforms.some((cp) => cp.platform === p.platform);
+                return (
+                  <label key={p.platform} className="check">
+                    <input
+                      type="radio"
+                      name="grant-platform"
+                      checked={platform === p.platform}
+                      onChange={() => setPlatform(p.platform as Platform)}
+                    />
+                    <span className="check-box round">
+                      <IconCheck size={13} />
+                    </span>
+                    <span className="check-label stack g2">
+                      <span>{p.platform_name || t.pfUnknown(p.platform)}</span>
+                      {!published && (
+                        <span className="caption muted-3">{t.pfNotPublished}</span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          {!platform && !platforms.loading && !platforms.error && (
+            <span className="hint" style={{ color: "var(--text)", fontWeight: 700 }}>
+              {t.pfPickRequired}
+            </span>
+          )}
+          <span className="hint">{t.pfPickHint}</span>
         </div>
 
         <label className="check">

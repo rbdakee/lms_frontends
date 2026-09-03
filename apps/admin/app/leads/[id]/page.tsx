@@ -5,6 +5,8 @@
  *
  * Всё, что нужно перед звонком: кто это, что за курс, заметка админа.
  * Главное действие — «Открыть доступ»: после него курс появляется у учителя.
+ * На какой площадке — сказано прямо, строкой, а не чипом в углу: курс бывает
+ * общим, а доступ уходит туда, откуда пришла заявка.
  *
  * Точечного `GET /admin/leads/{id}` в контракте пока нет — заявка ищется
  * по страницам списка (`findLead`), пожелание записано владельцу. История
@@ -21,6 +23,7 @@ import { dayTime, phoneFmt, price as fmtPrice } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { findLead, isOpenLead, LEAD_STATUS_LABEL } from "@/components/admin/leadsApi";
+import { usePlatformName } from "@/components/admin/platforms";
 import { LeadStatusPicker, PhoneActions } from "@/components/admin/LeadStatus";
 import { Waiting } from "@/components/admin/Waiting";
 import { GrantLeadSheet } from "@/components/admin/GrantLead";
@@ -38,10 +41,13 @@ import { IconCheck } from "@lms/ui/icons";
 
 export default function LeadCardPage() {
   const { id } = useParams<{ id: string }>();
-  const { lang } = useLang();
+  const { lang, t } = useLang();
   const toast = useToast();
 
   const lead = useLoad(() => findLead(Number(id)), [id]);
+  /* Хук зовётся до ранних выходов: ниже по файлу есть загрузка, ошибка
+     и «заявка не найдена», и порядок хуков должен быть один на все ветки */
+  const platformName = usePlatformName();
 
   const [granting, setGranting] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -215,6 +221,14 @@ export default function LeadCardPage() {
                   </div>
                 )}
               </div>
+
+              {/* Площадка названа словами и стоит перед кнопкой выдачи:
+                  доступ уходит на ту площадку, с которой пришла заявка,
+                  и ошибка здесь стоит человеку чужой учёбы (требование
+                  владельца 03.09.2026) */}
+              <Note kind="info">
+                <span className="small">{t.pfLeadFrom(platformName(l.platform))}</span>
+              </Note>
 
               {l.reminded_at && (
                 <Note kind="warning">

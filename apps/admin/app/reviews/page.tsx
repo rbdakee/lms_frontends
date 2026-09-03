@@ -13,10 +13,21 @@
 
 import { useCallback, useState } from "react";
 import { plural } from "@lms/ui/i18n";
+import { PlatformFilterBoundary } from "@/components/admin/platforms";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { ReviewsFeed } from "@/components/admin/ReviewsFeed";
 
 export default function AdminReviewsPage() {
+  /* Лента читает фильтр площадки из адреса, а useSearchParams требует
+     границы Suspense: без неё статический маршрут не собирается */
+  return (
+    <PlatformFilterBoundary>
+      <Reviews />
+    </PlatformFilterBoundary>
+  );
+}
+
+function Reviews() {
   /* Число в шапке — `total` ленты, а не длина страницы: оно меняется вместе
      с фильтрами и приходит уже посчитанным с сервера. Под фильтром это
      число отфильтрованных, и подпись обязана это говорить */

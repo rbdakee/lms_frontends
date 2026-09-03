@@ -20,11 +20,19 @@ import {
   groupLangs,
   groupVersions,
 } from "@lms/prototype/data";
-import { api, qs, useLoad, type AdminQuestionsPage } from "@lms/api";
+import {
+  api,
+  qs,
+  useLoad,
+  type AdminCourseCard,
+  type AdminQuestionsPage,
+  type CoursePlatform,
+} from "@lms/api";
 import { day, plural, price as fmtPrice } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useModeration } from "@lms/prototype";
 import { COURSE_STATUS_LABEL } from "@/components/admin/courseStatus";
+import { usePlatformName } from "@/components/admin/platforms";
 import { preview } from "@/lib/urls";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { CourseParticipants } from "@/components/admin/CourseParticipants";
@@ -57,6 +65,17 @@ export default function CoursePage() {
       api<AdminQuestionsPage>(
         `/admin/questions${qs({ answered: false, course_id: apiCourseId, per_page: 1 })}`,
       ),
+    [apiCourseId],
+  );
+
+  /* Цены у курса больше нет: она своя у каждой площадки, и лежит это только
+     в API. Демо-данные прототипа про площадки не знают вовсе, поэтому
+     спрашиваем сервер — и только по числовому id, как и вопросы */
+  const card = useLoad(
+    () =>
+      apiCourseId === undefined
+        ? Promise.resolve(null)
+        : api<AdminCourseCard>(`/admin/courses/${apiCourseId}`),
     [apiCourseId],
   );
 
@@ -94,7 +113,7 @@ export default function CoursePage() {
   return (
     <AdminShell
       title={course.title}
-      subtitle={`Карточка курса · ${fmtPrice(course.price, lang)}${
+      subtitle={`Карточка курса${
         course.startsAt ? ` · старт ${day(course.startsAt, lang)}` : ""
       }`}
       actions={
@@ -123,7 +142,9 @@ export default function CoursePage() {
           ))}
         </div>
 
-        {tab === "overview" && <Overview course={course} summary={summary} />}
+        {tab === "overview" && (
+          <Overview course={course} summary={summary} platforms={card.data?.platforms ?? null} />
+        )}
         {tab === "participants" && <CourseParticipants course={course} />}
         {tab === "reviews" && <Reviews items={reviews} />}
         {tab === "questions" && (
@@ -139,11 +160,16 @@ export default function CoursePage() {
 function Overview({
   course,
   summary,
+  platforms,
 }: {
   course: NonNullable<ReturnType<typeof getCourse>>;
   summary: ReturnType<typeof courseReviewSummary>;
+  /* `null` — площадки ещё не приехали или курс открыт демо-слагом,
+     которого сервер не знает */
+  platforms: CoursePlatform[] | null;
 }) {
-  const { lang } = useLang();
+  const { lang, t } = useLang();
+  const platformName = usePlatformName();
   const stats = adminCourses.find((c) => c.id === course.id);
   const donePct = stats && stats.enrolled ? Math.round((stats.finished / stats.enrolled) * 100) : 0;
   const other = groupVersions(course).find((c) => c.id !== course.id);
@@ -161,7 +187,18 @@ function Overview({
                 .map((l) => (l === "ru" ? "РУС" : "ҚАЗ"))
                 .join(" · ")}
             />
-            <Info label="Цена" value={fmtPrice(course.price, lang)} />
+            <Info
+              label={t.pfLabel}
+              value={
+                platforms === null
+                  ? "—"
+                  : platforms.length === 0
+                    ? t.pfPublishNone
+                    : platforms
+                        .map((p) => `${platformName(p.platform)} — ${fmtPrice(p.price ?? undefined, lang)}`)
+                        .join(" · ")
+              }
+            />
             <Info label="Статус набора" value={COURSE_STATUS_LABEL[course.status]} />
             <Info
               label="Дата старта"

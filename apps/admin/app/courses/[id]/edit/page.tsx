@@ -36,8 +36,10 @@ import {
   type AdminQuiz,
   type AdminTask,
   type CourseLang,
+  type CoursePlatformIn,
   type CourseStatus,
   type LessonKind,
+  type Platform,
   type ProgramOrderIn,
   type UploadedFile,
 } from "@lms/api";
@@ -50,6 +52,7 @@ import {
   COURSE_STATUS_ORDER,
 } from "@/components/admin/courseStatus";
 import { CROPPABLE, CropImageSheet } from "@/components/admin/CropImage";
+import { PlatformChip, usePlatformName } from "@/components/admin/platforms";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { preview } from "@/lib/urls";
 import { AdminShell } from "@/components/layout/AdminShell";
@@ -98,6 +101,9 @@ const FIELD_TAB: Record<string, Tab> = {
   category_id: "main",
   hours: "main",
   duration_text: "main",
+  platforms: "main",
+  /* Отрицательную цену сервер отвергает именем вложенного поля — `price`,
+     а не `platforms`: поле цены живёт в том же блоке, и уводить надо туда же */
   price: "main",
   status: "main",
   starts_at: "main",
@@ -201,6 +207,29 @@ const digits = (v: string) => v.replace(/\D/g, "");
 
 /* ============ Форма вкладок «Основное» и «Условия сертификата» ============ */
 
+/**
+ * Порядок площадок — тот же, каким их отдаёт сервер (`p1`, `p2`).
+ * Он фиксирован нарочно: из него собирается канонический текст сравнения
+ * в `fieldValue`, и список, собранный в другом порядке, читался бы как правка.
+ *
+ * Список кодов берётся из контракта, а не из справочника имён: справочник
+ * отвечает за имена, а какие площадки вообще бывают — решает тип `Platform`.
+ * Не приехали имена — галочки всё равно есть, и курс можно выложить.
+ */
+const PLATFORM_ORDER: Platform[] = ["p1", "p2"];
+
+/**
+ * Публикация на одной площадке: галочка и цена именно там
+ * (`PLATFORMS_BRIEF`, решения 1 и 3).
+ *
+ * Цена строкой, а не числом: поле ввода живёт буквами, и «пусто» —
+ * это «Цена по запросу», а не ноль.
+ */
+interface PlatformRow {
+  on: boolean;
+  price: string;
+}
+
 interface Form {
   title: string;
   short: string;
@@ -208,7 +237,7 @@ interface Form {
   category_id: number;
   hours: string;
   duration_text: string;
-  price: string;
+  platforms: Record<Platform, PlatformRow>;
   status: CourseStatus;
   starts_at: string;
   strict_order: boolean;
@@ -225,6 +254,30 @@ type CertKey =
   | "cert_require_module_quizzes"
   | "cert_require_final_quiz";
 
+/**
+ * Галочки публикации из ответа сервера: он отдаёт только выложенные площадки,
+ * остальные — это снятая галочка и пустое поле цены.
+ */
+function platformsForm(c: AdminCourseCard): Record<Platform, PlatformRow> {
+  const row = (code: Platform): PlatformRow => {
+    const on = c.platforms.find((p) => p.platform === code);
+    return { on: !!on, price: on && on.price !== null ? String(on.price) : "" };
+  };
+  return { p1: row("p1"), p2: row("p2") };
+}
+
+/**
+ * Что уходит в `platforms` PATCH: список **всегда полный** — чего в нём нет,
+ * то снято. Цена внутри элемента обязательна и может быть `null`: иначе
+ * забытое поле стирало бы цену молча (`CONTRACT.md`).
+ */
+function platformsWire(f: Form): CoursePlatformIn[] {
+  return PLATFORM_ORDER.filter((code) => f.platforms[code].on).map((code) => {
+    const price = f.platforms[code].price.trim();
+    return { platform: code, price: price === "" ? null : Number(price) };
+  });
+}
+
 function formOf(c: AdminCourseCard): Form {
   return {
     title: c.title,
@@ -233,7 +286,7 @@ function formOf(c: AdminCourseCard): Form {
     category_id: c.category_id,
     hours: String(c.hours),
     duration_text: c.duration_text ?? "",
-    price: c.price === null ? "" : String(c.price),
+    platforms: platformsForm(c),
     status: c.status as CourseStatus,
     starts_at: c.starts_at ?? "",
     strict_order: c.strict_order,
@@ -262,13 +315,29 @@ function fieldValue(f: Form, key: keyof Form): PatchValue {
       return f.duration_text.trim() || null;
     case "hours":
       return Number(f.hours);
-    case "price":
-      return f.price.trim() === "" ? null : Number(f.price);
+    /* Массив сравнивать нечем: `dirty` и автосохранение сличают скаляры,
+       и таблица сравнений должна остаться одной функцией. Поэтому наружу
+       уходит канонический текст — площадки в порядке `PLATFORM_ORDER`,
+       только отмеченные. Без него уход из поля цены давал бы PATCH каждый
+       раз, а «не сохранено» горело бы вечно */
+    case "platforms":
+      return JSON.stringify(platformsWire(f));
     case "starts_at":
       return f.starts_at || null;
     default:
       return f[key];
   }
+}
+
+/** Значение поля в теле PATCH — у `platforms` это список, а не его текст. */
+type WireValue = PatchValue | CoursePlatformIn[];
+
+/**
+ * То, что уходит на сервер. У всех полей, кроме `platforms`, совпадает
+ * с `fieldValue`: сравнивать список по буквам можно, а слать — нет.
+ */
+function wireValue(f: Form, key: keyof Form): WireValue {
+  return key === "platforms" ? platformsWire(f) : fieldValue(f, key);
 }
 
 /**
@@ -309,9 +378,12 @@ export default function CourseEditorPage() {
 function CourseEditor() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const { lang: uiLang } = useLang();
+  const { lang: uiLang, t } = useLang();
   const toast = useToast();
   const dicts = useDictionaries();
+  /* Имя площадки, а не код: `p1` человеку ни о чём не говорит, а справочник
+     имён — единственное, что осталось от бренда в админке */
+  const platformName = usePlatformName();
 
   /* Карточка курса «/courses/{слаг}» осталась на прототипе и уводит в редактор
      слагом — «/courses/digital-literacy/edit». Сервер знает только числовые id:
@@ -622,7 +694,9 @@ function CourseEditor() {
     try {
       const updated = await api<AdminCourseCard>(`/admin/courses/${id}`, {
         method: "PATCH",
-        json: { [key]: now },
+        /* Сличаем канонический текст, а шлём настоящее значение: у `platforms`
+           это разные вещи */
+        json: { [key]: wireValue(next, key) },
       });
       if (writeSeq.current !== my) return;
       /* Ответ идёт в `data`: из него живут чек-лист «Публикации» и превью
@@ -723,6 +797,20 @@ function CourseEditor() {
     set(key, value);
     saveField(key, value);
   };
+
+  /* Галочка публикации уходит сразу, как остальные флажки: это готовое
+     решение, а не набираемое значение. Цена — по уходу из поля, как все
+     числа: иначе PATCH летел бы на каждую цифру */
+  const togglePlatform = (code: Platform, on: boolean) =>
+    setNow("platforms", { ...form.platforms, [code]: { ...form.platforms[code], on } });
+
+  const setPlatformPrice = (code: Platform, price: string) =>
+    set("platforms", { ...form.platforms, [code]: { ...form.platforms[code], price } });
+
+  /* Курс без единой галочки в каталог не попадает нигде — ни статусом «Набор
+     открыт», ни чем-либо ещё. Новый курс, языковая версия и дубликат заводятся
+     именно такими, и сказать об этом должен экран */
+  const anyPlatform = PLATFORM_ORDER.some((code) => form.platforms[code].on);
 
   /* «Сохранено» значит «в полях нет ничего сверх того, что лежит на сервере»,
      и считается это по `dirty`, а не по последнему ответу: причина отказа,
@@ -944,26 +1032,65 @@ function CourseEditor() {
                 </div>
               </div>
 
-              {/* Набор: цена, статус, дата старта */}
+              {/* Набор: публикация по площадкам, статус, дата старта */}
               <div className="card card-pad stack g14">
                 <h2 className="h3">Набор на курс</h2>
-                <div className="edit-row">
-                  <div className="field">
-                    <label className="label">Цена, ₸</label>
-                    <input
-                      className={`input${errors.price ? " input-error" : ""}`}
-                      inputMode="numeric"
-                      value={form.price}
-                      onChange={(e) => set("price", digits(e.target.value))}
-                      onBlur={() => saveField("price", form.price)}
-                      placeholder="45000"
-                    />
-                    <span className="hint">
-                      Пусто — в каталоге «Цена по запросу». Деньги принимает администратор
-                      вне платформы, платёжных форм в продукте нет.
-                    </span>
-                    {errors.price && <span className="error-text">{errors.price}</span>}
+
+                {/* Галочки публикации и цены. Одной цены у курса больше нет:
+                    площадок две, и цена у каждой своя (PLATFORMS_BRIEF,
+                    решения 1 и 3). Блок стоит здесь, а не на «Публикации»,
+                    потому что FIELD_TAB уводит на вкладку отвергнутого поля,
+                    и цена обязана быть именно на ней */}
+                <div className="stack g8">
+                  <div className="stack g2">
+                    <span className="label">{t.pfPublishTitle}</span>
+                    <span className="hint">{t.pfPublishHint}</span>
                   </div>
+                  {PLATFORM_ORDER.map((code) => {
+                    const row = form.platforms[code];
+                    return (
+                      <div key={code} className="pf-row">
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={row.on}
+                            onChange={(e) => togglePlatform(code, e.target.checked)}
+                          />
+                          <span className="check-box">
+                            <IconCheck size={14} />
+                          </span>
+                          <span className="check-label">{platformName(code)}</span>
+                        </label>
+                        <div className="field">
+                          <label className="label">{t.pfPriceLabel}</label>
+                          <input
+                            className="input"
+                            inputMode="numeric"
+                            /* Цена без галочки ничего не значит: сервер её
+                               и не примет — площадки нет в списке */
+                            disabled={!row.on}
+                            value={row.price}
+                            onChange={(e) => setPlatformPrice(code, digits(e.target.value))}
+                            onBlur={() => saveField("platforms", form.platforms)}
+                            placeholder="45000"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <span className="hint">{t.pfPriceHint}</span>
+                  <span className="caption muted-3 pretty">{t.pfPublishUncheck}</span>
+                  {!anyPlatform && (
+                    <Note kind="warning">
+                      <span className="caption pretty">{t.pfPublishNone}</span>
+                    </Note>
+                  )}
+                  {(errors.platforms || errors.price) && (
+                    <span className="error-text">{errors.platforms || errors.price}</span>
+                  )}
+                </div>
+
+                <div className="edit-row">
                   <div className="field">
                     <label className="label">Статус набора</label>
                     {/* Единственное поле со своей кнопкой: смена статуса —
@@ -1283,6 +1410,30 @@ function CourseEditor() {
                   </span>
                 </Note>
               )}
+
+              {/* Чек-лист считает сервер, и про площадки он не спрашивает:
+                  публикация галочкой и статус набора — разные вещи. Курс
+                  со статусом «Набор открыт», не выложенный никуда, в каталоге
+                  не появится ни на одном сайте — сказать это может только эта
+                  строка. Берём сохранённое, а не поля: рядом стоит чек-лист,
+                  посчитанный по той же сохранённой версии */}
+              {data.platforms.length > 0 ? (
+                <div className="row wrap g10">
+                  <span className="caption muted">{t.pfPublishTitle}</span>
+                  {data.platforms.map((p) => (
+                    <span key={p.platform} className="row g6">
+                      <PlatformChip platform={p.platform} />
+                      <span className="caption muted">
+                        {fmtPrice(p.price ?? undefined, uiLang)}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <Note kind="warning">
+                  <span className="caption pretty">{t.pfPublishNone}</span>
+                </Note>
+              )}
               <div className="stack g12">
                 {data.readiness.items.map((r) => {
                   /* Пока в программе нет ни одного видимого элемента, проверки
@@ -1426,15 +1577,27 @@ function CourseEditor() {
                       <span className="caption muted">старт {day(form.starts_at, uiLang)}</span>
                     )}
                   </div>
-                  <div className="row between wrap g8">
-                    <span className="small muted">
-                      {lessonsCount} {plural(lessonsCount, "урок", "урока", "уроков")} ·{" "}
-                      {form.hours || "—"} часов
-                    </span>
-                    <strong className="small">
-                      {fmtPrice(form.price === "" ? undefined : Number(form.price), uiLang)}
-                    </strong>
-                  </div>
+                  <span className="small muted">
+                    {lessonsCount} {plural(lessonsCount, "урок", "урока", "уроков")} ·{" "}
+                    {form.hours || "—"} часов
+                  </span>
+                  {/* Каталог у каждой площадки свой, и цена в нём своя: одной
+                      цены у карточки больше нет. Курс без галочек не попадает
+                      ни в один каталог — «Цена по запросу» здесь была бы
+                      выдумкой, поэтому цены не показываем вовсе */}
+                  {PLATFORM_ORDER.filter((code) => form.platforms[code].on).map((code) => (
+                    <div key={code} className="row between g8">
+                      <span className="caption muted">{platformName(code)}</span>
+                      <strong className="small">
+                        {fmtPrice(
+                          form.platforms[code].price === ""
+                            ? undefined
+                            : Number(form.platforms[code].price),
+                          uiLang,
+                        )}
+                      </strong>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1505,6 +1668,8 @@ function CourseEditor() {
       <style>{`
         .edit-two { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
         .edit-row { display: grid; grid-template-columns: 1fr; gap: 14px; }
+        /* Строка публикации: галочка площадки и цена именно на ней */
+        .pf-row { display: grid; grid-template-columns: 1fr; gap: 6px; }
         .program-row { row-gap: 8px; }
         .kind-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
         .kind-card {
@@ -1529,6 +1694,11 @@ function CourseEditor() {
         .drop-row[data-drop="before"] { box-shadow: inset 0 2px 0 0 var(--primary); }
         .drop-row[data-drop="after"] { box-shadow: inset 0 -2px 0 0 var(--primary); }
         @media (min-width: 640px) { .edit-row { grid-template-columns: 1fr 1fr; } }
+        /* Поле цены рядом с галочкой, а не под ней: связь «эта цена — на этой
+           площадке» иначе теряется, а ошибка в ней уходит в чужой каталог */
+        @media (min-width: 640px) {
+          .pf-row { grid-template-columns: minmax(0, 1fr) 170px; align-items: end; gap: 12px; }
+        }
         @media (min-width: 1100px) { .edit-two { grid-template-columns: 1.4fr 1fr; gap: 24px; } }
       `}</style>
     </AdminShell>

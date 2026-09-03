@@ -30,6 +30,7 @@ import {
   teacherName,
   TeacherAvatar,
 } from "@/components/admin/submissionsApi";
+import { PlatformChip } from "@/components/admin/platforms";
 import { Waiting } from "@/components/admin/Waiting";
 import { AdminShell } from "@/components/layout/AdminShell";
 import {
@@ -171,6 +172,9 @@ export default function SubmissionReviewPage() {
             </span>
           </div>
           <div className="row wrap g8">
+            {/* Метка приходит и в ответе на вердикт, поэтому после сохранения
+                остаётся на экране, а не исчезает до перезагрузки */}
+            <PlatformChip platform={s.platform} />
             {s.attempt_number > 1 && (
               <Badge kind="rework">{t.subAttempt(s.attempt_number)}</Badge>
             )}

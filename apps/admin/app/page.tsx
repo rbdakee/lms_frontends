@@ -11,12 +11,24 @@
  * Всё это приходит одним `GET /admin/overview`: счётчики, по пять свежих
  * элементов в каждом списке и справочные числа. Тем же ответом живут бейджи
  * меню — иначе числа в меню и на плитках разъезжаются.
+ *
+ * Площадок две, экран показывает обе. Фильтр площадки здесь один на весь
+ * экран (`PLATFORMS_BRIEF`, решение 9: общие числа плюс фильтр, а не две
+ * колонки всюду) и живёт в адресе — им делятся ссылкой. Исключение одно:
+ * «Учителей» сервер считает по обеим площадкам всегда, потому что аккаунт
+ * один на обе (решение 11), и под фильтром это сказано прямо.
  */
 
 import Link from "next/link";
-import { api, useLoad, type AdminOverview } from "@lms/api";
+import { api, qs, useLoad, type AdminOverview } from "@lms/api";
 import { dayTime, fmt, price as fmtPrice } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
+import {
+  PlatformChip,
+  PlatformFilter,
+  PlatformFilterBoundary,
+  usePlatformFilter,
+} from "@/components/admin/platforms";
 import { Waiting } from "@/components/admin/Waiting";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Avatar, Button, Empty } from "@lms/ui";
@@ -43,14 +55,38 @@ const teacherInitials = (t: Teacher) =>
   ((t.first_name[0] ?? "") + (t.last_name[0] ?? "")).toUpperCase() || "??";
 
 export default function AdminDashboard() {
-  const { t, lang } = useLang();
-  const overview = useLoad(() => api<AdminOverview>("/admin/overview"), []);
+  /* Фильтр площадки читается из адреса, а useSearchParams требует границы
+     Suspense: без неё статический маршрут не собирается */
+  return (
+    <PlatformFilterBoundary>
+      <Dashboard />
+    </PlatformFilterBoundary>
+  );
+}
 
-  if (overview.loading) {
+function Dashboard() {
+  const { t, lang } = useLang();
+  const [platform, setPlatform] = usePlatformFilter();
+  const overview = useLoad(
+    () => api<AdminOverview>(`/admin/overview${qs({ platform })}`),
+    [platform],
+  );
+
+  /* Чипы стоят и в загрузке, и в ошибке: иначе выбранную площадку нельзя
+     было бы сменить, не правя адрес руками */
+  const filter = <PlatformFilter value={platform} onChange={setPlatform} />;
+
+  /* Гасим экран только на первой загрузке: переключение чипа перезапрашивает
+     сводку целиком, и спиннер вместо всех чисел на каждый клик читался бы
+     как «всё пропало» */
+  if (overview.loading && !overview.data) {
     return (
       <AdminShell title={t.dashTitle} subtitle={t.dashSubtitle}>
-        <div className="card card-pad row center" style={{ minHeight: 240 }}>
-          <span className="spinner" style={{ width: 26, height: 26, color: "var(--primary)" }} />
+        <div className="stack g24">
+          {filter}
+          <div className="card card-pad row center" style={{ minHeight: 240 }}>
+            <span className="spinner" style={{ width: 26, height: 26, color: "var(--primary)" }} />
+          </div>
         </div>
       </AdminShell>
     );
@@ -59,16 +95,19 @@ export default function AdminDashboard() {
   if (overview.error || !overview.data) {
     return (
       <AdminShell title={t.dashTitle} subtitle={t.dashSubtitle}>
-        <div className="card">
-          <Empty
-            title={t.loadError}
-            text={t.loadErrorText}
-            action={
-              <Button variant="secondary" onClick={overview.reload}>
-                {t.retry}
-              </Button>
-            }
-          />
+        <div className="stack g24">
+          {filter}
+          <div className="card">
+            <Empty
+              title={t.loadError}
+              text={t.loadErrorText}
+              action={
+                <Button variant="secondary" onClick={overview.reload}>
+                  {t.retry}
+                </Button>
+              }
+            />
+          </div>
         </div>
       </AdminShell>
     );
@@ -79,6 +118,8 @@ export default function AdminDashboard() {
   return (
     <AdminShell title={t.dashTitle} subtitle={t.dashSubtitle}>
       <div className="stack g24">
+        {filter}
+
         {/* ===== Три плитки: кликабельные, с красным счётчиком ===== */}
         <div className="dash-tiles">
           <Tile
@@ -118,8 +159,11 @@ export default function AdminDashboard() {
                       <span className="small clamp-2" style={{ fontWeight: 600 }}>
                         {teacherName(l.teacher)}
                       </span>
-                      <span className="caption muted-3 clamp-2">
-                        {l.course.title} · {fmtPrice(l.price_snapshot ?? undefined, lang)}
+                      <span className="row wrap g6">
+                        <span className="caption muted-3 clamp-2">
+                          {l.course.title} · {fmtPrice(l.price_snapshot ?? undefined, lang)}
+                        </span>
+                        <PlatformChip platform={l.platform} />
                       </span>
                     </div>
                     <Waiting days={l.waiting_days} redAfter={LEAD_RED_AFTER} short />
@@ -145,8 +189,11 @@ export default function AdminDashboard() {
                       <span className="small clamp-2" style={{ fontWeight: 600 }}>
                         {s.task.title}
                       </span>
-                      <span className="caption muted-3 clamp-2">
-                        {teacherName(s.teacher)} · {s.course.title}
+                      <span className="row wrap g6">
+                        <span className="caption muted-3 clamp-2">
+                          {teacherName(s.teacher)} · {s.course.title}
+                        </span>
+                        <PlatformChip platform={s.platform} />
                       </span>
                     </div>
                     <Waiting days={s.waiting_days} redAfter={SUBMISSION_RED_AFTER} short />
@@ -166,9 +213,12 @@ export default function AdminDashboard() {
                     <span className="small pretty" style={{ fontWeight: 600 }}>
                       {q.text}
                     </span>
-                    <span className="caption muted-3 clamp-2">
-                      {teacherName(q.teacher)} · {t.qaLesson(q.lesson.number, q.lesson.title)} ·{" "}
-                      {dayTime(q.created_at, lang)}
+                    <span className="row wrap g6">
+                      <span className="caption muted-3 clamp-2">
+                        {teacherName(q.teacher)} · {t.qaLesson(q.lesson.number, q.lesson.title)} ·{" "}
+                        {dayTime(q.created_at, lang)}
+                      </span>
+                      <PlatformChip platform={q.platform} />
                     </span>
                   </Link>
                 ))}
@@ -180,7 +230,17 @@ export default function AdminDashboard() {
         {/* ===== Три справочных числа — виджеты, как плитки сверху, но
             в спокойном синем: это справка, а не «требует действия» ===== */}
         <div className="dash-tiles">
-          <Stat icon={<IconUsers size={20} />} value={fmt(d.totals.teachers)} label={t.dashTeachers} />
+          {/* Аккаунт один на обе площадки (решение 11), поэтому учителей
+              сервер считает по обеим всегда — под фильтром это надо сказать
+              вслух, иначе число выглядит враньём рядом с отфильтрованными */}
+          <Stat
+            icon={<IconUsers size={20} />}
+            value={fmt(d.totals.teachers)}
+            /* Единственное число сводки, которое фильтр не слушает: аккаунт
+               один на обе площадки, и «учитель площадки» — понятие, которого
+               в договорённости нет. Под фильтром это надо сказать вслух */
+            label={platform ? `${t.dashTeachers} · ${t.pfBothAlways}` : t.dashTeachers}
+          />
           <Stat
             icon={<IconLayers size={20} />}
             value={String(d.totals.courses_published)}

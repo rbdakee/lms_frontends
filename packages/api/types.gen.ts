@@ -1591,18 +1591,6 @@ export interface components {
             /** Courses Count */
             courses_count: number;
         };
-        /** AdminCertificateImagesIn */
-        AdminCertificateImagesIn: {
-            logo?: components["schemas"]["SettingsImageIn"] | null;
-            sign?: components["schemas"]["SettingsImageIn"] | null;
-            stamp?: components["schemas"]["SettingsImageIn"] | null;
-        };
-        /** AdminCertificateImagesOut */
-        AdminCertificateImagesOut: {
-            logo: components["schemas"]["SettingsImageOut"] | null;
-            sign: components["schemas"]["SettingsImageOut"] | null;
-            stamp: components["schemas"]["SettingsImageOut"] | null;
-        };
         /**
          * AdminCourseCardOut
          * @description Редактор курса целиком: четыре вкладки экрана живут этим ответом.
@@ -1628,8 +1616,8 @@ export interface components {
             hours: number;
             /** Duration Text */
             duration_text: string | null;
-            /** Price */
-            price: number | null;
+            /** Platforms */
+            platforms: components["schemas"]["AdminCoursePlatformOut"][];
             /** Status */
             status: string;
             /** Starts At */
@@ -1697,8 +1685,8 @@ export interface components {
             category_id: number;
             /** Hours */
             hours: number;
-            /** Price */
-            price: number | null;
+            /** Platforms */
+            platforms: components["schemas"]["AdminCoursePlatformOut"][];
             /** Status */
             status: string;
             /** Starts At */
@@ -1736,8 +1724,8 @@ export interface components {
             hours?: number | null;
             /** Duration Text */
             duration_text?: string | null;
-            /** Price */
-            price?: number | null;
+            /** Platforms */
+            platforms?: components["schemas"]["AdminCoursePlatformIn"][] | null;
             /** Status */
             status?: ("draft" | "planned" | "open" | "closed" | "hidden") | null;
             /** Starts At */
@@ -1752,6 +1740,36 @@ export interface components {
             cert_require_module_quizzes?: boolean | null;
             /** Cert Require Final Quiz */
             cert_require_final_quiz?: boolean | null;
+        };
+        /**
+         * AdminCoursePlatformIn
+         * @description Галочка публикации с ценой. `price` обязателен и может быть null:
+         *     список заменяет набор целиком, и забытое поле стирало бы цену молча.
+         */
+        AdminCoursePlatformIn: {
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
+            /** Price */
+            price: number | null;
+        };
+        /**
+         * AdminCoursePlatformOut
+         * @description Площадка, на которой курс выложен, и цена именно там.
+         *
+         *     Это и есть галочка публикации: элемента нет — курса нет в каталоге этой
+         *     площадки. `price: null` — «Цена по запросу».
+         */
+        AdminCoursePlatformOut: {
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
+            /** Price */
+            price: number | null;
         };
         /**
          * AdminCourseVersionOut
@@ -1792,6 +1810,8 @@ export interface components {
         AdminLeadOut: {
             /** Id */
             id: number;
+            /** Platform */
+            platform: string;
             /** Status */
             status: string;
             /** Price Snapshot */
@@ -2016,6 +2036,8 @@ export interface components {
         AdminQuestionOut: {
             /** Id */
             id: number;
+            /** Platform */
+            platform: string;
             /** Text */
             text: string;
             /**
@@ -2195,6 +2217,8 @@ export interface components {
         AdminReviewOut: {
             /** Id */
             id: number;
+            /** Platform */
+            platform: string;
             /** Rating */
             rating: number;
             /** Text */
@@ -2242,28 +2266,35 @@ export interface components {
         };
         /**
          * AdminSettingsOut
-         * @description Настройки площадки одним ответом — все четыре вкладки экрана.
+         * @description Настройки одним ответом: справочник площадок и привязка бота.
+         *
+         *     Бренда и контактов здесь больше нет — они переехали в код, а вкладка
+         *     «Бренд и контакты» из админки убрана (PLATFORMS_BRIEF, решение 4).
          */
         AdminSettingsOut: {
-            /** Platform Name */
-            platform_name: string;
-            /** Org Name */
-            org_name: string;
-            logo: components["schemas"]["SettingsImageOut"] | null;
-            contacts: components["schemas"]["SettingsContactsOut"];
-            certificate_images: components["schemas"]["AdminCertificateImagesOut"];
+            /** Platforms */
+            platforms: components["schemas"]["AdminSettingsPlatformOut"][];
             telegram: components["schemas"]["AdminSettingsTelegramOut"];
         };
         /** AdminSettingsPatchIn */
         AdminSettingsPatchIn: {
-            /** Platform Name */
-            platform_name?: string | null;
-            /** Org Name */
-            org_name?: string | null;
-            contacts?: components["schemas"]["SettingsContactsIn"] | null;
-            logo?: components["schemas"]["SettingsImageIn"] | null;
-            certificate_images?: components["schemas"]["AdminCertificateImagesIn"] | null;
             telegram?: components["schemas"]["AdminSettingsTelegramIn"] | null;
+        };
+        /**
+         * AdminSettingsPlatformOut
+         * @description Строка справочника площадок: код и человеческие имена бренда.
+         *
+         *     Бренд правке не подлежит — он лежит константами в коде, — но имена
+         *     админке нужны: ими подписаны галочки публикации в редакторе курса
+         *     и чипы фильтра площадки в списках. Взять их больше неоткуда.
+         */
+        AdminSettingsPlatformOut: {
+            /** Platform */
+            platform: string;
+            /** Platform Name */
+            platform_name: string;
+            /** Org Name */
+            org_name: string;
         };
         /** AdminSettingsTelegramIn */
         AdminSettingsTelegramIn: {
@@ -2293,6 +2324,8 @@ export interface components {
         AdminSubmissionCardOut: {
             /** Id */
             id: number;
+            /** Platform */
+            platform: string;
             /**
              * Status
              * @enum {string}
@@ -2325,6 +2358,8 @@ export interface components {
         AdminSubmissionOut: {
             /** Id */
             id: number;
+            /** Platform */
+            platform: string;
             /**
              * Status
              * @enum {string}
@@ -2537,6 +2572,11 @@ export interface components {
             number: string;
             /** Course Id */
             course_id: number;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
             /** Course Title */
             course_title: string;
             /** Hours */
@@ -2567,6 +2607,11 @@ export interface components {
             /** Enrollment Id */
             enrollment_id: number;
             course: components["schemas"]["AdminTeacherCourseOut"];
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
             /**
              * Granted At
              * Format: date-time
@@ -2635,10 +2680,15 @@ export interface components {
         };
         /**
          * AdminTeacherQuizOut
-         * @description Строка вкладки «Тесты»: тест и все попытки человека по нему.
+         * @description Строка вкладки «Тесты»: тест **на одной площадке** и попытки человека
+         *     по нему на ней.
          *
-         *     `retake_blocker` объясняет отказ заранее, чтобы экран не показывал живую
-         *     кнопку, которая ответит 409; коды те же, что у ошибок пересдачи.
+         *     Строк у одного теста может быть две: доступ и попытка раздельные, и общий
+         *     курс, купленный дважды, проходится на каждой площадке заново.
+         *
+         *     `can_allow_retake` и `retake_blocker` считаются по попыткам этой строки —
+         *     той же площадки, которую экран пошлёт телом пересдачи. Иначе кнопка горела
+         *     бы там, где сервер ответит 409, и не горела там, где пересдача возможна.
          */
         AdminTeacherQuizOut: {
             /** Quiz Id */
@@ -2649,6 +2699,11 @@ export interface components {
             course_id: number;
             /** Course Title */
             course_title: string;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
             /** Retakable */
             retakable: boolean;
             /** Pass Score */
@@ -2670,6 +2725,11 @@ export interface components {
             task_title: string;
             /** Course Id */
             course_id: number;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
             /**
              * Status
              * @enum {string}
@@ -2940,6 +3000,11 @@ export interface components {
             user_id: number;
             /** Course Id */
             course_id: number;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
             /** Paid */
             paid: boolean;
             /** Note */
@@ -2953,6 +3018,11 @@ export interface components {
             user_id: number;
             /** Course Id */
             course_id: number;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
             /**
              * Granted At
              * Format: date-time
@@ -3276,6 +3346,8 @@ export interface components {
         OverviewLeadOut: {
             /** Id */
             id: number;
+            /** Platform */
+            platform: string;
             /**
              * Created At
              * Format: date-time
@@ -3292,6 +3364,8 @@ export interface components {
         OverviewQuestionOut: {
             /** Id */
             id: number;
+            /** Platform */
+            platform: string;
             /** Text */
             text: string;
             /**
@@ -3307,6 +3381,8 @@ export interface components {
         OverviewSubmissionOut: {
             /** Id */
             id: number;
+            /** Platform */
+            platform: string;
             /**
              * Created At
              * Format: date-time
@@ -3539,9 +3615,10 @@ export interface components {
         };
         /**
          * PublicSettingsOut
-         * @description Публичный ответ без входа: только то, что лендинг и страница курса
-         *     показывают всем. Ни привязки бота, ни картинок сертификата, ни ключей
-         *     хранилища здесь нет — лишнее поле утекает наружу вместе с ответом.
+         * @description Публичный ответ без входа: то, что лендинг и страница курса показывают
+         *     всем. Собирается из констант бренда площадки запроса; ни привязки бота,
+         *     ни картинок сертификата здесь нет — лишнее поле утекает наружу вместе
+         *     с ответом.
          */
         PublicSettingsOut: {
             /** Platform Name */
@@ -3899,10 +3976,16 @@ export interface components {
             /** Reached */
             reached: number;
         };
-        /** ReportParticipantOut */
+        /**
+         * ReportParticipantOut
+         * @description Строка таблицы — это доступ, а не человек: у купившего общий курс
+         *     на обеих площадках строки две, у каждой свой прогресс и свои проценты.
+         */
         ReportParticipantOut: {
             /** User Id */
             user_id: number;
+            /** Platform */
+            platform: string;
             /** Last Name */
             last_name: string;
             /** First Name */
@@ -4067,22 +4150,10 @@ export interface components {
             /** Is Current */
             is_current: boolean;
         };
-        /** SettingsContactsIn */
-        SettingsContactsIn: {
-            /** Name */
-            name?: string | null;
-            /** Phone */
-            phone?: string | null;
-            /** Whatsapp */
-            whatsapp?: string | null;
-            /** Hours */
-            hours?: string | null;
-        };
         /**
          * SettingsContactsOut
-         * @description Контакты администратора: их подставляют в кнопку «Связаться
-         *     с администратором» и в подвал. Не заполняли — приходят пустые строки,
-         *     а не null: экран рисует поля всегда.
+         * @description Контакты администратора площадки: их подставляют в кнопку «Связаться
+         *     с администратором» и в подвал.
          *
          *     `phone` — для звонков, `whatsapp` — номер, а не ссылка: ссылку wa.me
          *     фронт собирает сам.
@@ -4096,24 +4167,6 @@ export interface components {
             whatsapp: string;
             /** Hours */
             hours: string;
-        };
-        /** SettingsImageIn */
-        SettingsImageIn: {
-            /** Key */
-            key: string;
-            /** Name */
-            name: string;
-        };
-        /**
-         * SettingsImageOut
-         * @description Картинка настроек: адрес публичной раздачи и имя файла. Ключ хранилища
-         *     наружу не уходит — как и у материалов урока.
-         */
-        SettingsImageOut: {
-            /** Url */
-            url: string;
-            /** Name */
-            name: string;
         };
         /** SubmissionCourseOut */
         SubmissionCourseOut: {
@@ -4260,6 +4313,11 @@ export interface components {
         TeacherRetakeIn: {
             /** Quiz Id */
             quiz_id: number;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
             /** Reason */
             reason: string;
         };
@@ -4773,7 +4831,9 @@ export interface operations {
     };
     branding_image_branding__slot__get: {
         parameters: {
-            query?: never;
+            query?: {
+                platform?: string | null;
+            };
             header?: never;
             path: {
                 slot: string;
@@ -5833,6 +5893,7 @@ export interface operations {
                 status?: string | null;
                 course_id?: string | null;
                 q?: string | null;
+                platform?: string | null;
                 page?: number;
                 per_page?: number;
             };
@@ -5935,6 +5996,7 @@ export interface operations {
             query?: {
                 status?: "pending" | "accepted" | "rework" | "all";
                 course_id?: number | null;
+                platform?: string | null;
                 page?: number;
                 per_page?: number;
             };
@@ -6032,7 +6094,9 @@ export interface operations {
     };
     admin_overview_admin_overview_get: {
         parameters: {
-            query?: never;
+            query?: {
+                platform?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6048,12 +6112,22 @@ export interface operations {
                     "application/json": components["schemas"]["AdminOverviewOut"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     admin_report_admin_reports__course_id__get: {
         parameters: {
             query?: {
                 q?: string | null;
+                platform?: string | null;
                 page?: number;
                 per_page?: number;
             };
@@ -7172,6 +7246,7 @@ export interface operations {
             query?: {
                 course_id?: number | null;
                 rating?: number | null;
+                platform?: string | null;
                 page?: number;
                 per_page?: number;
             };
@@ -7550,6 +7625,7 @@ export interface operations {
                 answered?: boolean | null;
                 course_id?: number | null;
                 q?: string | null;
+                platform?: string | null;
                 page?: number;
                 per_page?: number;
             };

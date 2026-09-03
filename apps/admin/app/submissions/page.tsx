@@ -11,6 +11,10 @@
  * Данные — `GET /admin/submissions` с серверной пагинацией и фильтрами:
  * `status` (по умолчанию `pending` — это и есть очередь) и `course_id`.
  * Счётчик очереди не зависит от фильтров — считается отдельным запросом.
+ *
+ * Площадок две, очередь по умолчанию показывает обе. Фильтр площадки живёт
+ * в адресе (`?platform=`) и переживает перезагрузку, остальные фильтры
+ * экрана остались в состоянии.
  */
 
 import Link from "next/link";
@@ -21,6 +25,7 @@ import {
   useLoad,
   type AdminSubmissionsPage,
   type CatalogOut,
+  type Platform,
 } from "@lms/api";
 import { dayMonth } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
@@ -30,6 +35,12 @@ import {
   teacherName,
   type SubmissionStatus,
 } from "@/components/admin/submissionsApi";
+import {
+  PlatformChip,
+  PlatformFilter,
+  PlatformFilterBoundary,
+  usePlatformFilter,
+} from "@/components/admin/platforms";
 import { Waiting } from "@/components/admin/Waiting";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Badge, Button, Empty, LinkButton, Sheet } from "@lms/ui";
@@ -43,10 +54,22 @@ const RED_AFTER_DAYS = 3;
 type StatusFilter = SubmissionStatus | "all";
 
 export default function SubmissionsPage() {
+  /* Фильтр площадки читается из адреса, а useSearchParams требует границы
+     Suspense: без неё статический маршрут не собирается */
+  return (
+    <PlatformFilterBoundary>
+      <Submissions />
+    </PlatformFilterBoundary>
+  );
+}
+
+function Submissions() {
   const { t, lang } = useLang();
 
   const [status, setStatus] = useState<StatusFilter>("pending");
   const [courseId, setCourseId] = useState<"all" | number>("all");
+  /* Площадка — единственный фильтр экрана, который живёт в адресе */
+  const [platform, setPlatform] = usePlatformFilter();
   const [page, setPage] = useState(1);
   /* Мобильный: статус и курс за одной кнопкой-иконкой, окно выезжает снизу —
      как на курсах и заявках */
@@ -60,9 +83,10 @@ export default function SubmissionsPage() {
           per_page: PER_PAGE,
           status,
           course_id: courseId === "all" ? undefined : courseId,
+          platform,
         })}`,
       ),
-    [page, status, courseId],
+    [page, status, courseId, platform],
   );
   /* Сколько работ ждёт всего — цифра в шапке и в счётчике меню */
   const queue = useLoad(
@@ -77,10 +101,13 @@ export default function SubmissionsPage() {
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const queueTotal = queue.data?.total ?? 0;
   /* Пустая очередь — это хорошая новость; пусто из-за фильтров — другой текст */
-  const filtered = status !== "pending" || courseId !== "all";
+  const filtered = status !== "pending" || courseId !== "all" || platform !== null;
   /* Счётчик на кнопке-иконке: очередь «ждут проверки» — это состояние
      по умолчанию, а не фильтр, и в счёт не идёт */
-  const mobileFilters = (status !== "pending" ? 1 : 0) + (courseId !== "all" ? 1 : 0);
+  const mobileFilters =
+    (status !== "pending" ? 1 : 0) +
+    (courseId !== "all" ? 1 : 0) +
+    (platform !== null ? 1 : 0);
   const courseOptions = (catalog.data?.items ?? []).flatMap((g) => g.versions);
 
   const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -90,9 +117,18 @@ export default function SubmissionsPage() {
     { value: "all", label: t.subFilterAll },
   ];
 
+  /* Смена площадки сужает выборку — страница снова первая, как у остальных
+     фильтров. Отдельная обёртка нужна потому, что `setPlatform` пишет
+     в адрес и о странице ничего не знает */
+  const changePlatform = (next: Platform | null) => {
+    setPlatform(next);
+    setPage(1);
+  };
+
   const resetFilters = () => {
     setStatus("pending");
     setCourseId("all");
+    setPlatform(null);
     setPage(1);
   };
 
@@ -137,6 +173,7 @@ export default function SubmissionsPage() {
                 </option>
               ))}
             </select>
+            <PlatformFilter value={platform} onChange={changePlatform} />
           </div>
           <Button
             variant="secondary"
@@ -224,6 +261,11 @@ export default function SubmissionsPage() {
                           <span className="caption muted-3 nowrap">
                             {dayMonth(s.created_at, lang)}
                           </span>
+                          {/* Площадка — свойство сдачи, а не курса: курс
+                              бывает общим, а работа сдана на одном сайте */}
+                          <span>
+                            <PlatformChip platform={s.platform} />
+                          </span>
                           {s.status === "pending" && (
                             <Waiting days={s.waiting_days} redAfter={RED_AFTER_DAYS} />
                           )}
@@ -263,6 +305,7 @@ export default function SubmissionsPage() {
 
                   <div className="row wrap g8">
                     <span className="caption muted-3">{dayMonth(s.created_at, lang)}</span>
+                    <PlatformChip platform={s.platform} />
                     {s.status === "pending" && (
                       <>
                         <span className="dot-sep">·</span>
@@ -356,6 +399,10 @@ export default function SubmissionsPage() {
               ))}
             </select>
           </div>
+          {/* Без подписи «Площадка»: чипы сами начинаются со слова «Все
+              площадки», а при одной площадке фильтр не рисуется вовсе —
+              подпись осталась бы висеть над пустотой */}
+          <PlatformFilter value={platform} onChange={changePlatform} />
         </div>
       </Sheet>
 

@@ -9,6 +9,13 @@
  *
  * Отчёт всегда про версию курса, поэтому адрес без курса — не ошибка,
  * а выбор версии: пункт меню «Отчёты» ведёт именно сюда.
+ *
+ * Строка таблицы участников — это доступ, а не человек: доступ и прогресс
+ * у площадок раздельные (`PLATFORMS_BRIEF`, решение 2), и у купившего курс
+ * на обеих строк будет две — со своим прогрессом, своим итоговым тестом
+ * и своим сертификатом. Отсюда колонка площадки: без неё две строки одного
+ * человека читаются как дубль и баг. Фильтр площадки один на весь отчёт —
+ * он сужает и сводку, и воронку, и таблицу.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -20,11 +27,18 @@ import {
   useLoad,
   type AdminReport,
   type CatalogOut,
+  type Platform,
   type ReportCertificateState,
   type ReportParticipant,
 } from "@lms/api";
 import { dayTime } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
+import {
+  PlatformChip,
+  PlatformFilter,
+  PlatformFilterBoundary,
+  usePlatformFilter,
+} from "@/components/admin/platforms";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Badge, Button, Empty, Note, Progress, type BadgeKind } from "@lms/ui";
 import { IconChart, IconSearch } from "@lms/ui/icons";
@@ -39,6 +53,17 @@ const PER_PAGE = 20;
 const DROP_SHARE = 0.2;
 
 export default function ReportPage() {
+  /* Фильтр площадки читается из адреса. Граница Suspense — та же, что
+     у очереди вопросов и ленты отзывов: `useSearchParams` без неё роняет
+     сборку, стоит маршруту начать пререндериться */
+  return (
+    <PlatformFilterBoundary>
+      <Report />
+    </PlatformFilterBoundary>
+  );
+}
+
+function Report() {
   const { t, lang } = useLang();
   const router = useRouter();
   /* Сегмент необязательный: «/reports» — это выбор курса, «/reports/2» — отчёт */
@@ -50,6 +75,8 @@ export default function ReportPage() {
   const [query, setQuery] = useState("");
   /* Поиск по ФИО уходит на сервер — печать не должна слать запрос на каждую букву */
   const [q, setQ] = useState("");
+  /* Площадка живёт в адресе — им делятся ссылкой, и он переживает перезагрузку */
+  const [platform, setPlatform] = usePlatformFilter();
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -65,13 +92,18 @@ export default function ReportPage() {
       courseId === undefined
         ? Promise.resolve(null)
         : api<AdminReport>(
-            `/admin/reports/${courseId}${qs({ page, per_page: PER_PAGE, q })}`,
+            `/admin/reports/${courseId}${qs({ page, per_page: PER_PAGE, q, platform })}`,
           ),
-    [courseId, page, q],
+    [courseId, page, q, platform],
   );
   /* Список версий для переключателя курса наверху экрана */
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
   const courseOptions = (catalog.data?.items ?? []).flatMap((g) => g.versions);
+
+  const changePlatform = (next: Platform | null) => {
+    setPlatform(next);
+    setPage(1);
+  };
 
   const data = report.data;
   const notFound = isApiError(report.error, "not_found");
@@ -101,7 +133,11 @@ export default function ReportPage() {
         setQuery("");
         setQ("");
         setPage(1);
-        router.push(e.target.value ? `/reports/${e.target.value}` : "/reports");
+        /* Площадку переносим в новый адрес руками: `push` собирает его
+           заново, и без этого выбранная площадка молча слетала бы
+           при каждой смене курса */
+        const keep = platform ? `?platform=${platform}` : "";
+        router.push(e.target.value ? `/reports/${e.target.value}${keep}` : `/reports${keep}`);
       }}
     >
       <option value="">{t.repPickTitle}</option>
@@ -150,6 +186,9 @@ export default function ReportPage() {
         </div>
       ) : (
         <div className="stack g24">
+          {/* Фильтр стоит над сводкой: он действует и на неё, и на воронку,
+              и на таблицу — один параметр на весь отчёт */}
+          <PlatformFilter value={platform} onChange={changePlatform} />
           <Summary data={data} />
           <Funnel data={data} />
           <Participants
@@ -337,7 +376,17 @@ function Participants({
   return (
     <section className="stack g14">
       <div className="row between wrap g12">
-        <h2 className="h3">{t.repParticipants(total)}</h2>
+        <div className="stack g2">
+          <h2 className="h3">{t.repParticipants(total)}</h2>
+          {/* Число считает доступы, а не людей: у купившего курс на обеих
+              площадках строк две. Подпись — теми же словами, что и плитка
+              сводки над таблицей, чтобы «Участники · 2» не читалось
+              как два человека */}
+          {/* Строка стала доступом, а не человеком (`CONTRACT.md`, «Сводка
+              и отчёт»): без этой подписи две строки одного человека читаются
+              как дубль и баг */}
+          <span className="caption muted">{t.pfRowIsEnrollment}</span>
+        </div>
         <div className="input-wrap" style={{ maxWidth: 320, flex: 1, minWidth: 200 }}>
           <span className="input-icon">
             <IconSearch size={19} />
@@ -366,6 +415,7 @@ function Participants({
               <thead>
                 <tr>
                   <th>{t.repFio}</th>
+                  <th>{t.pfLabel}</th>
                   <th>{t.repSchool}</th>
                   <th>{t.repProgress}</th>
                   <th>{t.repModuleQuizzes}</th>
@@ -375,11 +425,16 @@ function Participants({
               </thead>
               <tbody>
                 {items.map((p) => (
-                  <tr key={p.user_id}>
+                  /* Ключ — пара «человек + площадка»: строка тут доступ,
+                     и у одного `user_id` их может быть две */
+                  <tr key={`${p.user_id}-${p.platform}`}>
                     <td style={{ maxWidth: 260 }}>
                       <span className="small" style={{ fontWeight: 600 }}>
                         {name(p)}
                       </span>
+                    </td>
+                    <td>
+                      <PlatformChip platform={p.platform} />
                     </td>
                     <td style={{ maxWidth: 240 }}>
                       <div className="stack g2">
@@ -408,10 +463,13 @@ function Participants({
 
           <div className="table-mobile-cards">
             {items.map((p) => (
-              <div key={p.user_id} className="card card-pad stack g10">
+              <div key={`${p.user_id}-${p.platform}`} className="card card-pad stack g10">
                 <div className="row between wrap g10" style={{ alignItems: "flex-start" }}>
                   <strong className="small pretty grow">{name(p)}</strong>
-                  <Badge kind={CERT_KIND[p.certificate]}>{certLabel[p.certificate]}</Badge>
+                  <span className="row wrap g6">
+                    <PlatformChip platform={p.platform} />
+                    <Badge kind={CERT_KIND[p.certificate]}>{certLabel[p.certificate]}</Badge>
+                  </span>
                 </div>
                 <span className="caption muted">
                   {p.school} · {p.region} · {t.repFinalQuiz.toLowerCase()} {finalText(p)}

@@ -7,6 +7,11 @@
  * у одного человека курсов, тестов, работ и сертификатов заведомо немного,
  * поэтому пагинации у вкладок нет.
  *
+ * Строка любой вкладки — это **площадка**, а не курс, тест, работа или
+ * сертификат: аккаунт один на обе (`PLATFORMS_BRIEF`, решение 11), а учёба
+ * раздельная (решение 2). У человека с общим курсом на обеих площадках строк
+ * две, и без метки они читаются как дубль и баг.
+ *
  * Два ключевых действия: «Открыть доступ к курсу» (главное — доступ выдаётся
  * руками после оплаты вне платформы) и «Разрешить пересдачу» с обязательной
  * причиной. Разрешать пересдачу можно не всегда — сервер говорит об этом
@@ -37,6 +42,7 @@ import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
 import { GrantAccessSheet } from "@/components/admin/GrantAccess";
+import { PlatformChip, usePlatformName } from "@/components/admin/platforms";
 import { SubmissionStatusBadge } from "@/components/admin/submissionsApi";
 import { AdminShell } from "@/components/layout/AdminShell";
 import {
@@ -73,8 +79,9 @@ const RETAKE_BLOCKER: Record<RetakeBlocker, string> = {
 
 export default function TeacherCardPage() {
   const { id } = useParams<{ id: string }>();
-  const { lang } = useLang();
+  const { lang, t } = useLang();
   const toast = useToast();
+  const platformName = usePlatformName();
   const card = useLoad(() => api<AdminTeacherCard>(`/admin/teachers/${id}`), [id]);
 
   const [tab, setTab] = useState<Tab>("courses");
@@ -177,10 +184,20 @@ export default function TeacherCardPage() {
     try {
       const updated = await api<AdminTeacherCard>(`/admin/teachers/${teacher.id}/retakes`, {
         method: "POST",
-        json: { quiz_id: retakeFor.quiz_id, reason: reason.trim() } satisfies TeacherRetakeIn,
+        /* Площадка берётся из той самой строки, у которой нажали кнопку:
+           попытки на площадках разные, и снятый зачёт не с той — отнятая
+           у человека попытка */
+        json: {
+          quiz_id: retakeFor.quiz_id,
+          platform: retakeFor.platform,
+          reason: reason.trim(),
+        } satisfies TeacherRetakeIn,
       });
       card.setData(updated);
-      toast("Пересдача открыта — учитель получит уведомление", "success");
+      toast(
+        `Пересдача открыта на площадке «${platformName(retakeFor.platform)}» — учитель получит уведомление`,
+        "success",
+      );
       setRetakeFor(null);
       setReason("");
     } catch (e) {
@@ -326,7 +343,10 @@ export default function TeacherCardPage() {
                       <Link href={`/courses/${en.course.id}/edit`} className="pretty grow">
                         <strong className="small">{en.course.title}</strong>
                       </Link>
-                      <StatusBadge status={en.completed_at ? "Пройден" : "В процессе"} />
+                      <span className="row g8 nowrap">
+                        <PlatformChip platform={en.platform} />
+                        <StatusBadge status={en.completed_at ? "Пройден" : "В процессе"} />
+                      </span>
                     </div>
                     {/* Процент считает сервер по всей программе — тестам и заданиям
                         тоже. Пересчитывать его из уроков нельзя: разошедшееся число
@@ -368,11 +388,16 @@ export default function TeacherCardPage() {
                   <Empty icon={<IconQuiz size={34} />} title="Тестов пока нет" />
                 </div>
               ) : (
+                /* Ключ — пара «тест и площадка»: один тест приходит двумя
+                   строками, с разными попытками и разной судьбой пересдачи */
                 teacher.quizzes.map((q) => (
-                  <div key={q.quiz_id} className="card card-pad stack g12">
+                  <div key={`${q.quiz_id}-${q.platform}`} className="card card-pad stack g12">
                     <div className="row between wrap g10">
                       <div className="stack g2" style={{ minWidth: 0 }}>
-                        <strong className="small pretty">{q.title}</strong>
+                        <span className="row g8 wrap">
+                          <strong className="small pretty">{q.title}</strong>
+                          <PlatformChip platform={q.platform} />
+                        </span>
                         <span className="caption muted-3">{q.course_title}</span>
                       </div>
                       <div className="row g8">
@@ -440,7 +465,9 @@ export default function TeacherCardPage() {
                 <span className="small">
                   У непересдаваемого теста попытка одна. Пересдача нужна, когда тест прервался
                   не по вине учителя: пропал интернет, разрядился телефон, закрылась вкладка.
-                  Причина сохраняется в истории попытки.
+                  Причина сохраняется в истории попытки. Один и тот же тест может стоять
+                  двумя строками — по строке на площадку: попытки, зачёт и пересдача у них
+                  раздельные.
                 </span>
               </Note>
             </div>
@@ -467,7 +494,10 @@ export default function TeacherCardPage() {
                         {s.reviewed_at ? ` · проверена ${dayTime(s.reviewed_at, lang)}` : ""}
                       </span>
                     </div>
-                    <SubmissionStatusBadge status={s.status} />
+                    <span className="row g8 nowrap">
+                      <PlatformChip platform={s.platform} />
+                      <SubmissionStatusBadge status={s.status} />
+                    </span>
                   </Link>
                 ))
               )}
@@ -496,11 +526,14 @@ export default function TeacherCardPage() {
                         {dayYear(c.issued_at, lang)}
                       </span>
                     </div>
-                    {c.revoked_at ? (
-                      <Badge kind="locked">Отозван {dayYear(c.revoked_at, lang)}</Badge>
-                    ) : (
-                      <Badge kind="accepted">Выдан</Badge>
-                    )}
+                    <span className="row g8 wrap">
+                      <PlatformChip platform={c.platform} />
+                      {c.revoked_at ? (
+                        <Badge kind="locked">Отозван {dayYear(c.revoked_at, lang)}</Badge>
+                      ) : (
+                        <Badge kind="accepted">Выдан</Badge>
+                      )}
+                    </span>
                   </div>
                 ))
               )}
@@ -578,6 +611,16 @@ export default function TeacherCardPage() {
         }
       >
         <div className="stack g14">
+          {/* Тест с обеих площадок называется одинаково, а попытка снимается
+              только на одной — площадку админ обязан прочесть до нажатия */}
+          {retakeFor && (
+            <Note kind="warning">
+              <span className="small">
+                <strong>{t.pfRetakeOn(platformName(retakeFor.platform))}</strong> — на второй
+                площадке попытки этого теста останутся как есть.
+              </span>
+            </Note>
+          )}
           <p className="small muted pretty">
             <strong style={{ color: "var(--text)" }}>{retakeFor?.title}</strong> · {name}. Тест
             снова станет доступен, прошлые попытки останутся в истории.

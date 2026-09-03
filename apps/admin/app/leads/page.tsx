@@ -12,6 +12,10 @@
  * (свой MultiSelect, не нативный select), `q` — один параметр на ФИО и телефон
  * в любом виде. Метка «напоминание» — `reminded_at`.
  *
+ * Площадок две, админка одна на обе и по умолчанию показывает обе. Фильтр
+ * площадки живёт в адресе (`?platform=`) — им делятся ссылкой и он переживает
+ * перезагрузку; остальные фильтры экрана остались в состоянии.
+ *
  * Вида два — список и канбан (просьба владельца 20.08.2026), переключатель
  * помнится в localStorage. Канбан — колонки по статусам, до 100 заявок одним
  * запросом; карточка переносится перетаскиванием. Бросок в «Доступ выдан»
@@ -33,6 +37,7 @@ import {
   type AdminLeadsPage,
   type CatalogOut,
   type LeadStatus,
+  type Platform,
 } from "@lms/api";
 import { dayMonth, price as fmtPrice } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
@@ -40,6 +45,12 @@ import { useToast } from "@lms/ui/toast";
 import { isOpenLead, LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from "@/components/admin/leadsApi";
 import { DeclineLeadSheet, LeadStatusPicker, PhoneActions } from "@/components/admin/LeadStatus";
 import { MultiOptions, MultiSelect } from "@/components/admin/MultiSelect";
+import {
+  PlatformChip,
+  PlatformFilter,
+  PlatformFilterBoundary,
+  usePlatformFilter,
+} from "@/components/admin/platforms";
 import { Waiting } from "@/components/admin/Waiting";
 import { GrantLeadSheet } from "@/components/admin/GrantLead";
 import { AdminShell } from "@/components/layout/AdminShell";
@@ -59,6 +70,16 @@ const STATUS_OPTIONS = LEAD_STATUS_ORDER.map((s) => ({
 }));
 
 export default function LeadsPage() {
+  /* Фильтр площадки читается из адреса, а useSearchParams требует границы
+     Suspense: без неё статический маршрут не собирается */
+  return (
+    <PlatformFilterBoundary>
+      <Leads />
+    </PlatformFilterBoundary>
+  );
+}
+
+function Leads() {
   const { lang } = useLang();
   const toast = useToast();
 
@@ -67,6 +88,8 @@ export default function LeadsPage() {
   const [q, setQ] = useState("");
   const [courseIds, setCourseIds] = useState<number[]>([]);
   const [statuses, setStatuses] = useState<LeadStatus[]>([]);
+  /* Площадка — единственный фильтр экрана, который живёт в адресе */
+  const [platform, setPlatform] = usePlatformFilter();
   const [page, setPage] = useState(1);
   const [granting, setGranting] = useState<AdminLead | null>(null);
   /* Отказ с канбана: бросили карточку в колонку «Отказ» — причина обязательна */
@@ -109,10 +132,11 @@ export default function LeadsPage() {
           per_page: PER_PAGE,
           status: statusParam || undefined,
           course_id: courseParam || undefined,
+          platform,
           q,
         })}`,
       ),
-    [page, statusParam, courseParam, q],
+    [page, statusParam, courseParam, platform, q],
   );
   /* Счётчик «новых» в подзаголовке не зависит от фильтров — отдельный запрос */
   const fresh = useLoad(
@@ -129,11 +153,12 @@ export default function LeadsPage() {
             `/admin/leads${qs({
               per_page: KANBAN_LIMIT,
               course_id: courseParam || undefined,
+              platform,
               q,
             })}`,
           )
         : Promise.resolve(null),
-    [view, courseParam, q],
+    [view, courseParam, platform, q],
   );
   /* Фильтр по курсу — все версии из каталога */
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
@@ -142,7 +167,8 @@ export default function LeadsPage() {
   const total = leads.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
   const newCount = fresh.data?.total ?? 0;
-  const hasFilters = statuses.length > 0 || courseIds.length > 0 || q !== "";
+  const hasFilters =
+    statuses.length > 0 || courseIds.length > 0 || platform !== null || q !== "";
   const courseOptions = (catalog.data?.items ?? [])
     .flatMap((g) => g.versions)
     .map((c) => ({ value: c.id, label: c.title }));
@@ -185,10 +211,19 @@ export default function LeadsPage() {
     void moveLead(l, target);
   };
 
+  /* Смена площадки сужает выборку — страница снова первая, как у остальных
+     фильтров. Отдельная обёртка нужна потому, что `setPlatform` пишет
+     в адрес и о странице ничего не знает */
+  const changePlatform = (next: Platform | null) => {
+    setPlatform(next);
+    setPage(1);
+  };
+
   const resetFilters = () => {
     setQuery("");
     setCourseIds([]);
     setStatuses([]);
+    setPlatform(null);
     setPage(1);
   };
 
@@ -197,6 +232,7 @@ export default function LeadsPage() {
   const activeFilters =
     (q !== "" ? 1 : 0) +
     (courseIds.length > 0 ? 1 : 0) +
+    (platform !== null ? 1 : 0) +
     (view === "list" && statuses.length > 0 ? 1 : 0);
 
   const teacherName = (l: AdminLead) =>
@@ -251,6 +287,9 @@ export default function LeadsPage() {
                 }}
               />
             )}
+            {/* Площадка действует в обоих видах: это не статус, колонок
+                канбана она не задаёт */}
+            <PlatformFilter value={platform} onChange={changePlatform} />
           </div>
           <Button
             variant="secondary"
@@ -391,6 +430,7 @@ export default function LeadsPage() {
                                 <span className="caption muted-3">
                                   {dayMonth(l.created_at, lang)}
                                 </span>
+                                <PlatformChip platform={l.platform} />
                                 {l.reminded_at && (
                                   <span className="caption" style={{ color: "var(--warning)" }}>
                                     напоминание
@@ -532,6 +572,11 @@ export default function LeadsPage() {
                           <span className="caption muted-3 nowrap">
                             {dayMonth(l.created_at, lang)}
                           </span>
+                          {/* Площадка — свойство заявки, а не курса: курс
+                              бывает общим, а пришла заявка с одного сайта */}
+                          <span>
+                            <PlatformChip platform={l.platform} />
+                          </span>
                           {isOpenLead(l.status) && <Waiting days={l.waiting_days} redAfter={2} />}
                           {l.reminded_at && (
                             <span className="caption" style={{ color: "var(--warning)" }}>
@@ -595,6 +640,7 @@ export default function LeadsPage() {
                       </strong>
                       <span className="dot-sep">·</span>
                       <span className="caption muted-3">{dayMonth(l.created_at, lang)}</span>
+                      <PlatformChip platform={l.platform} />
                       {isOpenLead(l.status) && (
                         <>
                           <span className="dot-sep">·</span>
@@ -717,6 +763,10 @@ export default function LeadsPage() {
               />
             </div>
           )}
+          {/* Без подписи «Площадка»: чипы сами начинаются со слова «Все
+              площадки», а при одной площадке фильтр не рисуется вовсе —
+              подпись осталась бы висеть над пустотой */}
+          <PlatformFilter value={platform} onChange={changePlatform} />
         </div>
       </Sheet>
 

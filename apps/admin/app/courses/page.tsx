@@ -38,6 +38,7 @@ import {
   COURSE_STATUS_ORDER,
 } from "@/components/admin/courseStatus";
 import { NewCourseSheet } from "@/components/admin/NewCourse";
+import { PlatformChip } from "@/components/admin/platforms";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Button, Cover, Empty, Sheet, StatusBadge } from "@lms/ui";
 import {
@@ -59,7 +60,7 @@ const PER_PAGE = 20;
 const courseWord = (n: number) => plural(n, "курс", "курса", "курсов");
 
 export default function AdminCoursesPage() {
-  const { lang } = useLang();
+  const { lang, t } = useLang();
   const toast = useToast();
   const router = useRouter();
 
@@ -396,7 +397,7 @@ export default function AdminCoursesPage() {
                     <th style={{ width: 84 }}>Обложка</th>
                     <th>Название</th>
                     <th>Язык</th>
-                    <th>Цена</th>
+                    <th style={{ width: 190 }}>{t.pfLabel}</th>
                     <th>Статус</th>
                     <th>Старт</th>
                     <th>Уроков</th>
@@ -424,7 +425,9 @@ export default function AdminCoursesPage() {
                         </Link>
                       </td>
                       <td className="caption muted nowrap">{courseLangs(c)}</td>
-                      <td className="small nowrap">{fmtPrice(c.price ?? undefined, lang)}</td>
+                      <td>
+                        <Platforms course={c} />
+                      </td>
                       <td>
                         <StatusBadge status={COURSE_STATUS_LABEL[c.status as CourseStatus]} />
                       </td>
@@ -472,15 +475,10 @@ export default function AdminCoursesPage() {
                     </Link>
                     <StatusBadge status={COURSE_STATUS_LABEL[c.status as CourseStatus]} />
                   </div>
-                  <div className="row wrap g8">
-                    <strong className="small">{fmtPrice(c.price ?? undefined, lang)}</strong>
-                    {c.starts_at && (
-                      <>
-                        <span className="dot-sep">·</span>
-                        <span className="caption muted">старт {day(c.starts_at, lang)}</span>
-                      </>
-                    )}
-                  </div>
+                  <Platforms course={c} />
+                  {c.starts_at && (
+                    <span className="caption muted">старт {day(c.starts_at, lang)}</span>
+                  )}
                   <div className="caption muted">
                     {courseLangs(c)} · {c.modules_count}{" "}
                     {plural(c.modules_count, "модуль", "модуля", "модулей")} · {c.lessons_count}{" "}
@@ -694,6 +692,34 @@ export default function AdminCoursesPage() {
         }
       `}</style>
     </AdminShell>
+  );
+}
+
+/**
+ * На каких площадках курс выложен и почём. Одной цены у курса больше нет:
+ * площадок две, и цена у каждой своя (`PLATFORMS_BRIEF`, решения 1 и 3).
+ *
+ * Пустой список — не «цена не указана», а «курса нет ни в одном каталоге»:
+ * такими заводятся новый курс, языковая версия и дубликат, и увидеть это
+ * админ должен из списка, не открывая редактор.
+ */
+function Platforms({ course }: { course: AdminCourse }) {
+  const { lang, t } = useLang();
+  if (course.platforms.length === 0)
+    return (
+      <span className="caption pretty" style={{ color: "var(--warning)" }}>
+        {t.pfPublishNone}
+      </span>
+    );
+  return (
+    <div className="stack g4">
+      {course.platforms.map((p) => (
+        <div key={p.platform} className="row g6">
+          <PlatformChip platform={p.platform} />
+          <span className="small nowrap">{fmtPrice(p.price ?? undefined, lang)}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 

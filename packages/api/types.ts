@@ -49,6 +49,23 @@ export type MyLead = S["MyLeadOut"];
 export type Session = S["SessionOut"];
 export type SessionList = S["SessionListOut"];
 
+/* ============ Площадки ============
+
+   Площадок две (`PLATFORMS_BRIEF`, решение владельца 03.09.2026): два домена
+   с разными брендами на одной админке и одном бэкенде. Наружу площадка ходит
+   кодом `p1` / `p2`; человеческое имя админка берёт из справочника
+   `platforms` в `GET /admin/settings`, а учительские экраны — из `GET /settings`
+   своей площадки. */
+
+/** Код площадки. Литеральный тип — из схемы, где он строгий: в части
+    админских списков сервер отдаёт `platform` просто строкой. */
+export type Platform = S["AdminCoursePlatformOut"]["platform"];
+/** Публикация курса: галочка и цена — один элемент списка. */
+export type CoursePlatform = S["AdminCoursePlatformOut"];
+export type CoursePlatformIn = S["AdminCoursePlatformIn"];
+/** Строка справочника площадок из `GET /admin/settings`. */
+export type SettingsPlatform = S["AdminSettingsPlatformOut"];
+
 export type AdminLead = S["AdminLeadOut"];
 export type AdminLeadsPage = S["AdminLeadsPageOut"];
 export type LeadPatch = S["LeadPatchIn"];
@@ -234,18 +251,14 @@ export type AdminReviewsPage = S["AdminReviewsPageOut"];
 export type ReviewReply = S["ReviewReplyOut"];
 export type ReviewReplyIn = S["ReviewReplyIn"];
 
-/* Настройки площадки. `AdminSettings` — четыре вкладки экрана целиком,
-   `PublicSettings` — то немногое, что `GET /settings` отдаёт без входа. */
+/* Настройки. Бренд с сессии «Платформы 2» живёт в коде бэкенда: в
+   `AdminSettings` осталась привязка Telegram и справочник имён площадок.
+   `PublicSettings` — то немногое, что `GET /settings` отдаёт без входа,
+   и отдаёт по площадке запроса. */
 export type AdminSettings = S["AdminSettingsOut"];
 export type AdminSettingsPatch = S["AdminSettingsPatchIn"];
 export type PublicSettings = S["PublicSettingsOut"];
 export type SettingsContacts = S["SettingsContactsOut"];
-export type SettingsContactsIn = S["SettingsContactsIn"];
-/** Картинка настроек: наружу `url` публичной раздачи, внутрь — `{key, name}` из `POST /files`. */
-export type SettingsImage = S["SettingsImageOut"];
-export type SettingsImageIn = S["SettingsImageIn"];
-export type CertificateImages = S["AdminCertificateImagesOut"];
-export type CertificateImagesIn = S["AdminCertificateImagesIn"];
 /* Привязка бота: `chat_id` наружу не отдаётся вовсе, статус виден
    по `connected` и `chat_title`. Меняется своими ручками, не через PATCH. */
 export type SettingsTelegram = S["AdminSettingsTelegramOut"];

@@ -10,6 +10,11 @@
  * Пагинация и фильтры серверные — клиенту фильтровать нечего: он видит одну
  * страницу, а не всю ленту.
  *
+ * Отзывы у площадок свои (`PLATFORMS_BRIEF`, решение 3), админка одна на обе
+ * и по умолчанию показывает обе. Фильтр площадки живёт в адресе
+ * (`?platform=`) — им делятся ссылкой, и он переживает перезагрузку;
+ * курс и оценка остались в состоянии экрана.
+ *
  * Прототипная карточка `Moderation.tsx` осталась карточке курса до её сессии.
  */
 
@@ -23,11 +28,17 @@ import {
   type AdminCoursesPage,
   type AdminReview,
   type AdminReviewsPage,
+  type Platform,
   type ReviewReplyIn,
 } from "@lms/api";
 import { dayTime, dayYear } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
+import {
+  PlatformChip,
+  PlatformFilter,
+  usePlatformFilter,
+} from "@/components/admin/platforms";
 import { Avatar, Button, Empty, Sheet, Stars } from "@lms/ui";
 import { IconFilter, IconMessage, IconStar, IconTrash } from "@lms/ui/icons";
 
@@ -46,6 +57,8 @@ export function ReviewsFeed({
 
   const [courseId, setCourseId] = useState<"all" | number>("all");
   const [rating, setRating] = useState<"all" | number>("all");
+  /* Площадка — единственный фильтр ленты, который живёт в адресе */
+  const [platform, setPlatform] = usePlatformFilter();
   const [page, setPage] = useState(1);
   /* Мобильный: курс и оценка за одной кнопкой-иконкой, окно выезжает снизу —
      как на курсах и заявках */
@@ -59,9 +72,10 @@ export function ReviewsFeed({
           per_page: PER_PAGE,
           course_id: courseId === "all" ? undefined : courseId,
           rating: rating === "all" ? undefined : rating,
+          platform,
         })}`,
       ),
-    [page, courseId, rating],
+    [page, courseId, rating, platform],
   );
   /* Курсы для фильтра берём у админки, а не из каталога: отзыв мог остаться
      у курса, снятого с публикации, — в каталоге такого курса уже нет */
@@ -73,22 +87,30 @@ export function ReviewsFeed({
   const items = list.data?.items ?? [];
   const total = list.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PER_PAGE));
-  const filtered = courseId !== "all" || rating !== "all";
+  const filtered = courseId !== "all" || rating !== "all" || platform !== null;
   /* Счётчик на кнопке-иконке — сколько фильтров выставлено */
-  const mobileFilters = (courseId !== "all" ? 1 : 0) + (rating !== "all" ? 1 : 0);
+  const mobileFilters =
+    (courseId !== "all" ? 1 : 0) + (rating !== "all" ? 1 : 0) + (platform !== null ? 1 : 0);
 
   /* Счётчик в шапке экрана — тот же `total`, что и у ленты */
   useEffect(() => {
     if (list.data) onTotal(list.data.total, filtered);
   }, [list.data, filtered, onTotal]);
 
-  const resetFilters = () => {
-    setCourseId("all");
-    setRating("all");
+  const changePlatform = (next: Platform | null) => {
+    setPlatform(next);
     setPage(1);
   };
 
-  /** Ответ пришёл с сервера целым отзывом — им и перерисовываем строку. */
+  const resetFilters = () => {
+    setCourseId("all");
+    setRating("all");
+    setPlatform(null);
+    setPage(1);
+  };
+
+  /** Ответ пришёл с сервера целым отзывом — им и перерисовываем строку:
+      метка площадки приходит тем же ответом и с экрана не пропадает. */
   const replaceReview = (updated: AdminReview) => {
     list.setData((d) =>
       d ? { ...d, items: d.items.map((r) => (r.id === updated.id ? updated : r)) } : d,
@@ -151,6 +173,7 @@ export function ReviewsFeed({
               </option>
             ))}
           </select>
+          <PlatformFilter value={platform} onChange={changePlatform} />
         </div>
         <Button
           variant="secondary"
@@ -296,6 +319,9 @@ export function ReviewsFeed({
               ))}
             </select>
           </div>
+          {/* Без подписи «Площадка»: чипы сами начинаются со слова «Все
+              площадки», а при одной площадке фильтр не рисуется вовсе */}
+          <PlatformFilter value={platform} onChange={changePlatform} />
         </div>
       </Sheet>
 
@@ -400,6 +426,7 @@ function ReviewItem({
             {[review.teacher.school, review.teacher.city].filter(Boolean).join(" · ")}
           </span>
         </div>
+        <PlatformChip platform={review.platform} />
         <Stars value={review.rating} />
       </div>
 

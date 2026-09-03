@@ -10,17 +10,26 @@
  * Отметка «оплата получена» существует только здесь: платформа денег
  * не принимает, админ подтверждает оплату, полученную вне системы.
  *
- * Прототипная модалка `GrantAccess.tsx` (с выбором курса) остаётся карточке
- * учителя до её сессии.
+ * Соседняя `GrantAccess.tsx` — та же выдача с карточки учителя, где курс
+ * и площадку админ выбирает сам. Здесь их выбирать не из чего: заявка знает
+ * и курс, и площадку, с которой пришла, — и площадка уходит в тело из неё.
  */
 
 import { useState } from "react";
-import { api, isApiError, type AdminLead, type Enrollment } from "@lms/api";
+import {
+  api,
+  isApiError,
+  type AdminLead,
+  type Enrollment,
+  type EnrollmentIn,
+  type Platform,
+} from "@lms/api";
 import { price as fmtPrice } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { Button, Note, Sheet } from "@lms/ui";
 import { IconCheck } from "@lms/ui/icons";
+import { usePlatformName } from "@/components/admin/platforms";
 
 export function GrantLeadSheet({
   lead,
@@ -34,11 +43,17 @@ export function GrantLeadSheet({
   /** Доступ выдан (или уже был выдан) — экран перечитывает заявки */
   onGranted: () => void;
 }) {
-  const { lang } = useLang();
+  const { lang, t } = useLang();
   const toast = useToast();
+  const platformName = usePlatformName();
   const [paid, setPaid] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+
+  /* Площадку здесь не выбирают: заявка пришла с конкретного сайта, и доступ
+     открывается на нём же. Но админ обязан её прочесть до нажатия — на второй
+     площадке у человека своя учёба, свой прогресс и свой сертификат */
+  const platformLabel = platformName(lead.platform);
 
   const teacherName = [
     lead.teacher.last_name,
@@ -63,12 +78,14 @@ export function GrantLeadSheet({
         json: {
           user_id: lead.teacher.id,
           course_id: lead.course.id,
+          /* Схема заявки отдаёт код строкой, тело выдачи — перечислением */
+          platform: lead.platform as Platform,
           paid,
           note: note.trim() || null,
-        },
+        } satisfies EnrollmentIn,
       });
       toast(
-        `Доступ открыт · ${lead.teacher.first_name || teacherName} — учителю ушло уведомление`,
+        `Доступ открыт на площадке «${platformLabel}» · ${lead.teacher.first_name || teacherName} — учителю ушло уведомление`,
         "success",
       );
       onGranted();
@@ -103,6 +120,12 @@ export function GrantLeadSheet({
       }
     >
       <div className="stack g14">
+        <Note kind="info">
+          <span className="small">
+            <strong>{t.pfLeadFrom(platformLabel)}</strong> — доступ откроется на ней же.
+          </span>
+        </Note>
+
         <p className="small muted pretty">
           Курс появится у учителя в «Моих курсах», ему придёт уведомление в колокольчик,
           связанная заявка закроется автоматически.
