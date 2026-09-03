@@ -1,12 +1,34 @@
 "use client";
 
 /**
- * Каталог «/courses» — раздел 5.2 брифа.
+ * Каталог второй площадки — «/courses».
  *
- * Каталог открытый: смотреть можно без входа, доступ к содержимому выдаёт
- * админ после заявки. Данные — `GET /courses`: группировку по языкам делает
- * сервер (одна карточка на `group_id`), фильтры, поиск и сортировка остаются
- * клиентскими. Подписи категорий — из `GET /dictionaries` по `category_id`.
+ * Данные, правила и переходы те же, что у первой площадки: `GET /courses`
+ * (группировку по языкам делает сервер — одна карточка на `group_id`),
+ * `GET /dictionaries` для подписей категорий и `GET /me/courses` у вошедшего
+ * ради бейджей «Доступ открыт» и «Заявка отправлена». Поиск, фильтры
+ * и сортировка остаются клиентскими: каталог маленький и без пагинации.
+ *
+ * Карточка курса — общий `CourseCard` из `packages/course`, своей копии
+ * у площадки нет и быть не должно. Поэтому непохожесть делается всем, что
+ * вокруг карточки, и у каждого отличия своя причина:
+ *
+ * - **Фильтры полкой, а не колонкой.** У первой площадки слева стоит
+ *   колонка фильтров в 268 px, здесь её нет вовсе: категории — чипами
+ *   в липкой полке под заголовком, остальное — в шторке `Sheet`, которая
+ *   открывается на любой ширине, а не только на телефоне. Освободившаяся
+ *   колонка уходит выдаче: на широком экране карточка становится в полтора
+ *   раза шире, и это первое, что видно при переключении между площадками.
+ * - **Липнет полка, а не поиск.** Поле поиска стоит один раз в шапке
+ *   экрана, в узкой колонке: каталог без пагинации, экран короткий,
+ *   а под рукой при просмотре выдачи нужнее переключение категории.
+ * - **Сортировка — подчёркнутые вкладки.** Сегментированный переключатель
+ *   занят первой площадкой; здесь та же тройка стоит вкладками, и линия
+ *   вкладок заодно отбивает выдачу от панели — на белом фоне работает
+ *   кайма, а не заливка.
+ * - **Полка, сортировка и счётчик появляются только у загруженного
+ *   каталога.** Пока идут скелетоны, пришла ошибка сети или каталог пуст,
+ *   управлять нечем: экран остаётся из заголовка, поиска и одного `Empty`.
  */
 
 import { useMemo, useState } from "react";
@@ -25,7 +47,7 @@ import { type UiLang } from "@lms/ui/i18n";
 import { PublicShell, TeacherShell } from "@/components/layout/Shell";
 import { CourseCard, pickVersion, type AccessState } from "@lms/course";
 import { Button, CourseCardSkeleton, Empty, Note, Sheet } from "@lms/ui";
-import { IconCheck, IconClose, IconFilter, IconSearch } from "@lms/ui/icons";
+import { IconClose, IconFilter, IconSearch } from "@lms/ui/icons";
 
 type Sort = "new" | "start" | "rating";
 type Hours = "any" | "short" | "mid" | "long";
@@ -43,6 +65,41 @@ const ENROLL_LABEL: Record<Exclude<Enroll, "default">, string> = {
   planned: "Запланированные",
   closed: "Набор закрыт",
 };
+
+/**
+ * Группа фильтра с одним выбранным значением. Три группы в шторке устроены
+ * одинаково, и описывать их данными дешевле, чем повторять разметку трижды.
+ */
+function ChipGroup<T extends string>({
+  title,
+  value,
+  options,
+  onPick,
+}: {
+  title: string;
+  value: T;
+  options: [T, string][];
+  onPick: (value: T) => void;
+}) {
+  return (
+    <div className="stack g10">
+      <strong className="small">{title}</strong>
+      <div className="row wrap g8">
+        {options.map(([v, label]) => (
+          <button
+            key={v}
+            className="chip"
+            data-active={value === v || undefined}
+            aria-pressed={value === v}
+            onClick={() => onPick(v)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function CatalogPage() {
   const { t, lang } = useLang();
@@ -65,11 +122,12 @@ export default function CatalogPage() {
   const [sort, setSort] = useState<Sort>("new");
   const [sheet, setSheet] = useState(false);
 
-  const activeFilters =
-    cats.length +
-    (courseLang !== "any" ? 1 : 0) +
-    (hours !== "any" ? 1 : 0) +
-    (enroll !== "default" ? 1 : 0);
+  /* Счётчик на кнопке считает только то, что спрятано в шторке: категории
+     стоят чипами на виду, и приписывать их к «Фильтрам» значило бы обещать
+     под кнопкой не тот выбор. Общее число нужно другому — строке сброса. */
+  const sheetFilters =
+    (courseLang !== "any" ? 1 : 0) + (hours !== "any" ? 1 : 0) + (enroll !== "default" ? 1 : 0);
+  const activeFilters = cats.length + sheetFilters;
 
   const resetAll = () => {
     setCats([]);
@@ -80,6 +138,8 @@ export default function CatalogPage() {
 
   const groups = useMemo(() => catalog.data?.items ?? [], [catalog.data]);
   const categories = dictionaries.data?.categories ?? [];
+  /* Полка фильтров и сортировка нужны только тогда, когда есть что сужать */
+  const hasCatalog = !catalog.loading && !catalog.error && groups.length > 0;
 
   const accessOf = useMemo(() => {
     const granted = new Set(mine.data?.items.map((c) => c.id) ?? []);
@@ -136,274 +196,183 @@ export default function CatalogPage() {
   const toggleCat = (id: number) =>
     setCats((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const filtersBody = (
-    <div className="stack g24">
-      <div className="stack g10">
-        <strong className="small">Категория</strong>
-        <div className="stack g2">
-          {categories.map((c) => (
-            <label key={c.id} className="check">
-              <input
-                type="checkbox"
-                checked={cats.includes(c.id)}
-                onChange={() => toggleCat(c.id)}
-              />
-              <span className="check-box">
-                <IconCheck size={14} />
-              </span>
-              <span className="check-label">{c.title}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="stack g10">
-        <strong className="small">Статус набора</strong>
-        <div className="row wrap g8">
-          {(
-            [
-              ["default", "Идущие и запланированные"],
-              ["open", ENROLL_LABEL.open],
-              ["planned", ENROLL_LABEL.planned],
-              ["closed", ENROLL_LABEL.closed],
-            ] as [Enroll, string][]
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              className="chip"
-              data-active={enroll === v || undefined}
-              onClick={() => setEnroll(v)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="stack g10">
-        <strong className="small">Язык курса</strong>
-        <div className="row wrap g8">
-          {(
-            [
-              ["any", "Любой"],
-              ["ru", "Русский"],
-              ["kz", "Қазақша"],
-            ] as [CourseLang, string][]
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              className="chip"
-              data-active={courseLang === v || undefined}
-              onClick={() => setCourseLang(v)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="stack g10">
-        <strong className="small">Объём курса</strong>
-        <div className="row wrap g8">
-          {(
-            [
-              ["any", "Любой"],
-              ["short", HOURS_LABEL.short],
-              ["mid", HOURS_LABEL.mid],
-              ["long", HOURS_LABEL.long],
-            ] as [Hours, string][]
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              className="chip"
-              data-active={hours === v || undefined}
-              onClick={() => setHours(v)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
   const content = (
-    <div className="page section" style={{ paddingTop: 16 }}>
-      <div className="stack g8" style={{ marginBottom: 20 }}>
-        <h1 className="h1">Каталог курсов</h1>
-        <p className="body muted">Курсы на русском и казахском языках</p>
-      </div>
-
-      {/* Липкий поиск */}
-      <div className="catalog-search">
-        <div className="row g8">
-          <div className="input-wrap grow">
-            <span className="input-icon">
-              <IconSearch size={19} />
-            </span>
-            <input
-              className="input"
-              placeholder="Поиск по курсам"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Поиск по курсам"
-            />
-          </div>
-          <button
-            className="btn btn-secondary catalog-filter-btn"
-            onClick={() => setSheet(true)}
-            style={{ flexShrink: 0 }}
-          >
-            <IconFilter size={18} />
-            {t.filters}
-            {activeFilters > 0 && (
-              <span
-                style={{
-                  minWidth: 20,
-                  height: 20,
-                  padding: "0 6px",
-                  borderRadius: 999,
-                  background: "var(--primary)",
-                  color: "var(--text-on-fill)",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {activeFilters}
-              </span>
-            )}
-          </button>
+    <div className="page section">
+      {/* Шапка экрана: заголовок, подпись и поиск — узкой колонкой,
+          чтобы строка читалась, а выдача под ней шла во всю ширину */}
+      <div className="p2-cat-head stack g16">
+        <div className="stack g6">
+          <h1 className="h1">Каталог курсов</h1>
+          <p className="body muted">Курсы на русском и казахском языках</p>
         </div>
+
+        <div className="input-wrap">
+          <span className="input-icon">
+            <IconSearch size={20} />
+          </span>
+          <input
+            className="input p2-cat-search"
+            placeholder="Поиск по курсам"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Поиск по курсам"
+          />
+        </div>
+
+        {!authed && (
+          <Note kind="info">
+            Смотреть каталог можно без входа. Чтобы оставить заявку на курс, войдите
+            по номеру телефона — имя и телефон возьмём из профиля, заполнять ничего не нужно.
+          </Note>
+        )}
       </div>
 
-      <div className="catalog-layout">
-        {/* Боковые фильтры — десктоп */}
-        <aside className="catalog-side">
-          <div className="card card-pad stack g20" style={{ position: "sticky", top: 88 }}>
-            <div className="row between">
-              <strong>{t.filters}</strong>
-              {activeFilters > 0 && (
+      {hasCatalog && (
+        <>
+          {/* Полка фильтров: категории на виду, остальное — в шторке */}
+          <div className="p2-cat-bar">
+            <div className="p2-cat-bar-in">
+              <div className="p2-cat-cats" role="group" aria-label="Категория">
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    className="chip"
+                    data-active={cats.includes(c.id) || undefined}
+                    aria-pressed={cats.includes(c.id)}
+                    onClick={() => toggleCat(c.id)}
+                  >
+                    {c.title}
+                  </button>
+                ))}
+              </div>
+              <button className="btn btn-secondary p2-cat-more" onClick={() => setSheet(true)}>
+                <IconFilter size={18} />
+                {t.filters}
+                {sheetFilters > 0 && <span className="caption p2-cat-count">{sheetFilters}</span>}
+              </button>
+            </div>
+          </div>
+
+          <div className="p2-cat-tools stack g12">
+            {/* Активные фильтры — снимаются по крестику, включая категории:
+                на телефоне полка прокручивается вбок, и выбранная категория
+                легко оказывается за её краем */}
+            {activeFilters > 0 && (
+              <div className="row wrap g8">
+                {cats.map((id) => (
+                  <button key={id} className="chip" data-active onClick={() => toggleCat(id)}>
+                    {categoryTitle(categories, id)}
+                    <IconClose size={14} />
+                  </button>
+                ))}
+                {enroll !== "default" && (
+                  <button className="chip" data-active onClick={() => setEnroll("default")}>
+                    {ENROLL_LABEL[enroll]}
+                    <IconClose size={14} />
+                  </button>
+                )}
+                {courseLang !== "any" && (
+                  <button className="chip" data-active onClick={() => setCourseLang("any")}>
+                    {courseLang === "ru" ? "Русский" : "Қазақша"}
+                    <IconClose size={14} />
+                  </button>
+                )}
+                {hours !== "any" && (
+                  <button className="chip" data-active onClick={() => setHours("any")}>
+                    {HOURS_LABEL[hours]}
+                    <IconClose size={14} />
+                  </button>
+                )}
                 <button className="btn btn-ghost btn-sm" onClick={resetAll}>
                   {t.reset}
                 </button>
-              )}
-            </div>
-            {filtersBody}
-          </div>
-        </aside>
+              </div>
+            )}
 
-        <div className="stack g16 grow" style={{ minWidth: 0 }}>
-          <div className="row between wrap g12">
-            <span className="small muted">{t.found(result.length)}</span>
-            <div className="segmented">
-              <button data-active={sort === "new"} onClick={() => setSort("new")}>
-                {t.sortNew}
-              </button>
-              <button data-active={sort === "start"} onClick={() => setSort("start")}>
-                {t.sortStart}
-              </button>
-              <button data-active={sort === "rating"} onClick={() => setSort("rating")}>
-                {t.sortRating}
-              </button>
-            </div>
-          </div>
-
-          {/* Активные фильтры чипами */}
-          {activeFilters > 0 && (
-            <div className="row wrap g8">
-              {cats.map((id) => (
-                <button key={id} className="chip" data-active onClick={() => toggleCat(id)}>
-                  {categoryTitle(categories, id)}
-                  <IconClose size={14} />
-                </button>
-              ))}
-              {enroll !== "default" && (
-                <button className="chip" data-active onClick={() => setEnroll("default")}>
-                  {ENROLL_LABEL[enroll]}
-                  <IconClose size={14} />
-                </button>
-              )}
-              {courseLang !== "any" && (
-                <button className="chip" data-active onClick={() => setCourseLang("any")}>
-                  {courseLang === "ru" ? "Русский" : "Қазақша"}
-                  <IconClose size={14} />
-                </button>
-              )}
-              {hours !== "any" && (
-                <button className="chip" data-active onClick={() => setHours("any")}>
-                  {HOURS_LABEL[hours]}
-                  <IconClose size={14} />
-                </button>
-              )}
-            </div>
-          )}
-
-          {!authed && (
-            <Note kind="info">
-              Смотреть каталог можно без входа. Чтобы оставить заявку на курс, войдите
-              по номеру телефона — имя и телефон возьмём из профиля, заполнять ничего не нужно.
-            </Note>
-          )}
-
-          {catalog.loading ? (
-            <div className="grid-courses">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <CourseCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : catalog.error ? (
-            <div className="card">
-              <Empty
-                title={t.loadError}
-                text={t.loadErrorText}
-                action={
-                  <Button variant="secondary" onClick={catalog.reload}>
-                    {t.retry}
-                  </Button>
-                }
-              />
-            </div>
-          ) : groups.length === 0 ? (
-            <div className="card">
-              <Empty title={t.emptyCatalogTitle} text={t.emptyCatalogText} />
-            </div>
-          ) : result.length === 0 ? (
-            <div className="card">
-              <Empty
-                icon={<IconSearch size={36} />}
-                title={t.nothingFound}
-                text={
-                  query
-                    ? `По запросу «${query}»${activeFilters ? " с выбранными фильтрами" : ""} курсов нет. Попробуйте изменить запрос или убрать фильтры.`
-                    : "С выбранными фильтрами курсов нет. Попробуйте убрать часть условий."
-                }
-                action={
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      resetAll();
-                      setQuery("");
-                    }}
+            <div className="p2-cat-sort">
+              <div className="tabs grow">
+                {(
+                  [
+                    ["new", t.sortNew],
+                    ["start", t.sortStart],
+                    ["rating", t.sortRating],
+                  ] as [Sort, string][]
+                ).map(([v, label]) => (
+                  <button
+                    key={v}
+                    data-active={sort === v}
+                    aria-pressed={sort === v}
+                    onClick={() => setSort(v)}
                   >
-                    {t.resetFilters}
-                  </Button>
-                }
-              />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="small muted nowrap p2-cat-found">{t.found(result.length)}</span>
             </div>
-          ) : (
-            <div className="grid-courses">
-              {result.map((g) => (
-                <CourseCard key={g.group_id} group={g} access={accessOf(g)} />
-              ))}
-            </div>
-          )}
-        </div>
+          </div>
+        </>
+      )}
+
+      <div className="p2-cat-results">
+        {catalog.loading ? (
+          <div className="p2-cat-grid">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CourseCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : catalog.error ? (
+          <div className="card-flat p2-cat-state">
+            <Empty
+              title={t.loadError}
+              text={t.loadErrorText}
+              action={
+                <Button variant="secondary" onClick={catalog.reload}>
+                  {t.retry}
+                </Button>
+              }
+            />
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="card-flat p2-cat-state">
+            <Empty title={t.emptyCatalogTitle} text={t.emptyCatalogText} />
+          </div>
+        ) : result.length === 0 ? (
+          <div className="card-flat p2-cat-state">
+            <Empty
+              icon={<IconSearch size={36} />}
+              title={t.nothingFound}
+              text={
+                query
+                  ? `По запросу «${query}»${activeFilters ? " с выбранными фильтрами" : ""} курсов нет. Попробуйте изменить запрос или убрать фильтры.`
+                  : "С выбранными фильтрами курсов нет. Попробуйте убрать часть условий."
+              }
+              action={
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    resetAll();
+                    setQuery("");
+                  }}
+                >
+                  {t.resetFilters}
+                </Button>
+              }
+            />
+          </div>
+        ) : (
+          <div className="p2-cat-grid">
+            {result.map((g) => (
+              <CourseCard key={g.group_id} group={g} access={accessOf(g)} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Шторка фильтров — мобильный */}
+      {/* Шторка с остальными фильтрами — на любой ширине, а не только
+          на телефоне: колонки фильтров у этой площадки нет.
+          «Сбросить» здесь чистит и категории — иначе одна и та же надпись
+          в шторке и над выдачей означала бы разное. */}
       <Sheet
         open={sheet}
         onClose={() => setSheet(false)}
@@ -419,27 +388,115 @@ export default function CatalogPage() {
           </div>
         }
       >
-        {filtersBody}
+        <div className="stack g24">
+          <ChipGroup<Enroll>
+            title="Статус набора"
+            value={enroll}
+            options={[
+              ["default", "Идущие и запланированные"],
+              ["open", ENROLL_LABEL.open],
+              ["planned", ENROLL_LABEL.planned],
+              ["closed", ENROLL_LABEL.closed],
+            ]}
+            onPick={setEnroll}
+          />
+          <ChipGroup<CourseLang>
+            title="Язык курса"
+            value={courseLang}
+            options={[
+              ["any", "Любой"],
+              ["ru", "Русский"],
+              ["kz", "Қазақша"],
+            ]}
+            onPick={setCourseLang}
+          />
+          <ChipGroup<Hours>
+            title="Объём курса"
+            value={hours}
+            options={[
+              ["any", "Любой"],
+              ["short", HOURS_LABEL.short],
+              ["mid", HOURS_LABEL.mid],
+              ["long", HOURS_LABEL.long],
+            ]}
+            onPick={setHours}
+          />
+        </div>
       </Sheet>
 
       <style>{`
-        .catalog-layout { display: flex; gap: 24px; align-items: flex-start; }
-        .catalog-side { display: none; width: 268px; flex-shrink: 0; }
-        /* Поиск липнет к верху при скролле — фон во всю ширину поля страницы */
-        .catalog-search {
+        /* Шапка держится узкой колонкой: заголовок и подпись читаются
+           строкой нормальной длины, а сетка под ними идёт во всю ширину */
+        .p2-cat-head { max-width: 620px; margin-bottom: 24px; }
+        .p2-cat-search { height: 52px; }
+
+        /* Полка липнет под шапкой. Шапка второй площадки на широком экране
+           в две полки: к её высоте прибавляется ряд разделов (46 px и линия),
+           иначе полка фильтров уедет под навигацию. */
+        .p2-cat-bar {
           position: sticky;
           top: var(--header-h);
           z-index: 30;
           background: var(--bg);
-          padding: 8px 16px 12px;
+          border-bottom: 1px solid var(--border);
           margin: 0 -16px;
+          padding: 10px 16px;
+        }
+        .p2-cat-bar-in { display: flex; align-items: center; gap: 10px; }
+        .p2-cat-cats {
+          display: flex;
+          gap: 8px;
+          flex: 1;
+          min-width: 0;
+          overflow-x: auto;
+          scrollbar-width: none;
+          /* обводка чипа под фокусом не срезается краем прокрутки */
+          padding: 2px 0;
+        }
+        .p2-cat-cats::-webkit-scrollbar { display: none; }
+        .p2-cat-cats > .chip { flex-shrink: 0; }
+        .p2-cat-more { flex-shrink: 0; }
+        .p2-cat-count {
+          min-width: 22px;
+          height: 22px;
+          padding: 0 6px;
+          border-radius: 999px;
+          background: var(--primary);
+          color: var(--text-on-fill);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .p2-cat-tools { margin-top: 20px; }
+        /* Счётчик стоит на одной линии с вкладками и продолжает их черту:
+           линия отбивает панель от выдачи вместо ещё одной карточки */
+        .p2-cat-sort { display: flex; align-items: stretch; gap: 12px; }
+        .p2-cat-found {
+          display: flex;
+          align-items: center;
+          flex-shrink: 0;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .p2-cat-results { margin-top: 20px; }
+        .p2-cat-state { padding-block: 12px; }
+        /* Своя плотность: колонки шире, чем у первой площадки, потому что
+           места больше на всю колонку фильтров */
+        .p2-cat-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+
+        @media (min-width: 560px) {
+          .p2-cat-grid { grid-template-columns: repeat(2, 1fr); }
         }
         @media (min-width: 768px) {
-          .catalog-search { padding: 8px 24px 12px; margin: 0 -24px; }
+          .p2-cat-bar { margin: 0 -24px; padding: 12px 24px; }
         }
         @media (min-width: 1024px) {
-          .catalog-side { display: block; }
-          .catalog-filter-btn { display: none; }
+          .p2-cat-bar { top: calc(var(--header-h) + 47px); }
+          /* Категорий немного, на широком экране они встают в строку-две;
+             горизонтальная прокрутка мышью там неудобна */
+          .p2-cat-cats { flex-wrap: wrap; overflow: visible; }
+          .p2-cat-grid { grid-template-columns: repeat(3, 1fr); gap: 24px; }
         }
       `}</style>
     </div>

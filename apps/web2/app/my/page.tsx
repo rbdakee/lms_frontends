@@ -1,18 +1,39 @@
 "use client";
 
 /**
- * Главная учителя «/my» — раздел 5.6 брифа. Одно главное действие: продолжить курс.
+ * Кабинет учителя второй площадки — «/my». Главное действие здесь одно:
+ * продолжить начатый курс.
  *
- * Данные — `GET /me/courses`: карточки с готовыми `done_count`/`total_count`/
- * `progress_percent`/`next_lesson` (клиентского расчёта прогресса больше нет)
- * и блок «Ожидают подтверждения» из `leads`. «Новые курсы» — из `GET /courses`.
+ * Собран из двух запросов и только из них. `GET /me/courses` — карточки с готовыми
+ * `done_count`/`total_count`/`progress_percent`/`next_lesson` и заявки в `leads`;
+ * `GET /courses` — блок «Новые курсы». Прогресс, счётчики и следующий урок считает
+ * сервер, на клиенте не пересчитывается ничего. Карточки курса — общие компоненты
+ * `@lms/course`: они одни на обе площадки, своей копии у второй быть не должно,
+ * и различие делается тем, что вокруг них.
  *
- * Блоки «Требует внимания» (задания, ответы) и «Сертификаты» вернутся
- * с сессиями 5–6 — их данные ещё живут только в прототипе уроков.
+ * Блока сертификатов здесь нет, хотя данные для него уже приехали: перед выкатом
+ * второй площадки делается раскладка, а не новые возможности. Сертификаты живут
+ * на своём экране «/certificates», куда ведёт таб-панель.
+ *
+ * Чем раскладка отличается от кабинета первой площадки и почему:
+ *
+ * - **Две колонки вместо одной.** Слева учёба — «Продолжить» и свои курсы, справа
+ *   узкая полоса второстепенного: заявки и новые курсы. У первой площадки всё это
+ *   стоит одной лентой сверху вниз, и до заявки, по которой человек ждёт доступ,
+ *   надо проскроллить мимо всех карточек. Полоса отделена каймой, а не заливкой:
+ *   фон у темы белый, и отделяют здесь кайма, тень и воздух.
+ * - **Сетка вместо горизонтальной ленты.** Лента первой площадки на телефоне
+ *   прячет половину карточки за краем экрана; здесь карточки лежат сеткой, которая
+ *   на телефоне становится одной колонкой — видно все и целиком.
+ * - **Две честные секции вместо переключателя «В процессе / Пройденные».** Список
+ *   вертикальный, обе секции помещаются друг под другом, и прятать одну за вкладку
+ *   незачем: пустая просто не рисуется.
+ * - **«Продолжить» — обложка справа, процент крупной цифрой у полосы.** У первой
+ *   площадки обложка слева, а процент — мелкой подписью над полосой.
  */
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   api,
@@ -45,8 +66,7 @@ import {
   RowSkeleton,
   Skeleton,
 } from "@lms/ui";
-import { useState } from "react";
-import { IconArrowRight, IconCatalog } from "@lms/ui/icons";
+import { IconArrowRight, IconCatalog, IconCheckCircle, IconPlay } from "@lms/ui/icons";
 
 function isFinished(c: MyCourse): boolean {
   return c.completed_at !== null || (c.total_count > 0 && c.done_count >= c.total_count);
@@ -56,7 +76,6 @@ export default function MyPage() {
   const router = useRouter();
   const { t, lang } = useLang();
   const { me, status } = useMe();
-  const [tab, setTab] = useState<"progress" | "done">("progress");
 
   useEffect(() => {
     if (status === "guest") router.replace("/login");
@@ -118,132 +137,181 @@ export default function MyPage() {
 
   const nothingYet = myCourses.length === 0 && pending.length === 0;
 
+  /* Каталог грузится вторым запросом, и колонок на экране две: без места,
+     занятого заранее, страница прыгала бы с одной колонки на две в момент
+     ответа. Поэтому на время загрузки полоса стоит со скелетоном строк. */
+  const freshLoading = fresh.length === 0 && catalog.loading;
+  const hasRail = pending.length > 0 || fresh.length > 0 || freshLoading;
+
   return (
     <TeacherShell>
-      <div className="page section stack g32" style={{ paddingTop: 20 }}>
-        <h1 className="h1">{t.greeting(me.first_name || "учитель")}</h1>
+      <div className="page section stack g24" style={{ paddingTop: 20 }}>
+        <header className="stack g16">
+          <h1 className="h1">{t.greeting(me.first_name || "учитель")}</h1>
+          <hr className="divider" />
+        </header>
 
-        {/* ===== Продолжить обучение ===== */}
-        {primary ? (
-          <ContinueBlock course={primary} />
-        ) : nothingYet ? (
-          <div className="card">
-            <Empty
-              icon={<IconCatalog size={38} />}
-              title={t.emptyCoursesTitle}
-              text={t.emptyCoursesText}
-              action={
-                <LinkButton href="/courses" size="lg">
-                  {t.openCatalog}
-                </LinkButton>
-              }
-            />
-          </div>
-        ) : /* Незавершённые есть, но все уведены с платформы — «всё пройдено» было бы неправдой */
-        inProgress.length === 0 && myCourses.length > 0 ? (
-          <div className="card card-pad row between g12 wrap">
-            <div className="stack g4">
-              <strong>Все начатые курсы пройдены</strong>
-              <span className="small muted">
-                Заберите сертификаты или выберите следующий курс
-              </span>
+        <Desk
+          rail={
+            hasRail ? (
+              <>
+                {/* ===== Ожидают подтверждения ===== */}
+                {pending.length > 0 && (
+                  <section className="stack g12">
+                    <h2 className="h3">{t.secPending}</h2>
+                    {pending.map((l) => (
+                      <PendingCourseCard key={l.id} lead={l} />
+                    ))}
+                  </section>
+                )}
+
+                {/* ===== Новые курсы ===== */}
+                {(fresh.length > 0 || freshLoading) && (
+                  <section className="stack g12">
+                    <h2 className="h3">{t.secNewCourses}</h2>
+                    {freshLoading ? (
+                      <>
+                        <RowSkeleton />
+                        <RowSkeleton />
+                      </>
+                    ) : (
+                      <>
+                        {fresh.map((c) => (
+                          <CourseRow key={c.id} course={c} />
+                        ))}
+                        <LinkButton
+                          href="/courses"
+                          variant="ghost"
+                          block
+                          iconRight={<IconArrowRight size={16} />}
+                        >
+                          {t.viewAll}
+                        </LinkButton>
+                      </>
+                    )}
+                  </section>
+                )}
+              </>
+            ) : undefined
+          }
+        >
+          {/* ===== Продолжить обучение ===== */}
+          {primary ? (
+            <ContinueBlock course={primary} />
+          ) : nothingYet ? (
+            <div className="card">
+              <Empty
+                icon={<IconCatalog size={38} />}
+                title={t.emptyCoursesTitle}
+                text={t.emptyCoursesText}
+                action={
+                  <LinkButton href="/courses" size="lg">
+                    {t.openCatalog}
+                  </LinkButton>
+                }
+              />
             </div>
-            <LinkButton href="/courses" variant="secondary">
-              {t.openCatalog}
-            </LinkButton>
-          </div>
-        ) : null}
+          ) : /* Незавершённые есть, но все уведены с площадки — «всё пройдено» неправда */
+          inProgress.length === 0 && myCourses.length > 0 ? (
+            <div className="card card-pad row between g16 wrap">
+              <div className="row g12">
+                <span style={{ color: "var(--success)", display: "flex" }}>
+                  <IconCheckCircle size={22} />
+                </span>
+                <div className="stack g4">
+                  <strong>Все начатые курсы пройдены</strong>
+                  <span className="small muted">
+                    Заберите сертификаты или выберите следующий курс
+                  </span>
+                </div>
+              </div>
+              <LinkButton href="/courses" variant="secondary">
+                {t.openCatalog}
+              </LinkButton>
+            </div>
+          ) : null}
 
-        {/* ===== Мои курсы ===== */}
-        {myCourses.length > 0 && (
-          <section className="stack g16">
-            <div className="row between wrap g12">
+          {/* ===== Мои курсы: две секции, без переключателя ===== */}
+          {myCourses.length > 0 && (
+            <section className="stack g24">
               <h2 className="h2">{t.secMyCourses}</h2>
-              <div className="segmented">
-                <button data-active={tab === "progress"} onClick={() => setTab("progress")}>
-                  В процессе · {inProgress.length}
-                </button>
-                <button data-active={tab === "done"} onClick={() => setTab("done")}>
-                  Пройденные · {finished.length}
-                </button>
-              </div>
-            </div>
-
-            {(tab === "progress" ? inProgress : finished).length === 0 ? (
-              <div className="card">
-                <Empty
-                  title={
-                    tab === "progress" ? "Нет курсов в процессе" : "Пока нет пройденных курсов"
-                  }
-                  text={
-                    tab === "progress"
-                      ? "Все начатые курсы завершены — выберите новый в каталоге"
-                      : "Завершите курс, чтобы он появился здесь вместе с сертификатом"
-                  }
-                  action={
-                    <LinkButton href="/courses" variant="secondary">
-                      {t.openCatalog}
-                    </LinkButton>
-                  }
-                />
-              </div>
-            ) : (
-              <div className="hscroll">
-                {(tab === "progress" ? inProgress : finished).map((c) => (
-                  <MyCourseCard key={c.id} course={c} />
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ===== Ожидают подтверждения ===== */}
-        {pending.length > 0 && (
-          <section className="stack g12">
-            <h2 className="h2">{t.secPending}</h2>
-            <div className="stack g12 pending-list">
-              {pending.map((l) => (
-                <PendingCourseCard key={l.id} lead={l} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ===== Новые курсы ===== */}
-        {fresh.length > 0 && (
-          <section className="stack g16">
-            <div className="row between wrap g12">
-              <h2 className="h2">{t.secNewCourses}</h2>
-              <Link href="/courses" className="btn btn-ghost btn-sm">
-                {t.viewAll}
-                <IconArrowRight size={16} />
-              </Link>
-            </div>
-            <div className="stack g10 rec-list">
-              {fresh.map((c) => (
-                <CourseRow key={c.id} course={c} />
-              ))}
-            </div>
-          </section>
-        )}
+              {inProgress.length > 0 && <CourseGroup title="В процессе" courses={inProgress} />}
+              {finished.length > 0 && <CourseGroup title="Пройденные" courses={finished} />}
+            </section>
+          )}
+        </Desk>
       </div>
+    </TeacherShell>
+  );
+}
+
+/* ============ Рабочая область: колонка учёбы и боковая полоса ============ */
+
+/**
+ * Кадр кабинета. Отдельным компонентом — потому что тот же кадр нужен скелетону:
+ * иначе страница после загрузки переезжала бы из одной колонки в две.
+ *
+ * Полосы нет вовсе, когда нечего в неё положить: пустая колонка в 336 px
+ * ужимала бы карточки курсов ни за чем.
+ */
+function Desk({ children, rail }: { children: ReactNode; rail?: ReactNode }) {
+  return (
+    <div className={rail ? "p2-desk has-rail" : "p2-desk"}>
+      <div className="stack g32" style={{ minWidth: 0 }}>
+        {children}
+      </div>
+      {rail && <aside className="stack g32 p2-rail">{rail}</aside>}
 
       <style>{`
-        @media (min-width: 900px) {
-          .rec-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-          .pending-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .p2-desk { display: grid; gap: 28px; }
+        /* Сетка карточек вместо ленты: auto-fill, а не auto-fit — при одном
+           курсе карточка остаётся карточкой, а не растягивается на всю колонку */
+        .p2-cards {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(258px, 1fr));
+          gap: 16px;
+        }
+        @media (min-width: 1024px) {
+          .p2-desk.has-rail {
+            grid-template-columns: minmax(0, 1fr) 336px;
+            gap: 40px;
+          }
+          /* Полосу отделяет кайма: фон страницы и карточек одинаково белый,
+             и заливка второстепенного блока читалась бы как ошибка темы.
+             Колонка тянется во всю высоту рабочей области — иначе линия
+             обрывалась бы на середине экрана и читалась бы как недогруз */
+          .p2-rail { border-left: 1px solid var(--border); padding-left: 32px; }
+          .p2-cards { gap: 20px; }
         }
       `}</style>
-    </TeacherShell>
+    </div>
+  );
+}
+
+/* ============ Секция «Мои курсы» ============ */
+
+/** Заголовок со счётчиком и сетка карточек — одинаково у «в процессе» и «пройденных». */
+function CourseGroup({ title, courses }: { title: string; courses: MyCourse[] }) {
+  return (
+    <section className="stack g12">
+      <div className="row g8">
+        <h3 className="h3">{title}</h3>
+        <span className="small muted-3">{courses.length}</span>
+      </div>
+      <div className="p2-cards">
+        {courses.map((c) => (
+          <MyCourseCard key={c.id} course={c} />
+        ))}
+      </div>
+    </section>
   );
 }
 
 /* ============ Блок «Продолжить обучение» ============ */
 
 /**
- * Прогресс и следующий урок приходят готовыми. Кнопка ведёт прямо в урок —
- * кроме случая, когда следующий шаг тест или задание: их экраны на прототипе
- * до сессии 5, туда ведём через страницу курса.
+ * Прогресс и следующий урок приходят готовыми. Кнопка ведёт прямо в урок,
+ * а тест и задание — через страницу курса: это решает `continueHref`.
  */
 function ContinueBlock({ course }: { course: MyCourse }) {
   const { t } = useLang();
@@ -251,35 +319,42 @@ function ContinueBlock({ course }: { course: MyCourse }) {
   const dictionaries = useDictionaries();
 
   return (
-    <section className="stack g12">
-      <h2 className="h2">{t.continue}</h2>
-      <div className="card continue-card">
-        <Link href={`/courses/${course.id}`} className="continue-cover">
-          <Cover tone="cover-c1" src={course.cover} />
-        </Link>
-        <div className="stack g16 card-pad grow">
-          <div className="stack g6">
-            <span className="caption" style={{ color: "var(--primary)" }}>
-              {categoryTitle(dictionaries.data?.categories, course.category_id)}
-            </span>
-            <Link href={`/courses/${course.id}`}>
-              <h3 className="h2 pretty" style={{ fontSize: 20 }}>
-                {course.title}
-              </h3>
-            </Link>
-            {course.next_lesson && (
-              <span className="small muted pretty">Следующий: {course.next_lesson.title}</span>
-            )}
-          </div>
+    <section className="card p2-continue">
+      <Link href={`/courses/${course.id}`} className="p2-continue-cover">
+        <Cover tone="cover-c1" src={course.cover} />
+      </Link>
 
-          <div className="stack g6">
-            <div className="row between small">
-              <span className="muted">{t.ofLessons(course.done_count, course.total_count)}</span>
-              <strong style={{ color: "var(--primary)" }}>{course.progress_percent}%</strong>
-            </div>
+      <div className="stack g16 card-pad grow">
+        <span className="row g6 caption p2-continue-label">
+          <IconPlay size={13} />
+          {t.continue}
+        </span>
+
+        <div className="stack g6">
+          <span className="caption muted-3">
+            {categoryTitle(dictionaries.data?.categories, course.category_id)}
+          </span>
+          <Link href={`/courses/${course.id}`}>
+            <h2 className="h2 pretty">{course.title}</h2>
+          </Link>
+          {course.next_lesson && (
+            <span className="small muted pretty">Следующий: {course.next_lesson.title}</span>
+          )}
+        </div>
+
+        <div className="row g16" style={{ marginTop: "auto" }}>
+          <strong className="h2 nowrap" style={{ color: "var(--primary)" }}>
+            {course.progress_percent}%
+          </strong>
+          <div className="grow stack g6" style={{ minWidth: 0 }}>
             <Progress value={course.progress_percent} thick />
+            <span className="small muted">
+              {t.ofLessons(course.done_count, course.total_count)}
+            </span>
           </div>
+        </div>
 
+        <div className="p2-continue-cta">
           <LinkButton href={continueHref(routes, course.id, course.next_lesson)} size="lg" block>
             {t.continueShort}
           </LinkButton>
@@ -287,12 +362,23 @@ function ContinueBlock({ course }: { course: MyCourse }) {
       </div>
 
       <style>{`
-        .continue-card { display: flex; flex-direction: column; overflow: hidden; }
-        .continue-cover { display: block; }
+        /* Обложка справа, а не слева, как у первой площадки: на белом фоне это
+           единственное цветное пятно кабинета, и слева оно перебивало бы
+           название курса. На телефоне она уходит наверх полосой 21:9 —
+           при 16:9 кнопка «Продолжить» не помещалась на первый экран. */
+        /* Имя своё, а не «hero»: на лендинге этой же площадки класс с таким
+           именем уже занят под первый экран, и одинаковые имена в двух
+           локальных блоках читались бы как один стиль. */
+        .p2-continue { display: flex; flex-direction: column; overflow: hidden; }
+        .p2-continue-cover { display: block; }
+        .p2-continue-cover .cover { aspect-ratio: 21 / 9; }
+        .p2-continue-label { text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); }
         @media (min-width: 720px) {
-          .continue-card { flex-direction: row; align-items: stretch; }
-          .continue-cover { width: 300px; flex-shrink: 0; }
-          .continue-cover .cover { height: 100%; aspect-ratio: auto; }
+          .p2-continue { flex-direction: row; align-items: stretch; }
+          .p2-continue-cover { order: 2; width: 38%; max-width: 300px; flex-shrink: 0; }
+          .p2-continue-cover .cover { height: 100%; aspect-ratio: auto; }
+          /* Кнопка во всю ширину нужна только на телефоне */
+          .p2-continue-cta .btn { width: auto; }
         }
       `}</style>
     </section>
@@ -305,22 +391,30 @@ function LoadingSkeleton() {
   return (
     <TeacherShell>
       <div className="page section stack g24" style={{ paddingTop: 20 }}>
-        <Skeleton w={220} h={30} />
-        <div className="card card-pad stack g12">
-          <Skeleton h={140} r={12} />
-          <Skeleton w="70%" h={20} />
-          <Skeleton w="45%" h={14} />
-          <Skeleton h={48} r={10} />
+        <div className="stack g16">
+          <Skeleton w={240} h={32} />
+          <hr className="divider" />
         </div>
-        <div className="stack g10">
-          <RowSkeleton />
-          <RowSkeleton />
-        </div>
-        <div className="grid-3">
-          <CourseCardSkeleton />
-          <CourseCardSkeleton />
-          <CourseCardSkeleton />
-        </div>
+
+        <Desk
+          rail={
+            <div className="stack g12">
+              <RowSkeleton />
+              <RowSkeleton />
+            </div>
+          }
+        >
+          <div className="card card-pad stack g16">
+            <Skeleton h={150} r={14} />
+            <Skeleton w="65%" h={22} />
+            <Skeleton w="40%" h={14} />
+            <Skeleton h={46} r={12} />
+          </div>
+          <div className="p2-cards">
+            <CourseCardSkeleton />
+            <CourseCardSkeleton />
+          </div>
+        </Desk>
       </div>
     </TeacherShell>
   );
