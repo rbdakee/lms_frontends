@@ -129,7 +129,7 @@ export function MultiSelect<V extends string | number>({
             minWidth: "100%",
             width: "max-content",
             maxWidth: 320,
-            background: "#fff",
+            background: "var(--card)",
             border: "1px solid var(--border)",
             borderRadius: 14,
             boxShadow: "var(--shadow-hover)",

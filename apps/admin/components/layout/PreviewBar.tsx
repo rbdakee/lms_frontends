@@ -60,7 +60,7 @@ export function PreviewBar({ courseId }: { courseId: string }) {
           gap: 12px;
           padding: 0 12px;
           background: var(--text);
-          color: #fff;
+          color: var(--text-on-fill);
           font-size: 13px;
           font-weight: 600;
         }
@@ -78,12 +78,12 @@ export function PreviewBar({ courseId }: { courseId: string }) {
           border-radius: 8px;
           border: none;
           cursor: pointer;
-          background: rgba(255, 255, 255, 0.16);
-          color: #fff;
+          background: var(--admin-preview-btn);
+          color: var(--text-on-fill);
           font: inherit;
           flex-shrink: 0;
         }
-        .preview-bar-exit:hover { background: rgba(255, 255, 255, 0.26); }
+        .preview-bar-exit:hover { background: var(--admin-preview-btn-hover); }
         /* Липкая шапка урока встаёт под полосой, а не прячется под ней */
         .appbar { top: 38px; }
       `}</style>

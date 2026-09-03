@@ -36,9 +36,9 @@ export function QrCode({
       role="img"
       aria-label={title ?? `QR-код: ${value}`}
     >
-      <rect width={span} height={span} fill="#fff" />
+      <rect width={span} height={span} fill="var(--qr-bg)" />
       <g transform={`translate(${QUIET} ${QUIET})`}>
-        <path d={path} fill="#0f172a" />
+        <path d={path} fill="var(--qr-fg)" />
       </g>
     </svg>
   );

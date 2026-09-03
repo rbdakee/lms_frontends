@@ -4,11 +4,11 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { VerifyPanel } from "@/components/verify/VerifyPanel";
+import { VerifyScreen } from "@lms/site/screens/VerifyScreen";
 
 function VerifyInner() {
   const params = useSearchParams();
-  return <VerifyPanel preset={params.get("number") ?? ""} />;
+  return <VerifyScreen preset={params.get("number") ?? ""} />;
 }
 
 export default function VerifyPage() {

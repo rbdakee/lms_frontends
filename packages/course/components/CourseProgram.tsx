@@ -309,8 +309,8 @@ export function ConditionRow({ condition }: { condition: Condition }) {
           justifyContent: "center",
           flexShrink: 0,
           marginTop: 1,
-          background: done ? "var(--success)" : started ? "var(--primary-bg)" : "#f1f5f9",
-          color: done ? "#fff" : started ? "var(--primary-pressed)" : "var(--text-3)",
+          background: done ? "var(--success)" : started ? "var(--primary-bg)" : "var(--surface-muted)",
+          color: done ? "var(--text-on-fill)" : started ? "var(--primary-pressed)" : "var(--text-3)",
           border: done ? "none" : "1px solid var(--border)",
         }}
       >
@@ -361,7 +361,7 @@ export function CourseCertChecklist({
 
   if (loading) {
     return (
-      <div className="card card-pad stack g10" style={{ background: "#fbfcff" }}>
+      <div className="card card-pad stack g10" style={{ background: "var(--surface-tint)" }}>
         <Skeleton w="60%" h={18} />
         <Skeleton w="90%" h={14} />
         <Skeleton w="80%" h={14} />
@@ -371,7 +371,7 @@ export function CourseCertChecklist({
 
   if (!completion) {
     return (
-      <div className="card card-pad row between g10" style={{ background: "#fbfcff" }}>
+      <div className="card card-pad row between g10" style={{ background: "var(--surface-tint)" }}>
         <span className="small muted">{t.loadError}</span>
         <Button variant="secondary" size="sm" onClick={onRetry}>
           {t.retry}
@@ -385,7 +385,7 @@ export function CourseCertChecklist({
   if (conditions.length === 0 && !certificate && !can_issue) return null;
 
   return (
-    <div className="card card-pad stack g14" style={{ background: "#fbfcff" }}>
+    <div className="card card-pad stack g14" style={{ background: "var(--surface-tint)" }}>
       <h3 className="h3">{t.secCertRequirements}</h3>
 
       {conditions.length > 0 && (
@@ -414,7 +414,7 @@ export function CourseCertChecklist({
         </div>
       ) : blocker ? (
         /* Условия закрыты, но помеха есть — текст объясняет сервер */
-        <span className="caption" style={{ color: "#b45309" }}>
+        <span className="caption" style={{ color: "var(--warning-text)" }}>
           {blocker.message}
         </span>
       ) : null}

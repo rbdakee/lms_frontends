@@ -330,7 +330,7 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
                   <span className="muted-3">{t.noReviews}</span>
                 ) : (
                   <>
-                    <span className="row g4" style={{ color: "#b45309", fontWeight: 700 }}>
+                    <span className="row g4" style={{ color: "var(--warning-text)", fontWeight: 700 }}>
                       <IconStar size={16} filled strokeWidth={1.2} />
                       {fmtRating(c.rating)}
                     </span>

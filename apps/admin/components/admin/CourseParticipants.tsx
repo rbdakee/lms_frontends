@@ -41,7 +41,7 @@ const TASK_STYLE: Record<TaskState, { color: string; bg: string; short: string }
   Принято: { color: "var(--success)", bg: "var(--success-bg)", short: "Принято" },
   "На проверке": { color: "var(--warning)", bg: "var(--warning-bg)", short: "Ждёт" },
   Доработка: { color: "var(--danger)", bg: "var(--danger-bg)", short: "Доработка" },
-  "Не сдано": { color: "var(--text-3)", bg: "#f1f5f9", short: "—" },
+  "Не сдано": { color: "var(--text-3)", bg: "var(--surface-muted)", short: "—" },
 };
 
 /** «Тест модуля 2» → «М2», «Итоговый тест» → «Итог» */
@@ -338,8 +338,8 @@ export function CourseParticipants({ course }: { course: Course }) {
         /* Тонкая линия отделяет тесты от заданий — иначе колонки сливаются */
         .gradebook .group-start { border-left: 1px solid var(--border); }
         .gradebook td.mark { text-align: center; vertical-align: middle; padding-left: 6px; padding-right: 6px; }
-        .gradebook tbody tr[data-attention] { background: #fbfdff; }
-        .gradebook tbody tr:hover { background: #f8fafc; }
+        .gradebook tbody tr[data-attention] { background: var(--admin-row-attention); }
+        .gradebook tbody tr:hover { background: var(--bg); }
 
         .marks-mobile { display: grid; grid-template-columns: 1fr; gap: 12px; }
         @media (min-width: 460px) { .marks-mobile { grid-template-columns: 1fr 1fr; } }
@@ -350,7 +350,7 @@ export function CourseParticipants({ course }: { course: Course }) {
           padding: 4px 8px;
           border: 1px solid var(--border);
           border-radius: 999px;
-          background: #fff;
+          background: var(--card);
         }
       `}</style>
     </div>

@@ -472,7 +472,7 @@ function Leads() {
                    min-content карточки, карточка распирает сетку, и весь
                    экран уезжает в горизонтальный скролл */
                 .kanban-col {
-                  background: #f1f5f9;
+                  background: var(--surface-muted);
                   border-radius: 14px;
                   padding: 10px;
                   min-width: 0;

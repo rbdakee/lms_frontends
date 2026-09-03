@@ -224,7 +224,7 @@ export function SettingsTelegram({
           <div className="stack g12">
             <div
               className="stack g6"
-              style={{ background: "#f1f5f9", borderRadius: 14, padding: 14 }}
+              style={{ background: "var(--surface-muted)", borderRadius: 14, padding: 14 }}
             >
               <span className="caption muted">Код привязки</span>
               <strong className="mono" style={{ fontSize: 26, letterSpacing: "0.14em" }}>
@@ -344,7 +344,7 @@ export function SettingsTelegram({
               key={s.id}
               className="stack g8"
               style={{
-                background: "#f1f5f9",
+                background: "var(--surface-muted)",
                 borderRadius: 14,
                 padding: 14,
               }}
@@ -363,7 +363,7 @@ export function SettingsTelegram({
                 className="caption"
                 style={{
                   alignSelf: "flex-start",
-                  background: "#fff",
+                  background: "var(--card)",
                   border: "1px solid var(--border)",
                   borderRadius: 10,
                   padding: "8px 12px",

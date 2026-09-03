@@ -213,7 +213,7 @@ export function CropImageSheet({
             aspectRatio: String(aspect),
             overflow: "hidden",
             borderRadius: 14,
-            background: "#0f172a",
+            background: "var(--text)",
             /* без touch-action: none браузер заберёт жесты под прокрутку */
             touchAction: "none",
             cursor: "grab",

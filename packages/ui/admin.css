@@ -1,5 +1,18 @@
 /* ---------- Админка ---------- */
 
+/* Цвета, которые встречаются только в админке. Палитру учебных площадок
+   (`globals.css`) они не засоряют: там их никто и никогда не перекрасит —
+   бренд у админки один. */
+:root {
+  --admin-kind-active: #f6f9ff; /* выбранная карточка типа элемента */
+  --admin-bar-2: #a5b4fc; /* вторая колонка столбчатой диаграммы */
+  --admin-row-attention: #fbfdff; /* строка журнала, требующая внимания */
+  --admin-on-dark-dim: rgba(255, 255, 255, 0.55); /* подпись на тёмной заглушке видео */
+  --admin-preview-btn: rgba(255, 255, 255, 0.16); /* кнопка на полосе предпросмотра */
+  --admin-preview-btn-hover: rgba(255, 255, 255, 0.26);
+}
+
+
 .admin-shell {
   display: flex;
   min-height: 100vh;
@@ -50,7 +63,7 @@
   transition: background 0.14s, color 0.14s;
 }
 .admin-nav-item:hover {
-  background: #f1f5f9;
+  background: var(--surface-muted);
   color: var(--text);
 }
 .admin-nav-item[data-active="true"] {
@@ -65,7 +78,7 @@
   padding: 0 6px;
   border-radius: 999px;
   background: var(--danger);
-  color: #fff;
+  color: var(--text-on-fill);
   font-size: 11px;
   font-weight: 800;
   display: flex;
@@ -128,7 +141,7 @@
   transition: height 0.4s;
 }
 .bar.b2 {
-  background: #a5b4fc;
+  background: var(--admin-bar-2);
 }
 
 

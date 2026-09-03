@@ -615,13 +615,13 @@ export default function LessonEditorPage() {
               style={{
                 aspectRatio: "16/9",
                 borderRadius: 12,
-                background: vid ? "linear-gradient(135deg,#1e293b,#0f172a)" : "#f1f5f9",
+                background: vid ? "linear-gradient(135deg,var(--player-stage-1),var(--player-stage-2))" : "var(--surface-muted)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
                 alignItems: "center",
                 justifyContent: "center",
-                color: vid ? "rgba(255,255,255,.55)" : "var(--text-3)",
+                color: vid ? "var(--admin-on-dark-dim)" : "var(--text-3)",
                 maxWidth: 400,
               }}
             >

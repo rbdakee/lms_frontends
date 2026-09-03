@@ -47,8 +47,8 @@ function PlayerNotice({
           <IconAlert size={40} />
         </span>
         <div className="stack g4" style={{ alignItems: "center" }}>
-          <strong style={{ color: "#fff", fontSize: 17 }}>{title}</strong>
-          <span className="small" style={{ color: "rgba(255,255,255,.7)", maxWidth: 340 }}>
+          <strong style={{ color: "var(--player-fg)", fontSize: 17 }}>{title}</strong>
+          <span className="small" style={{ color: "var(--player-fg-soft)", maxWidth: 340 }}>
             {text}
           </span>
         </div>
@@ -77,7 +77,7 @@ export function VideoPlayer({ lessonId, title }: { lessonId: number; title: stri
       <div className="player">
         <div className="player-stage" />
         <div className="player-center">
-          <span className="spinner" style={{ width: 34, height: 34, color: "#fff" }} />
+          <span className="spinner" style={{ width: 34, height: 34, color: "var(--player-fg)" }} />
         </div>
       </div>
     );

@@ -82,31 +82,31 @@ export function SettingsCertificatePreview({ platform }: { platform: string }) {
             fontSize: "3.6cqw",
             fontWeight: 800,
             letterSpacing: "0.16em",
-            color: "#0f172a",
+            color: "var(--text)",
           }}
         >
           СЕРТИФИКАТ
         </div>
-        <div style={{ fontSize: "1.3cqw", color: "#94a3b8", marginTop: "1cqw" }}>
+        <div style={{ fontSize: "1.3cqw", color: "var(--text-3)", marginTop: "1cqw" }}>
           Настоящий сертификат подтверждает, что
         </div>
         <div
           style={{
             fontSize: "2.6cqw",
             fontWeight: 700,
-            color: "#0f172a",
+            color: "var(--text)",
             marginTop: "1.4cqw",
           }}
         >
           {DEMO.name}
         </div>
-        <div style={{ fontSize: "1.3cqw", color: "#94a3b8", marginTop: "1cqw" }}>
+        <div style={{ fontSize: "1.3cqw", color: "var(--text-3)", marginTop: "1cqw" }}>
           прошёл(-ла) курс повышения квалификации
         </div>
-        <div style={{ fontSize: "1.8cqw", fontWeight: 700, color: "#3a57d6", marginTop: "1cqw" }}>
+        <div style={{ fontSize: "1.8cqw", fontWeight: 700, color: "var(--primary-pressed)", marginTop: "1cqw" }}>
           «{DEMO.course}»
         </div>
-        <div style={{ fontSize: "1.3cqw", color: "#0f172a", marginTop: "0.8cqw" }}>
+        <div style={{ fontSize: "1.3cqw", color: "var(--text)", marginTop: "0.8cqw" }}>
           объёмом {DEMO.hours} часов
         </div>
 
@@ -124,12 +124,12 @@ export function SettingsCertificatePreview({ platform }: { platform: string }) {
           }}
         >
           <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: "1.3cqw", color: "#64748b" }}>Дата выдачи: {DEMO.date}</div>
+            <div style={{ fontSize: "1.3cqw", color: "var(--text-2)" }}>Дата выдачи: {DEMO.date}</div>
             <div
               style={{
                 fontSize: "1.3cqw",
                 fontFamily: "ui-monospace, monospace",
-                color: "#64748b",
+                color: "var(--text-2)",
                 marginTop: "0.3cqw",
               }}
             >
@@ -157,10 +157,10 @@ export function SettingsCertificatePreview({ platform }: { platform: string }) {
             <div
               style={{
                 width: "12cqw",
-                borderTop: "1px solid #cbd5e1",
+                borderTop: "1px solid var(--border-strong)",
                 paddingTop: "0.5cqw",
                 fontSize: "1.1cqw",
-                color: "#64748b",
+                color: "var(--text-2)",
               }}
             >
               Подпись
@@ -183,7 +183,7 @@ export function SettingsCertificatePreview({ platform }: { platform: string }) {
                 style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
               />
             </div>
-            <div style={{ fontSize: "1.1cqw", color: "#64748b" }}>М.П.</div>
+            <div style={{ fontSize: "1.1cqw", color: "var(--text-2)" }}>М.П.</div>
           </div>
         </div>
       </div>

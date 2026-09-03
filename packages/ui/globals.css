@@ -4,27 +4,132 @@
    ============================================================ */
 
 :root {
+  /* ---------- Цвет ----------
+     Токен называет роль, а не краску: вторая площадка перекрашивает значения
+     здесь и не трогает ни одного правила ниже. Цветов мимо этого блока в файле
+     нет — это проверяется командой, а не глазами (см. SESSION_P4_QA.md). */
+
   /* Акцент */
   --primary: #4c6fff;
   --primary-pressed: #3a57d6;
   --primary-bg: #eef2ff;
+  --primary-bg-hover: #e5eaff; /* строка текущего урока под курсором */
+  --primary-muted: #c7d2fe; /* выключенная кнопка, рамка выбранного чипа, кайма сертификата */
+  --info-text: #3730a3; /* текст справочной плашки */
 
   /* Статусы */
   --success: #16a34a;
   --success-bg: #ecfdf3;
+  --success-strong: #15803d; /* нажатая кнопка, текст «пройдено» */
+  --success-deep: #14532d; /* текст плашки об успехе и подложка её тоста */
+  --success-line: #bbf7d0; /* кайма карточки и плашки об успехе */
   --warning: #f59e0b;
   --warning-bg: #fffbeb;
+  --warning-text: #b45309; /* «в работе», «на проверке» */
+  --warning-deep: #92400e; /* текст предупреждающей плашки */
+  --warning-line: #fde68a; /* кайма предупреждающей карточки и плашки */
   --danger: #dc2626;
   --danger-bg: #fef2f2;
+  --danger-bg-hover: #fee2e2; /* наведение на мягкую опасную кнопку */
+  --danger-pressed: #b91c1c;
+  --danger-text: #991b1b; /* текст опасной плашки */
+  --danger-deep: #7f1d1d; /* подложка тоста об ошибке */
+  --danger-line: #fecaca; /* кайма опасной карточки и плашки */
+  --revoked-line: #fed7aa; /* кайма карточки отозванного сертификата */
 
   /* Нейтральные */
   --text: #0f172a;
   --text-2: #64748b;
   --text-3: #94a3b8;
+  --text-label: #334155; /* подпись поля формы */
+  --text-on-fill: #ffffff; /* текст и значки на плотной цветной заливке */
+  --text-on-fill-soft: rgba(255, 255, 255, 0.82); /* пояснение на той же заливке */
+  --text-on-muted: #475569; /* текст на нейтральной подложке */
   --border: #e2e8f0;
   --border-strong: #cbd5e1;
+  --line-soft: #f1f5f9; /* слабая линия внутри блока: строки урока, ячейки таблицы */
   --bg: #f8fafc;
   --card: #ffffff;
+  --surface-muted: #f1f5f9; /* нейтральная подложка: наведение, неактивные метки */
+  --surface-subtle: #fbfcfe; /* шапка таблицы, зона перетаскивания */
+  --surface-tint: #fbfcff; /* поверхность с акцентным оттенком: программа курса, непрочитанное */
+  --track: #e8edf5; /* дорожка прогресса и кольца результата */
+  --skel-base: #eef2f7; /* скелетон: полоса */
+  --skel-shine: #f6f8fb; /* скелетон: блик */
+  --toast-bg: #0f172a;
+
+  /* Полупрозрачные поверхности — стекло шапки и затемнение под окном */
+  --appbar-bg: rgba(255, 255, 255, 0.88);
+  --tabbar-bg: rgba(255, 255, 255, 0.94);
+  --sticky-bg: rgba(255, 255, 255, 0.95);
+  --overlay: rgba(15, 23, 42, 0.5);
+  --badge-lang-bg: rgba(15, 23, 42, 0.72);
+
+  /* Обложки курсов — шесть схем, ими раскрашен каталог */
+  --cover1-from: #eef2ff;
+  --cover1-to: #dbeafe;
+  --cover1-dot: rgba(76, 111, 255, 0.16);
+  --cover1-glyph: rgba(76, 111, 255, 0.55);
+  --cover2-from: #ecfdf3;
+  --cover2-to: #d1fae5;
+  --cover2-dot: rgba(22, 163, 74, 0.16);
+  --cover2-glyph: rgba(22, 163, 74, 0.5);
+  --cover3-from: #fffbeb;
+  --cover3-to: #fde68a;
+  --cover3-dot: rgba(180, 83, 9, 0.16);
+  --cover3-glyph: rgba(180, 83, 9, 0.45);
+  --cover4-from: #fdf2f8;
+  --cover4-to: #fbcfe8;
+  --cover4-dot: rgba(190, 24, 93, 0.14);
+  --cover4-glyph: rgba(190, 24, 93, 0.45);
+  --cover5-from: #f5f3ff;
+  --cover5-to: #ddd6fe;
+  --cover5-dot: rgba(109, 40, 217, 0.14);
+  --cover5-glyph: rgba(109, 40, 217, 0.45);
+  --cover6-from: #ecfeff;
+  --cover6-to: #a5f3fc;
+  --cover6-dot: rgba(14, 116, 144, 0.14);
+  --cover6-glyph: rgba(14, 116, 144, 0.45);
+
+  /* Лендинг */
+  --hero-from: #eef2ff;
+  --hero-mid: #dbeafe;
+  --hero-to: #e0f2fe;
+  --hero-line: #dbe3f7;
+
+  /* Сертификат */
+  --cert-paper-to: #f8faff; /* нижний край бумаги на экране */
+  --qr-bg: #ffffff; /* контраст QR теме не подчиняется: код должен читаться сканером */
+  --qr-fg: #0f172a;
+
+  /* Типы вложенных файлов — метка формата */
+  --file-pdf: #dc2626;
+  --file-pdf-bg: #dc262614;
+  --file-doc: #2563eb;
+  --file-doc-bg: #2563eb14;
+  --file-img: #7c3aed;
+  --file-img-bg: #7c3aed14;
+  --file-video: #0891b2;
+  --file-video-bg: #0891b214;
+  --file-other: #64748b;
+  --file-other-bg: #64748b14;
+
+  /* Плеер — тёмная зона со своей палитрой, светлой темой не управляется */
+  --player-bg: #0b1220;
+  --player-stage-1: #1e293b;
+  --player-stage-2: #0f172a;
+  --player-stage-3: #172554;
+  --player-fg: #ffffff;
+  --player-fg-dim: rgba(255, 255, 255, 0.6);
+  --player-fg-soft: rgba(255, 255, 255, 0.7); /* подпись под заголовком видео */
+  --player-veil: rgba(255, 255, 255, 0.14); /* водяной знак сцены и наведение в меню скорости */
+  --player-btn-hover: rgba(255, 255, 255, 0.16);
+  --player-track: rgba(255, 255, 255, 0.24);
+  --player-buffer: rgba(255, 255, 255, 0.3);
+  --player-knob: #ffffff;
+  --player-scrim: rgba(2, 6, 23, 0.8);
+  --player-scrim-strong: rgba(2, 6, 23, 0.92);
+  --speed-menu-bg: rgba(15, 23, 42, 0.96);
 
   /* Радиусы */
   --r-btn: 10px;
@@ -32,10 +137,20 @@
   --r-card: 16px;
   --r-modal: 20px;
 
-  /* Тени */
+  /* Тени и обводка фокуса */
   --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.05);
   --shadow-hover: 0 8px 24px rgba(15, 23, 42, 0.1);
   --shadow-lg: 0 16px 48px rgba(15, 23, 42, 0.14);
+  --shadow-knob: 0 1px 3px rgba(15, 23, 42, 0.24); /* кружок переключателя */
+  --shadow-pill: 0 1px 3px rgba(15, 23, 42, 0.1); /* выбранный сегмент */
+  --shadow-pill-sm: 0 1px 2px rgba(15, 23, 42, 0.12); /* выбранный язык */
+  --shadow-sticky: 0 -4px 16px rgba(15, 23, 42, 0.06); /* липкая полоса снизу */
+  --shadow-play: 0 8px 28px rgba(76, 111, 255, 0.5); /* кнопка запуска видео */
+  --shadow-player-knob: 0 1px 4px rgba(0, 0, 0, 0.4);
+  --shadow-success: 0 12px 32px rgba(22, 163, 74, 0.34); /* кнопка на экране «курс пройден» */
+  --ring-primary: 0 0 0 4px rgba(76, 111, 255, 0.12);
+  --ring-primary-sm: 0 0 0 3px rgba(76, 111, 255, 0.12); /* та же обводка потоньше: галочка в тесте */
+  --ring-danger: 0 0 0 4px rgba(220, 38, 38, 0.12);
 
   /* Раскладка */
   --header-h: 60px;
@@ -319,14 +434,14 @@ ol {
 
 .btn-primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-fill);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-pressed);
 }
 .btn-primary:disabled {
-  background: #c7d2fe;
-  color: #eef2ff;
+  background: var(--primary-muted);
+  color: var(--primary-bg);
 }
 
 .btn-secondary {
@@ -336,7 +451,7 @@ ol {
 }
 .btn-secondary:hover:not(:disabled) {
   border-color: var(--border-strong);
-  background: #f1f5f9;
+  background: var(--surface-muted);
 }
 .btn-secondary:disabled {
   color: var(--text-3);
@@ -353,26 +468,26 @@ ol {
 
 .btn-danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--text-on-fill);
 }
 .btn-danger:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--danger-pressed);
 }
 .btn-danger-soft {
   background: var(--danger-bg);
   color: var(--danger);
-  border-color: #fecaca;
+  border-color: var(--danger-line);
 }
 .btn-danger-soft:hover:not(:disabled) {
-  background: #fee2e2;
+  background: var(--danger-bg-hover);
 }
 
 .btn-success {
   background: var(--success);
-  color: #fff;
+  color: var(--text-on-fill);
 }
 .btn-success:hover:not(:disabled) {
-  background: #15803d;
+  background: var(--success-strong);
 }
 
 .btn-icon {
@@ -384,7 +499,7 @@ ol {
   flex-shrink: 0;
 }
 .btn-icon:hover {
-  background: #f1f5f9;
+  background: var(--surface-muted);
   color: var(--text);
 }
 
@@ -472,35 +587,35 @@ ol {
 }
 .badge-progress {
   background: var(--warning-bg);
-  color: #b45309;
+  color: var(--warning-text);
 }
 .badge-done {
   background: var(--success-bg);
-  color: #15803d;
+  color: var(--success-strong);
 }
 .badge-review {
   background: var(--warning-bg);
-  color: #b45309;
+  color: var(--warning-text);
 }
 .badge-accepted {
   background: var(--success-bg);
-  color: #15803d;
+  color: var(--success-strong);
 }
 .badge-rework {
   background: var(--danger-bg);
   color: var(--danger);
 }
 .badge-locked {
-  background: #f1f5f9;
+  background: var(--surface-muted);
   color: var(--text-2);
 }
 .badge-neutral {
-  background: #f1f5f9;
+  background: var(--surface-muted);
   color: var(--text-2);
 }
 .badge-lang {
-  background: rgba(15, 23, 42, 0.72);
-  color: #fff;
+  background: var(--badge-lang-bg);
+  color: var(--text-on-fill);
   backdrop-filter: blur(4px);
 }
 
@@ -515,7 +630,7 @@ ol {
   font-size: 13px;
   line-height: 18px;
   font-weight: 700;
-  color: #334155;
+  color: var(--text-label);
 }
 .label-optional {
   font-weight: 500;
@@ -551,7 +666,7 @@ ol {
 .input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(76, 111, 255, 0.12);
+  box-shadow: var(--ring-primary);
 }
 .input:disabled {
   background: var(--bg);
@@ -563,7 +678,7 @@ ol {
 }
 .input-error:focus {
   border-color: var(--danger);
-  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
+  box-shadow: var(--ring-danger);
 }
 textarea.input {
   height: auto;
@@ -617,7 +732,7 @@ select.input {
   justify-content: center;
   flex-shrink: 0;
   margin-top: 1px;
-  color: #fff;
+  color: var(--text-on-fill);
   transition: background 0.14s, border-color 0.14s;
 }
 .check-box.round {
@@ -659,8 +774,8 @@ select.input {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.24);
+  background: var(--card);
+  box-shadow: var(--shadow-knob);
   transition: transform 0.16s;
 }
 .switch[data-on="true"] {
@@ -675,7 +790,7 @@ select.input {
   display: inline-flex;
   padding: 3px;
   gap: 2px;
-  background: #f1f5f9;
+  background: var(--surface-muted);
   border-radius: 12px;
   border: 1px solid var(--border);
 }
@@ -700,7 +815,7 @@ select.input {
 .segmented button[data-active="true"] {
   background: var(--card);
   color: var(--text);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  box-shadow: var(--shadow-pill);
 }
 
 /* Табы-подчёркивание */
@@ -758,7 +873,7 @@ select.input {
 }
 .chip[data-active="true"] {
   background: var(--primary-bg);
-  border-color: #c7d2fe;
+  border-color: var(--primary-muted);
   color: var(--primary-pressed);
 }
 
@@ -767,7 +882,7 @@ select.input {
 .progress {
   height: 6px;
   border-radius: 999px;
-  background: #e8edf5;
+  background: var(--track);
   overflow: hidden;
   width: 100%;
 }
@@ -805,7 +920,7 @@ select.input {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, #eef2ff 0%, #dbeafe 100%);
+  background: linear-gradient(135deg, var(--cover1-from) 0%, var(--cover1-to) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -816,13 +931,13 @@ select.input {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle at 1px 1px, rgba(76, 111, 255, 0.16) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, var(--cover1-dot) 1px, transparent 0);
   background-size: 14px 14px;
 }
 .cover-glyph {
   position: relative;
   z-index: 1;
-  color: rgba(76, 111, 255, 0.55);
+  color: var(--cover1-glyph);
 }
 .cover-badges {
   position: absolute;
@@ -837,49 +952,49 @@ select.input {
 }
 
 .cover-c2 {
-  background: linear-gradient(135deg, #ecfdf3 0%, #d1fae5 100%);
+  background: linear-gradient(135deg, var(--cover2-from) 0%, var(--cover2-to) 100%);
 }
 .cover-c2::after {
-  background-image: radial-gradient(circle at 1px 1px, rgba(22, 163, 74, 0.16) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, var(--cover2-dot) 1px, transparent 0);
 }
 .cover-c2 .cover-glyph {
-  color: rgba(22, 163, 74, 0.5);
+  color: var(--cover2-glyph);
 }
 .cover-c3 {
-  background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%);
+  background: linear-gradient(135deg, var(--cover3-from) 0%, var(--cover3-to) 100%);
 }
 .cover-c3::after {
-  background-image: radial-gradient(circle at 1px 1px, rgba(180, 83, 9, 0.16) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, var(--cover3-dot) 1px, transparent 0);
 }
 .cover-c3 .cover-glyph {
-  color: rgba(180, 83, 9, 0.45);
+  color: var(--cover3-glyph);
 }
 .cover-c4 {
-  background: linear-gradient(135deg, #fdf2f8 0%, #fbcfe8 100%);
+  background: linear-gradient(135deg, var(--cover4-from) 0%, var(--cover4-to) 100%);
 }
 .cover-c4::after {
-  background-image: radial-gradient(circle at 1px 1px, rgba(190, 24, 93, 0.14) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, var(--cover4-dot) 1px, transparent 0);
 }
 .cover-c4 .cover-glyph {
-  color: rgba(190, 24, 93, 0.45);
+  color: var(--cover4-glyph);
 }
 .cover-c5 {
-  background: linear-gradient(135deg, #f5f3ff 0%, #ddd6fe 100%);
+  background: linear-gradient(135deg, var(--cover5-from) 0%, var(--cover5-to) 100%);
 }
 .cover-c5::after {
-  background-image: radial-gradient(circle at 1px 1px, rgba(109, 40, 217, 0.14) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, var(--cover5-dot) 1px, transparent 0);
 }
 .cover-c5 .cover-glyph {
-  color: rgba(109, 40, 217, 0.45);
+  color: var(--cover5-glyph);
 }
 .cover-c6 {
-  background: linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%);
+  background: linear-gradient(135deg, var(--cover6-from) 0%, var(--cover6-to) 100%);
 }
 .cover-c6::after {
-  background-image: radial-gradient(circle at 1px 1px, rgba(14, 116, 144, 0.14) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, var(--cover6-dot) 1px, transparent 0);
 }
 .cover-c6 .cover-glyph {
-  color: rgba(14, 116, 144, 0.45);
+  color: var(--cover6-glyph);
 }
 
 /* ---------- Сетки ---------- */
@@ -975,7 +1090,7 @@ select.input {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--appbar-bg);
   backdrop-filter: saturate(180%) blur(12px);
   border-bottom: 1px solid var(--border);
 }
@@ -997,7 +1112,7 @@ select.input {
   height: 34px;
   border-radius: 10px;
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-fill);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1054,7 +1169,7 @@ select.input {
   flex-shrink: 0;
 }
 .navlink:hover {
-  background: #f1f5f9;
+  background: var(--surface-muted);
   color: var(--text);
 }
 .navlink[data-active="true"] {
@@ -1077,7 +1192,7 @@ select.input {
   transition: background 0.14s, border-color 0.14s;
 }
 .user-btn:hover {
-  background: #f1f5f9;
+  background: var(--surface-muted);
   border-color: var(--border);
 }
 .user-btn-name {
@@ -1121,14 +1236,14 @@ select.input {
   transition: background 0.14s;
 }
 .usermenu-item:hover {
-  background: #f1f5f9;
+  background: var(--surface-muted);
 }
 
 .lang-switch {
   display: inline-flex;
   padding: 2px;
   gap: 2px;
-  background: #f1f5f9;
+  background: var(--surface-muted);
   border-radius: 9px;
   flex-shrink: 0;
 }
@@ -1147,7 +1262,7 @@ select.input {
 .lang-switch button[data-active="true"] {
   background: var(--card);
   color: var(--text);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow-pill-sm);
 }
 
 .bell {
@@ -1190,7 +1305,7 @@ select.input {
   padding: 0 4px;
   border-radius: 999px;
   background: var(--danger);
-  color: #fff;
+  color: var(--text-on-fill);
   font-size: 10px;
   font-weight: 800;
   display: flex;
@@ -1210,7 +1325,7 @@ select.input {
   z-index: 45;
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--tabbar-bg);
   backdrop-filter: saturate(180%) blur(12px);
   border-top: 1px solid var(--border);
   display: grid;
@@ -1281,10 +1396,10 @@ select.input {
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   z-index: 44;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--sticky-bg);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
-  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow-sticky);
 }
 .sticky-cta-inner {
   max-width: 520px;
@@ -1306,7 +1421,7 @@ select.input {
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--overlay);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1415,7 +1530,7 @@ select.input {
   transition: background 0.14s;
 }
 .acc-head:hover {
-  background: #f8fafc;
+  background: var(--bg);
 }
 .acc-chevron {
   color: var(--text-3);
@@ -1446,10 +1561,10 @@ select.input {
   color: inherit;
 }
 .lesson-row + .lesson-row {
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--line-soft);
 }
 .lesson-row:hover:not([data-locked="true"]) {
-  background: #f8fafc;
+  background: var(--bg);
 }
 .lesson-row[data-locked="true"] {
   cursor: not-allowed;
@@ -1458,7 +1573,7 @@ select.input {
   background: var(--primary-bg);
 }
 .lesson-row[data-current="true"]:hover {
-  background: #e5eaff;
+  background: var(--primary-bg-hover);
 }
 .lesson-icon {
   width: 34px;
@@ -1468,7 +1583,7 @@ select.input {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #f1f5f9;
+  background: var(--surface-muted);
   color: var(--text-2);
 }
 .lesson-icon.done {
@@ -1477,10 +1592,10 @@ select.input {
 }
 .lesson-icon.current {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-fill);
 }
 .lesson-icon.locked {
-  background: #f1f5f9;
+  background: var(--surface-muted);
   color: var(--text-3);
 }
 
@@ -1506,19 +1621,19 @@ select.input {
   letter-spacing: 0.04em;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  background: #fbfcfe;
+  background: var(--surface-subtle);
   white-space: nowrap;
 }
 .table td {
   padding: 14px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--line-soft);
   vertical-align: middle;
 }
 .table tr:last-child td {
   border-bottom: none;
 }
 .table tbody tr:hover {
-  background: #fbfcfe;
+  background: var(--surface-subtle);
 }
 .table-mobile-cards {
   display: flex;
@@ -1564,7 +1679,7 @@ select.input {
 /* ---------- Скелетон ---------- */
 
 .skel {
-  background: linear-gradient(90deg, #eef2f7 25%, #f6f8fb 37%, #eef2f7 63%);
+  background: linear-gradient(90deg, var(--skel-base) 25%, var(--skel-shine) 37%, var(--skel-base) 63%);
   background-size: 400% 100%;
   animation: shimmer 1.3s ease infinite;
   border-radius: 8px;
@@ -1606,8 +1721,8 @@ select.input {
   gap: 10px;
   padding: 12px 16px;
   border-radius: 12px;
-  background: #0f172a;
-  color: #fff;
+  background: var(--toast-bg);
+  color: var(--text-on-fill);
   font-size: 14px;
   font-weight: 600;
   box-shadow: var(--shadow-lg);
@@ -1622,10 +1737,10 @@ select.input {
   }
 }
 .toast-success {
-  background: #14532d;
+  background: var(--success-deep);
 }
 .toast-error {
-  background: #7f1d1d;
+  background: var(--danger-deep);
 }
 
 /* ---------- Плашки-заметки ---------- */
@@ -1644,25 +1759,25 @@ select.input {
 }
 .note-info {
   background: var(--primary-bg);
-  color: #3730a3;
+  color: var(--info-text);
 }
 .note-warning {
   background: var(--warning-bg);
-  color: #92400e;
-  border: 1px solid #fde68a;
+  color: var(--warning-deep);
+  border: 1px solid var(--warning-line);
 }
 .note-danger {
   background: var(--danger-bg);
-  color: #991b1b;
-  border: 1px solid #fecaca;
+  color: var(--danger-text);
+  border: 1px solid var(--danger-line);
 }
 .note-success {
   background: var(--success-bg);
-  color: #14532d;
-  border: 1px solid #bbf7d0;
+  color: var(--success-deep);
+  border: 1px solid var(--success-line);
 }
 .note-muted {
-  background: #f1f5f9;
+  background: var(--surface-muted);
   color: var(--text-2);
 }
 
@@ -1680,7 +1795,7 @@ select.input {
 .stars {
   display: inline-flex;
   gap: 1px;
-  color: #f59e0b;
+  color: var(--warning);
 }
 .mono {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -1721,7 +1836,7 @@ select.input {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #0b1220;
+  background: var(--player-bg);
   overflow: hidden;
   user-select: none;
 }
@@ -1738,16 +1853,16 @@ select.input {
   height: 100%;
   border: 0;
   display: block;
-  background: #0b1220;
+  background: var(--player-bg);
 }
 .player-stage {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #172554 100%);
+  background: linear-gradient(135deg, var(--player-stage-1) 0%, var(--player-stage-2) 60%, var(--player-stage-3) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.14);
+  color: var(--player-veil);
 }
 .player-center {
   position: absolute;
@@ -1764,13 +1879,13 @@ select.input {
   height: 68px;
   border-radius: 50%;
   background: var(--primary);
-  color: #fff;
+  color: var(--player-fg);
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 8px 28px rgba(76, 111, 255, 0.5);
+  box-shadow: var(--shadow-play);
   transition: transform 0.15s, background 0.15s;
 }
 .player-play:hover {
@@ -1784,7 +1899,7 @@ select.input {
   bottom: 0;
   z-index: 4;
   padding: 28px 12px 10px;
-  background: linear-gradient(to top, rgba(2, 6, 23, 0.92), transparent);
+  background: linear-gradient(to top, var(--player-scrim-strong), transparent);
   transition: opacity 0.25s, transform 0.25s;
 }
 .player-bar[data-hidden="true"] {
@@ -1795,7 +1910,7 @@ select.input {
 .player-track {
   height: 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.24);
+  background: var(--player-track);
   position: relative;
   cursor: pointer;
   margin-bottom: 10px;
@@ -1808,7 +1923,7 @@ select.input {
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--player-buffer);
 }
 .player-played {
   position: absolute;
@@ -1822,16 +1937,16 @@ select.input {
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--player-knob);
   transform: translate(-50%, -50%);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-player-knob);
 }
 .pbtn {
   width: 40px;
   height: 40px;
   border: none;
   background: transparent;
-  color: #fff;
+  color: var(--player-fg);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -1841,7 +1956,7 @@ select.input {
   transition: background 0.14s;
 }
 .pbtn:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--player-btn-hover);
 }
 .pbtn-wide {
   width: auto;
@@ -1852,12 +1967,12 @@ select.input {
 .player-time {
   font-size: 13px;
   font-weight: 700;
-  color: #fff;
+  color: var(--player-fg);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .player-time span {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--player-fg-dim);
 }
 .player-title {
   position: absolute;
@@ -1866,8 +1981,8 @@ select.input {
   right: 0;
   z-index: 4;
   padding: 12px 16px 32px;
-  background: linear-gradient(to bottom, rgba(2, 6, 23, 0.8), transparent);
-  color: #fff;
+  background: linear-gradient(to bottom, var(--player-scrim), transparent);
+  color: var(--player-fg);
   transition: opacity 0.25s;
 }
 .player-title[data-hidden="true"] {
@@ -1878,7 +1993,7 @@ select.input {
   position: absolute;
   bottom: 52px;
   right: 8px;
-  background: rgba(15, 23, 42, 0.96);
+  background: var(--speed-menu-bg);
   border-radius: 12px;
   padding: 6px;
   z-index: 6;
@@ -1891,7 +2006,7 @@ select.input {
 .speed-menu button {
   border: none;
   background: none;
-  color: #fff;
+  color: var(--player-fg);
   font-size: 13px;
   font-weight: 700;
   padding: 8px 12px;
@@ -1900,7 +2015,7 @@ select.input {
   text-align: left;
 }
 .speed-menu button:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--player-veil);
 }
 .speed-menu button[data-active="true"] {
   background: var(--primary);
@@ -1911,7 +2026,7 @@ select.input {
 .cert {
   position: relative;
   aspect-ratio: 297 / 210;
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
@@ -1920,14 +2035,14 @@ select.input {
 .cert-inner {
   position: absolute;
   inset: 3.2cqw;
-  border: 0.5cqw double #c7d2fe;
+  border: 0.5cqw double var(--primary-muted);
   border-radius: 1.4cqw;
   padding: 3.4cqw 4.4cqw;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  background: linear-gradient(160deg, #ffffff 0%, #fbfcff 100%);
+  background: linear-gradient(160deg, var(--card) 0%, var(--surface-tint) 100%);
 }
 
 .print-only {
@@ -1941,7 +2056,7 @@ select.input {
     display: none !important;
   }
   body {
-    background: #fff;
+    background: var(--card);
   }
 }
 

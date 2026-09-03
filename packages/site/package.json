@@ -1,0 +1,22 @@
+{
+  "name": "@lms/site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Общие экраны площадки: вход, онбординг, профиль, уведомления, сертификаты и проверка сертификата. Одинаковы у обеих учебных площадок — копий быть не должно.",
+  "exports": {
+    ".": "./index.ts",
+    "./screens": "./screens/index.ts",
+    "./screens/*": "./screens/*.tsx",
+    "./host": "./host.tsx"
+  },
+  "dependencies": {
+    "@lms/api": "*",
+    "@lms/course": "*",
+    "@lms/ui": "*"
+  },
+  "peerDependencies": {
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}

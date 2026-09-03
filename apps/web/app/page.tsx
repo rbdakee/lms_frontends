@@ -140,8 +140,8 @@ export default function LandingPage() {
               style={{
                 overflow: "hidden",
                 boxShadow: "var(--shadow-hover)",
-                background: "linear-gradient(150deg,#eef2ff 0%,#dbeafe 55%,#e0f2fe 100%)",
-                border: "1px solid #dbe3f7",
+                background: "linear-gradient(150deg,var(--hero-from) 0%,var(--hero-mid) 55%,var(--hero-to) 100%)",
+                border: "1px solid var(--hero-line)",
               }}
             >
               <div className="stack g16" style={{ padding: 24 }}>
@@ -354,23 +354,23 @@ export default function LandingPage() {
         <div
           className="card card-pad stack g16"
           style={{
-            background: "linear-gradient(135deg,#4c6fff 0%,#3a57d6 100%)",
+            background: "linear-gradient(135deg,var(--primary) 0%,var(--primary-pressed) 100%)",
             border: "none",
             padding: "32px 24px",
             alignItems: "center",
             textAlign: "center",
           }}
         >
-          <h2 className="h2" style={{ color: "#fff", maxWidth: 520 }}>
+          <h2 className="h2" style={{ color: "var(--text-on-fill)", maxWidth: 520 }}>
             Начните с одного урока — сегодня вечером
           </h2>
-          <p style={{ color: "rgba(255,255,255,.82)", maxWidth: 480 }} className="body pretty">
+          <p style={{ color: "var(--text-on-fill-soft)", maxWidth: 480 }} className="body pretty">
             Регистрация по номеру телефона — без документов и анкет.
           </p>
           <Link
             href={authed ? "/my" : "/login"}
             className="btn btn-lg"
-            style={{ background: "#fff", color: "var(--primary-pressed)", minWidth: 220 }}
+            style={{ background: "var(--card)", color: "var(--primary-pressed)", minWidth: 220 }}
           >
             {authed ? t.navHome : t.start}
           </Link>

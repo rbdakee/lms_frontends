@@ -342,14 +342,14 @@ export function RichEditor({
           background: var(--card);
           transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .rich:focus-within { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(76,111,255,.12); }
+        .rich:focus-within { border-color: var(--primary); box-shadow: var(--ring-primary); }
         .rich-invalid { border-color: var(--danger); }
-        .rich-invalid:focus-within { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(220,38,38,.12); }
+        .rich-invalid:focus-within { border-color: var(--danger); box-shadow: var(--ring-danger); }
         .rich-bar {
           display: flex; flex-wrap: wrap; gap: 4px;
           padding: 6px; border-bottom: 1px solid var(--border);
         }
-        .rich-btn[data-active="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .rich-btn[data-active="true"] { background: var(--primary); border-color: var(--primary); color: var(--text-on-fill); }
         .rich-link {
           display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
           padding: 8px; border-bottom: 1px solid var(--border);

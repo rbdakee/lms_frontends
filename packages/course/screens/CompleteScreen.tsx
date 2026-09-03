@@ -150,11 +150,11 @@ export function CompleteScreen({ courseId: id }: { courseId: string }) {
                 height: 76,
                 borderRadius: 999,
                 background: "var(--success)",
-                color: "#fff",
+                color: "var(--text-on-fill)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 12px 32px rgba(22,163,74,.34)",
+                boxShadow: "var(--shadow-success)",
               }}
             >
               <IconCheck size={38} />
@@ -177,7 +177,7 @@ export function CompleteScreen({ courseId: id }: { courseId: string }) {
             Ширина шире остальных секций: у макета A4 свои пропорции, и на 620px
             подписи в подвале мельчают до нечитаемых */}
         <section style={{ maxWidth: 900, margin: "0 auto", width: "100%" }} className="stack g16">
-          <div className="card" style={{ padding: 12, background: "#f8fafc" }}>
+          <div className="card" style={{ padding: 12, background: "var(--bg)" }}>
             <CertificateSheet cert={cert} />
           </div>
           <div className="row g10 wrap">
@@ -231,7 +231,7 @@ export function CompleteScreen({ courseId: id }: { courseId: string }) {
                         border: "none",
                         cursor: "pointer",
                         padding: 4,
-                        color: (hover || stars) >= s ? "#f59e0b" : "var(--border-strong)",
+                        color: (hover || stars) >= s ? "var(--warning)" : "var(--border-strong)",
                       }}
                     >
                       <IconStar size={32} filled={(hover || stars) >= s} strokeWidth={1.4} />

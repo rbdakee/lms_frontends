@@ -325,7 +325,7 @@ function Tile({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: hot ? "var(--danger-bg)" : "#f1f5f9",
+          background: hot ? "var(--danger-bg)" : "var(--surface-muted)",
           color: hot ? "var(--danger)" : "var(--text-3)",
         }}
       >

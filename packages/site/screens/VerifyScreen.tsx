@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, isApiError, NETWORK_ERROR, type Verify } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { dayTime, dayYear } from "@lms/ui/i18n";
-import { Footer, PublicShell } from "@/components/layout/Shell";
+import { useChrome, useContacts } from "../host";
 import { Button, Note } from "@lms/ui";
 import {
   IconAlert,
@@ -28,16 +28,16 @@ import {
   IconShield,
 } from "@lms/ui/icons";
 
-const SUPPORT_MAIL = "help@lms.kz";
-
 /** Что показываем после ответа сервера: документ, «нет в реестре» или отказ. */
 type Result =
   | { kind: "found"; cert: Verify }
   | { kind: "missing"; number: string }
   | { kind: "error"; text: string };
 
-export function VerifyPanel({ preset = "" }: { preset?: string }) {
+export function VerifyScreen({ preset }: { preset: string }) {
   const { t, lang } = useLang();
+  const { Footer, PublicShell } = useChrome();
+  const { mail } = useContacts();
   const [value, setValue] = useState(preset);
   const [result, setResult] = useState<Result | null>(null);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
@@ -104,7 +104,7 @@ export function VerifyPanel({ preset = "" }: { preset?: string }) {
               <div
                 className="card card-pad stack g20"
                 style={{
-                  borderColor: revoked ? "#fed7aa" : "#bbf7d0",
+                  borderColor: revoked ? "var(--revoked-line)" : "var(--success-line)",
                   borderWidth: 1.5,
                   padding: "28px 20px",
                 }}
@@ -116,7 +116,7 @@ export function VerifyPanel({ preset = "" }: { preset?: string }) {
                       height: 72,
                       borderRadius: 999,
                       background: revoked ? "var(--warning-bg)" : "var(--success)",
-                      color: revoked ? "#b45309" : "#fff",
+                      color: revoked ? "var(--warning-text)" : "var(--text-on-fill)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -125,12 +125,12 @@ export function VerifyPanel({ preset = "" }: { preset?: string }) {
                     {revoked ? <IconAlert size={38} /> : <IconCheckCircle size={40} />}
                   </span>
                   <div className="stack g4">
-                    <h1 className="h1" style={{ color: revoked ? "#b45309" : "#15803d" }}>
+                    <h1 className="h1" style={{ color: revoked ? "var(--warning-text)" : "var(--success-strong)" }}>
                       {revoked ? t.vfRevoked : t.vfValid}
                     </h1>
                     <span className="small muted">{revoked ? t.vfRevokedSub : t.vfValidSub}</span>
                     {revoked && cert.revoked_at && (
-                      <span className="small" style={{ color: "#b45309", fontWeight: 600 }}>
+                      <span className="small" style={{ color: "var(--warning-text)", fontWeight: 600 }}>
                         {t.vfRevokedOn(dayYear(cert.revoked_at, lang))}
                       </span>
                     )}
@@ -164,7 +164,7 @@ export function VerifyPanel({ preset = "" }: { preset?: string }) {
             <>
               <div
                 className="card card-pad stack g16"
-                style={{ borderColor: "#fecaca", borderWidth: 1.5, padding: "28px 20px" }}
+                style={{ borderColor: "var(--danger-line)", borderWidth: 1.5, padding: "28px 20px" }}
               >
                 <div className="stack g12" style={{ alignItems: "center", textAlign: "center" }}>
                   <span
@@ -182,7 +182,7 @@ export function VerifyPanel({ preset = "" }: { preset?: string }) {
                     <IconAlert size={38} />
                   </span>
                   <div className="stack g4">
-                    <h1 className="h1" style={{ color: "#991b1b" }}>
+                    <h1 className="h1" style={{ color: "var(--danger-text)" }}>
                       {t.vfNotFound}
                     </h1>
                     <span className="small muted">
@@ -199,8 +199,8 @@ export function VerifyPanel({ preset = "" }: { preset?: string }) {
                   <li className="small">{t.vfTip2}</li>
                   <li className="small">
                     {t.vfTip3}{" "}
-                    <a href={`mailto:${SUPPORT_MAIL}`} style={{ color: "var(--primary)" }}>
-                      {SUPPORT_MAIL}
+                    <a href={`mailto:${mail}`} style={{ color: "var(--primary)" }}>
+                      {mail}
                     </a>
                   </li>
                 </ul>
@@ -210,7 +210,7 @@ export function VerifyPanel({ preset = "" }: { preset?: string }) {
                 <Button size="lg" block onClick={() => reset(true)}>
                   {t.vfAgain}
                 </Button>
-                <a href={`mailto:${SUPPORT_MAIL}`} className="btn btn-secondary btn-lg">
+                <a href={`mailto:${mail}`} className="btn btn-secondary btn-lg">
                   <IconMail size={18} />
                   {t.vfSupport}
                 </a>

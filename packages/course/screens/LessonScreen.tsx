@@ -488,7 +488,7 @@ export function LessonScreen({
       <TabBar />
 
       <style>{`
-        .player-wrap { background: #0b1220; }
+        .player-wrap { background: var(--player-bg); }
         .player-inner { max-width: var(--max-w); margin: 0 auto; }
         .lesson-layout { display: grid; grid-template-columns: 1fr; gap: 32px; align-items: start; }
         .lesson-side { display: none; }

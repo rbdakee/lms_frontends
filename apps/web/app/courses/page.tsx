@@ -264,7 +264,7 @@ export default function CatalogPage() {
                   padding: "0 6px",
                   borderRadius: 999,
                   background: "var(--primary)",
-                  color: "#fff",
+                  color: "var(--text-on-fill)",
                   fontSize: 11,
                   fontWeight: 800,
                   display: "flex",

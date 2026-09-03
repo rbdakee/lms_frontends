@@ -98,7 +98,7 @@ export function CourseCard({
             <span className="muted-3">{t.noReviews}</span>
           ) : (
             <>
-              <span className="row g4" style={{ color: "#b45309", fontWeight: 700 }}>
+              <span className="row g4" style={{ color: "var(--warning-text)", fontWeight: 700 }}>
                 <IconStar size={14} filled strokeWidth={1.2} />
                 {fmtRating(group.rating)}
               </span>
@@ -357,7 +357,7 @@ export function ReviewsBlock({ course_id }: { course_id: number }) {
                   <div className="progress grow" style={{ height: 8 }}>
                     <div
                       className="progress-bar"
-                      style={{ width: `${pct}%`, background: "#f59e0b" }}
+                      style={{ width: `${pct}%`, background: "var(--warning)" }}
                     />
                   </div>
                   <span className="caption muted-3" style={{ width: 34, textAlign: "right" }}>

@@ -245,7 +245,7 @@ export function Avatar({
         width: size,
         height: size,
         fontSize: Math.round(size * 0.36),
-        ...(tone === "neutral" ? { background: "#f1f5f9", color: "#475569" } : {}),
+        ...(tone === "neutral" ? { background: "var(--surface-muted)", color: "var(--text-on-muted)" } : {}),
       }}
       aria-hidden="true"
     >
@@ -554,20 +554,22 @@ export function fileType(mime: string): string {
 }
 
 export function FileTypeChip({ type }: { type: string }) {
+  /* Токен на формат: цвет метки и её подложка перекрашиваются вместе */
   const tone: Record<string, string> = {
-    PDF: "#dc2626",
-    DOC: "#2563eb",
-    DOCX: "#2563eb",
-    JPG: "#7c3aed",
-    PNG: "#7c3aed",
-    MP4: "#0891b2",
+    PDF: "--file-pdf",
+    DOC: "--file-doc",
+    DOCX: "--file-doc",
+    JPG: "--file-img",
+    PNG: "--file-img",
+    MP4: "--file-video",
   };
+  const token = tone[type] ?? "--file-other";
   return (
     <span
       className="caption"
       style={{
-        background: `${tone[type] ?? "#64748b"}14`,
-        color: tone[type] ?? "#64748b",
+        background: `var(${token}-bg)`,
+        color: `var(${token})`,
         padding: "6px 8px",
         borderRadius: 8,
         fontWeight: 800,

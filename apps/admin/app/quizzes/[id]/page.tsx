@@ -1167,7 +1167,7 @@ export default function QuizEditorPage() {
                   className="row g10 wrap"
                   style={{
                     padding: "10px 14px",
-                    background: "#fbfcfe",
+                    background: "var(--surface-subtle)",
                     borderBottom: "1px solid var(--border)",
                   }}
                 >
@@ -1303,7 +1303,7 @@ export default function QuizEditorPage() {
                           style={{
                             marginTop: 0,
                             padding: 0,
-                            background: opt.is_correct ? "var(--success)" : "#fff",
+                            background: opt.is_correct ? "var(--success)" : "var(--card)",
                             borderColor: opt.is_correct
                               ? "var(--success)"
                               : "var(--border-strong)",

@@ -40,9 +40,9 @@ const STATUS_BADGE: Record<LeadStatus, string> = {
    и цвет его класса не наследует */
 const STATUS_FG: Record<LeadStatus, string> = {
   new: "var(--primary-pressed)",
-  contacted: "#b45309",
-  paid: "#b45309",
-  granted: "#15803d",
+  contacted: "var(--warning-text)",
+  paid: "var(--warning-text)",
+  granted: "var(--success-strong)",
   declined: "var(--text-2)",
 };
 

@@ -4,8 +4,9 @@ import "@lms/ui/globals.css";
 import { MeProvider } from "@lms/api";
 import { LangProvider } from "@lms/ui/lang";
 import { ToastProvider } from "@lms/ui/toast";
-import { BlockedGate } from "@/components/layout/BlockedGate";
+import { BlockedGate } from "@lms/site";
 import { CourseHost } from "@/components/layout/CourseHost";
+import { SiteHost } from "@/components/layout/SiteHost";
 
 /**
  * Manrope поддерживает кириллицу и казахские глифы (ә ғ қ ң ө ұ ү һ і) —
@@ -39,7 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LangProvider>
             <ToastProvider>
               <CourseHost>
-                <BlockedGate>{children}</BlockedGate>
+                <SiteHost>
+                  <BlockedGate>{children}</BlockedGate>
+                </SiteHost>
               </CourseHost>
             </ToastProvider>
           </LangProvider>

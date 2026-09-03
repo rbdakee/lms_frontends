@@ -23,7 +23,8 @@ import {
   notificationHref,
   NOTIF_ICONS,
   onNotificationsChanged,
-} from "@/lib/notifications";
+} from "@lms/site";
+import { useRoutes } from "@lms/site/host";
 import { Avatar, Badge, Skeleton } from "@lms/ui";
 import {
   IconBell,
@@ -95,6 +96,8 @@ export function LangSwitch() {
 function NotificationsBell() {
   const { t, lang } = useLang();
   const { me } = useMe();
+  /* Адреса уведомлений собирает общий пакет, а маршруты у площадки свои */
+  const routes = useRoutes();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -200,13 +203,13 @@ function NotificationsBell() {
                 return (
                   <Link
                     key={n.id}
-                    href={notificationHref(n)}
+                    href={notificationHref(routes, n)}
                     onClick={() => openItem(n)}
                     className="row g10"
                     style={{
                       padding: "12px 14px",
                       alignItems: "flex-start",
-                      borderBottom: "1px solid #f1f5f9",
+                      borderBottom: "1px solid var(--line-soft)",
                       background: n.read_at ? undefined : "var(--primary-bg)",
                     }}
                   >
@@ -663,7 +666,7 @@ export function Footer() {
   const wa = contacts ? waHref(contacts.whatsapp) : null;
   const phone = contacts?.phone.trim() || null;
   return (
-    <footer style={{ background: "#fff", borderTop: "1px solid var(--border)", marginTop: 24 }}>
+    <footer style={{ background: "var(--card)", borderTop: "1px solid var(--border)", marginTop: 24 }}>
       <div className="page section stack g32">
         <div className="footer-grid">
           <div className="stack g12 footer-brand" style={{ maxWidth: 320 }}>

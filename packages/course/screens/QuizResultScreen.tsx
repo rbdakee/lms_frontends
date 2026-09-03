@@ -285,7 +285,7 @@ function ReviewQuestion({
   return (
     <div
       className="card card-pad stack g12"
-      style={{ borderColor: right ? "#bbf7d0" : "#fecaca", borderWidth: 1.5 }}
+      style={{ borderColor: right ? "var(--success-line)" : "var(--danger-line)", borderWidth: 1.5 }}
     >
       <div className="row between wrap g8">
         <span className="caption muted-3" style={{ textTransform: "uppercase" }}>
@@ -327,7 +327,7 @@ function ReviewQuestion({
                 padding: "8px 10px",
                 borderRadius: 10,
                 background: opt.is_correct ? "var(--success-bg)" : "var(--danger-bg)",
-                border: `1px solid ${opt.is_correct ? "#bbf7d0" : "#fecaca"}`,
+                border: `1px solid ${opt.is_correct ? "var(--success-line)" : "var(--danger-line)"}`,
               }}
             >
               <span style={{ color: tone, flexShrink: 0, marginTop: 1 }}>

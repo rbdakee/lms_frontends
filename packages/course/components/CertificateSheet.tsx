@@ -32,7 +32,7 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
             display: "flex",
             alignItems: "center",
             gap: "1.2cqw",
-            color: "#4c6fff",
+            color: "var(--primary)",
             marginBottom: "2.4cqw",
           }}
         >
@@ -61,13 +61,13 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
             fontSize: "4.6cqw",
             fontWeight: 800,
             letterSpacing: "0.14em",
-            color: "#0f172a",
+            color: "var(--text)",
             lineHeight: 1.1,
           }}
         >
           СЕРТИФИКАТ
         </div>
-        <div style={{ fontSize: "1.7cqw", color: "#64748b", marginTop: "0.8cqw" }}>
+        <div style={{ fontSize: "1.7cqw", color: "var(--text-2)", marginTop: "0.8cqw" }}>
           {kz
             ? "біліктілікті арттыру курсынан өткені туралы"
             : "о прохождении курса повышения квалификации"}
@@ -77,7 +77,7 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
           style={{
             width: "16cqw",
             height: "0.3cqw",
-            background: "#4c6fff",
+            background: "var(--primary)",
             borderRadius: "1cqw",
             margin: "2.4cqw 0",
           }}
@@ -88,7 +88,7 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
           style={{
             fontSize: "3.4cqw",
             fontWeight: 700,
-            color: "#0f172a",
+            color: "var(--text)",
             lineHeight: 1.25,
             maxWidth: "84%",
             textWrap: "balance",
@@ -97,7 +97,7 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
           {cert.holder_name}
         </div>
 
-        <div style={{ fontSize: "1.7cqw", color: "#64748b", margin: "1.6cqw 0 0.8cqw" }}>
+        <div style={{ fontSize: "1.7cqw", color: "var(--text-2)", margin: "1.6cqw 0 0.8cqw" }}>
           {kz ? "курстан өтті" : "прошёл(-ла) курс"}
         </div>
 
@@ -105,7 +105,7 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
           style={{
             fontSize: "2.3cqw",
             fontWeight: 700,
-            color: "#3a57d6",
+            color: "var(--primary-pressed)",
             lineHeight: 1.3,
             maxWidth: "88%",
             textWrap: "balance",
@@ -114,7 +114,7 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
           «{cert.course_title}»
         </div>
 
-        <div style={{ fontSize: "1.7cqw", color: "#64748b", marginTop: "1.2cqw" }}>
+        <div style={{ fontSize: "1.7cqw", color: "var(--text-2)", marginTop: "1.2cqw" }}>
           {kz
             ? `көлемі — ${cert.hours} академиялық сағат`
             : `объём — ${cert.hours} академических часов`}
@@ -133,7 +133,7 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
           }}
         >
           <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: "1.5cqw", color: "#64748b" }}>
+            <div style={{ fontSize: "1.5cqw", color: "var(--text-2)" }}>
               {kz ? `Берілген күні: ${issued}` : `Дата выдачи: ${issued}`}
             </div>
             <div
@@ -141,14 +141,14 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
                 fontSize: "1.6cqw",
                 fontFamily: "ui-monospace, monospace",
                 fontWeight: 700,
-                color: "#0f172a",
+                color: "var(--text)",
                 marginTop: "0.5cqw",
                 letterSpacing: "0.04em",
               }}
             >
               {cert.number}
             </div>
-            <div style={{ fontSize: "1.3cqw", color: "#94a3b8", marginTop: "0.4cqw" }}>
+            <div style={{ fontSize: "1.3cqw", color: "var(--text-3)", marginTop: "0.4cqw" }}>
               {kz ? `Тексеру: ${verifyHost}` : `Проверка: ${verifyHost}`}
             </div>
           </div>
@@ -157,10 +157,10 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
             <div
               style={{
                 width: "12cqw",
-                borderTop: "1px solid #cbd5e1",
+                borderTop: "1px solid var(--border-strong)",
                 paddingTop: "0.7cqw",
                 fontSize: "1.3cqw",
-                color: "#64748b",
+                color: "var(--text-2)",
               }}
             >
               {kz ? "Платформа директоры" : "Директор платформы"}
@@ -173,9 +173,9 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
               width: "9cqw",
               height: "9cqw",
               borderRadius: "1cqw",
-              border: "1px solid #e2e8f0",
+              border: "1px solid var(--border)",
               flexShrink: 0,
-              background: "#fff",
+              background: "var(--card)",
               overflow: "hidden",
             }}
           >
@@ -199,7 +199,7 @@ export function CertificateThumb({ cert }: { cert: MyCertificate }) {
   return (
     <div
       className="cert"
-      style={{ background: "linear-gradient(150deg,#ffffff,#f8faff)" }}
+      style={{ background: "linear-gradient(150deg,var(--card),var(--cert-paper-to))" }}
       aria-hidden="true"
     >
       <div className="cert-inner" style={{ justifyContent: "center", gap: "1.4cqw" }}>
@@ -208,7 +208,7 @@ export function CertificateThumb({ cert }: { cert: MyCertificate }) {
             fontSize: "4cqw",
             fontWeight: 800,
             letterSpacing: "0.16em",
-            color: "#0f172a",
+            color: "var(--text)",
           }}
         >
           СЕРТИФИКАТ
@@ -217,7 +217,7 @@ export function CertificateThumb({ cert }: { cert: MyCertificate }) {
           style={{
             width: "14cqw",
             height: "0.3cqw",
-            background: "#4c6fff",
+            background: "var(--primary)",
             borderRadius: "1cqw",
           }}
         />
@@ -225,7 +225,7 @@ export function CertificateThumb({ cert }: { cert: MyCertificate }) {
           style={{
             fontSize: "2.4cqw",
             fontWeight: 700,
-            color: "#3a57d6",
+            color: "var(--primary-pressed)",
             maxWidth: "84%",
             lineHeight: 1.3,
             textWrap: "balance",
@@ -237,7 +237,7 @@ export function CertificateThumb({ cert }: { cert: MyCertificate }) {
           style={{
             fontSize: "1.6cqw",
             fontFamily: "ui-monospace, monospace",
-            color: "#64748b",
+            color: "var(--text-2)",
             letterSpacing: "0.04em",
           }}
         >

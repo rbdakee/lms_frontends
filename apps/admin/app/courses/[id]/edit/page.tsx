@@ -1342,7 +1342,7 @@ function CourseEditor() {
                 <IconEye size={16} />
                 Так увидит учитель — обновляется живо
               </div>
-              <div className="card card-pad stack g14" style={{ background: "#fbfcff" }}>
+              <div className="card card-pad stack g14" style={{ background: "var(--surface-tint)" }}>
                 <h3 className="h3">Что нужно для сертификата</h3>
                 <div className="stack g10">
                   {[
@@ -1363,7 +1363,7 @@ function CourseEditor() {
                             height: 24,
                             borderRadius: 999,
                             border: "1px solid var(--border)",
-                            background: "#f1f5f9",
+                            background: "var(--surface-muted)",
                             flexShrink: 0,
                             marginTop: 1,
                           }}
@@ -1472,7 +1472,7 @@ function CourseEditor() {
                             ? "var(--text-2)"
                             : advice
                               ? "var(--warning)"
-                              : "#fff",
+                              : "var(--text-on-fill)",
                           fontSize: 13,
                           fontWeight: 800,
                         }}
@@ -1675,10 +1675,10 @@ function CourseEditor() {
         .kind-card {
           display: flex; gap: 10px; align-items: flex-start; text-align: left;
           padding: 12px; border: 1px solid var(--border); border-radius: 12px;
-          background: #fff; cursor: pointer; transition: border-color .15s, background .15s;
+          background: var(--card); cursor: pointer; transition: border-color .15s, background .15s;
         }
         .kind-card:hover { border-color: var(--border-strong); }
-        .kind-card[data-active="true"] { border-color: var(--primary); background: #f6f9ff; }
+        .kind-card[data-active="true"] { border-color: var(--primary); background: var(--admin-kind-active); }
         .drag-handle { cursor: grab; color: var(--muted-3); display: flex; }
         .drag-handle:active { cursor: grabbing; }
         .program-module[data-drop="in"] { border-color: var(--primary); }
@@ -2214,7 +2214,7 @@ function ProgramTab({
                   className="row g10 drop-row"
                   style={{
                     padding: "14px 16px",
-                    background: "#fbfcfe",
+                    background: "var(--surface-subtle)",
                     borderBottom: "1px solid var(--border)",
                   }}
                   data-drop={
@@ -2316,7 +2316,7 @@ function ProgramTab({
                     <div
                       key={key}
                       className="row wrap g10 program-row drop-row"
-                      style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9" }}
+                      style={{ padding: "10px 16px", borderBottom: "1px solid var(--line-soft)" }}
                       data-drop={
                         over?.key === key && drag?.type === "item"
                           ? over.after
@@ -2476,7 +2476,7 @@ function ProgramTab({
                 })}
 
                 {/* Добавление прямо в этот модуль — тип виден сразу */}
-                <div className="row wrap g8" style={{ padding: "10px 16px", background: "#fbfcfe" }}>
+                <div className="row wrap g8" style={{ padding: "10px 16px", background: "var(--surface-subtle)" }}>
                   <span className="caption muted-3" style={{ alignSelf: "center" }}>
                     Добавить в модуль:
                   </span>
@@ -2795,7 +2795,7 @@ function ProgramTab({
       <style>{`
         .row-menu {
           position: absolute; right: 0; top: calc(100% + 4px); z-index: 50;
-          min-width: 230px; padding: 6px; background: #fff;
+          min-width: 230px; padding: 6px; background: var(--card);
           border: 1px solid var(--border); border-radius: 12px;
           box-shadow: var(--shadow-lg);
         }

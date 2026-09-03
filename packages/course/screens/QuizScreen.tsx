@@ -365,7 +365,7 @@ export function QuizScreen({ courseId, quizId: id }: { courseId: string; quizId:
                   fontWeight: 800,
                   fontVariantNumeric: "tabular-nums",
                   color: lowTime ? "var(--danger)" : "var(--text)",
-                  background: lowTime ? "var(--danger-bg)" : "#f1f5f9",
+                  background: lowTime ? "var(--danger-bg)" : "var(--surface-muted)",
                   padding: "8px 12px",
                   borderRadius: 10,
                   fontSize: 15,
@@ -403,7 +403,7 @@ export function QuizScreen({ courseId, quizId: id }: { courseId: string; quizId:
                         cursor: "pointer",
                         borderColor: on ? "var(--primary)" : "var(--border)",
                         background: on ? "var(--primary-bg)" : "var(--card)",
-                        boxShadow: on ? "0 0 0 3px rgba(76,111,255,.12)" : "var(--shadow)",
+                        boxShadow: on ? "var(--ring-primary-sm)" : "var(--shadow)",
                         transition: "all .14s",
                       }}
                       aria-pressed={on}
@@ -411,7 +411,7 @@ export function QuizScreen({ courseId, quizId: id }: { courseId: string; quizId:
                       <span
                         className={`check-box ${question.type === "multi" ? "" : "round"}`}
                         style={{
-                          background: on ? "var(--primary)" : "#fff",
+                          background: on ? "var(--primary)" : "var(--card)",
                           borderColor: on ? "var(--primary)" : "var(--border-strong)",
                           marginTop: 0,
                         }}
@@ -449,8 +449,8 @@ export function QuizScreen({ courseId, quizId: id }: { courseId: string; quizId:
                         height: 32,
                         borderRadius: 999,
                         border: i === qi ? "2px solid var(--primary)" : "1px solid var(--border)",
-                        background: ans ? "var(--primary)" : "#fff",
-                        color: ans ? "#fff" : "var(--text-3)",
+                        background: ans ? "var(--primary)" : "var(--card)",
+                        color: ans ? "var(--text-on-fill)" : "var(--text-3)",
                         fontSize: 12,
                         fontWeight: 800,
                         cursor: "pointer",

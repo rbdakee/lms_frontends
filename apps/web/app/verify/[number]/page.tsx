@@ -7,9 +7,9 @@
  */
 
 import { useParams } from "next/navigation";
-import { VerifyPanel } from "@/components/verify/VerifyPanel";
+import { VerifyScreen } from "@lms/site/screens/VerifyScreen";
 
 export default function VerifyByNumberPage() {
   const { number } = useParams<{ number: string }>();
-  return <VerifyPanel preset={decodeURIComponent(number ?? "")} />;
+  return <VerifyScreen preset={decodeURIComponent(number ?? "")} />;
 }

@@ -233,7 +233,7 @@ export function TaskScreen({ courseId, taskId: id }: { courseId: string; taskId:
   const statusCard = () => {
     if (d.status === "pending")
       return (
-        <div className="card card-pad stack g14" style={{ borderColor: "#fde68a" }}>
+        <div className="card card-pad stack g14" style={{ borderColor: "var(--warning-line)" }}>
           <div className="row between wrap g10">
             <div className="row g10">
               <span style={{ color: "var(--warning)" }}>
@@ -256,7 +256,7 @@ export function TaskScreen({ courseId, taskId: id }: { courseId: string; taskId:
 
     if (d.status === "accepted")
       return (
-        <div className="card card-pad stack g14" style={{ borderColor: "#bbf7d0" }}>
+        <div className="card card-pad stack g14" style={{ borderColor: "var(--success-line)" }}>
           <div className="row between wrap g10">
             <div className="row g10">
               <span style={{ color: "var(--success)" }}>
@@ -281,7 +281,7 @@ export function TaskScreen({ courseId, taskId: id }: { courseId: string; taskId:
 
     if (d.status === "rework")
       return (
-        <div className="card card-pad stack g14" style={{ borderColor: "#fecaca" }}>
+        <div className="card card-pad stack g14" style={{ borderColor: "var(--danger-line)" }}>
           <div className="row between wrap g10">
             <div className="row g10">
               <span style={{ color: "var(--danger)" }}>
@@ -463,7 +463,7 @@ export function TaskScreen({ courseId, taskId: id }: { courseId: string; taskId:
                           borderRadius: 14,
                           padding: 24,
                           textAlign: "center",
-                          background: dragOver ? "var(--primary-bg)" : "#fbfcfe",
+                          background: dragOver ? "var(--primary-bg)" : "var(--surface-subtle)",
                           transition: "all .14s",
                         }}
                       >

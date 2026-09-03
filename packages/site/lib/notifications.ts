@@ -12,6 +12,7 @@
 import type { ReactElement } from "react";
 import { api, type Notification, type NotificationType } from "@lms/api";
 import { IconCheckCircle, IconKey, IconMail, IconRefresh, IconSparkle } from "@lms/ui/icons";
+import type { SiteRoutes } from "../host";
 
 /** `params` приходят свободным объектом — числа достаём по имени поля. */
 function num(params: Notification["params"], key: string): number | null {
@@ -19,24 +20,24 @@ function num(params: Notification["params"], key: string): number | null {
   return typeof v === "number" && v > 0 ? v : null;
 }
 
-export function notificationHref(n: Notification): string {
+export function notificationHref(routes: SiteRoutes, n: Notification): string {
   const course = num(n.params, "course_id");
   switch (n.type) {
     case "access_granted":
-      return course ? `/courses/${course}` : "/my";
+      return course ? routes.course(course) : routes.my;
     case "submission_reviewed": {
       const task = num(n.params, "task_id");
-      return course && task ? `/learn/${course}/task/${task}` : "/my";
+      return course && task ? routes.task(course, task) : routes.my;
     }
     case "answer_posted": {
       const lesson = num(n.params, "lesson_id");
-      return course && lesson ? `/learn/${course}/${lesson}` : "/my";
+      return course && lesson ? routes.lesson(course, lesson) : routes.my;
     }
     case "certificate_issued":
-      return "/certificates";
+      return routes.certificates;
     case "retake_allowed": {
       const quiz = num(n.params, "quiz_id");
-      return course && quiz ? `/learn/${course}/quiz/${quiz}` : "/my";
+      return course && quiz ? routes.quiz(course, quiz) : routes.my;
     }
   }
 }
@@ -56,7 +57,7 @@ export const NOTIF_TONES: Record<NotificationType, { bg: string; fg: string }> =
   access_granted: { bg: "var(--success-bg)", fg: "var(--success)" },
   submission_reviewed: { bg: "var(--success-bg)", fg: "var(--success)" },
   answer_posted: { bg: "var(--primary-bg)", fg: "var(--primary)" },
-  certificate_issued: { bg: "var(--warning-bg)", fg: "#b45309" },
+  certificate_issued: { bg: "var(--warning-bg)", fg: "var(--warning-text)" },
   retake_allowed: { bg: "var(--primary-bg)", fg: "var(--primary)" },
 };
 
