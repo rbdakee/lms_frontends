@@ -14,6 +14,7 @@
 import type { ReactNode } from "react";
 import { CourseHostProvider, type CourseHost as Host } from "@lms/course/host";
 import { BackHeader } from "@lms/ui";
+import logo from "@lms/ui/logo.png";
 import { WEB_URL } from "@/lib/urls";
 
 const host: Host = {
@@ -48,6 +49,22 @@ const host: Host = {
     BackHeader,
     /* Нижней таб-панели кабинета в админке нет */
     TabBar: () => null,
+  },
+  /* Предпросмотр показывает содержание курса, а не оформление площадки:
+     бренда второй платформы в нём нет (PLATFORMS_BRIEF, решение 16).
+     Сертификат здесь подписан так же, как был до разделения площадок */
+  brand: {
+    ru: {
+      name: "Академия педагогов и психологов",
+      line1: "Академия педагогов",
+      line2: "и психологов",
+    },
+    kz: {
+      name: "Педагогтар мен психологтар академиясы",
+      line1: "Педагогтар мен психологтар",
+      line2: "академиясы",
+    },
+    logoSrc: logo.src,
   },
 };
 

@@ -18,6 +18,7 @@ import {
 import { useLang } from "@lms/ui/lang";
 import { dayTime, phoneFmt } from "@lms/ui/i18n";
 import { admin } from "@/lib/urls";
+import { BRAND } from "@/lib/brand";
 import {
   markRead,
   notificationHref,
@@ -42,7 +43,6 @@ import {
   IconShield,
   IconUser,
 } from "@lms/ui/icons";
-import logo from "@lms/ui/logo.png";
 
 /* ============ Логотип ============ */
 
@@ -55,13 +55,14 @@ import logo from "@lms/ui/logo.png";
  * (см. `.logo-text` в globals.css).
  */
 export function Logo() {
-  const { t } = useLang();
+  const { lang } = useLang();
+  const brand = BRAND[lang];
   return (
-    <Link href="/" className="logo" aria-label={`${t.brandName} — на лендинг`}>
-      <img src={logo.src} alt="" className="logo-emblem" width={38} height={38} />
+    <Link href="/" className="logo" aria-label={`${brand.name} — на лендинг`}>
+      <img src={BRAND.logoSrc} alt="" className="logo-emblem" width={38} height={38} />
       <span className="logo-text stack">
-        <span>{t.brandLine1}</span>
-        <span>{t.brandLine2}</span>
+        <span>{brand.line1}</span>
+        <span>{brand.line2}</span>
       </span>
     </Link>
   );
@@ -659,7 +660,7 @@ export function PublicShell({
 /* ============ Подвал ============ */
 
 export function Footer() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   /* Контакты — из настроек площадки; оба канала хранятся номерами,
      ссылку wa.me собираем сами. Пока не пришли — колонка без ссылок */
   const contacts = usePublicSettings().data?.contacts;
@@ -718,7 +719,7 @@ export function Footer() {
           </div>
         </div>
         <hr className="divider" />
-        <span className="small muted-3">© 2026 {t.brandName}</span>
+        <span className="small muted-3">© 2026 {BRAND[lang].name}</span>
       </div>
       <style>{`
         /* Колонки ссылок стоят рядом уже на телефоне — иначе подвал уезжает

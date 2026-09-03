@@ -117,7 +117,7 @@ export function CertificateScreen({ certificateId }: { certificateId: string }) 
             </span>
           </div>
 
-          <div className="card" style={{ padding: 12, background: "var(--bg)" }}>
+          <div className="card" style={{ padding: 12, background: "var(--surface-sunken)" }}>
             <CertificateSheet cert={cert} />
           </div>
 

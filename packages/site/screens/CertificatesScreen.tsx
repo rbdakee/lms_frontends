@@ -89,7 +89,7 @@ export function CertificatesScreen() {
                 className="card card-link"
                 style={{ overflow: "hidden" }}
               >
-                <div style={{ padding: 12, background: "var(--bg)" }}>
+                <div style={{ padding: 12, background: "var(--surface-sunken)" }}>
                   <CertificateThumb cert={c} />
                 </div>
                 <div className="card-pad row between g10" style={{ alignItems: "flex-start" }}>

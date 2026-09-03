@@ -11,15 +11,17 @@
  */
 
 import type { MyCertificate } from "@lms/api";
-import { dayYear, dict } from "@lms/ui/i18n";
+import { dayYear } from "@lms/ui/i18n";
 import { useOrigin } from "@lms/ui/useOrigin";
-import { useRoutes } from "../host";
-import logo from "@lms/ui/logo.png";
+import { useBrand, useRoutes } from "../host";
 import { QrCode } from "./QrCode";
 
 export function CertificateSheet({ cert }: { cert: MyCertificate }) {
   const kz = cert.lang === "kz";
-  const brand = dict[kz ? "kz" : "ru"];
+  /* Бренд площадки — от хозяина: у второй площадки он свой, а документ
+     с чужим названием пришлось бы отзывать */
+  const platform = useBrand();
+  const brand = platform[kz ? "kz" : "ru"];
   const { verifyHost, verifyUrl } = useOrigin(useRoutes().verifyOrigin);
   const issued = dayYear(cert.issued_at, kz ? "kz" : "ru");
 
@@ -39,7 +41,7 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
           {/* Эмблема круглая и со своим фоном — синей плашки под ней нет.
               Название разбито на две строки той же парой строк словаря, что
               и в шапке сайта: автоперенос ломает его на три. */}
-          <img src={logo.src} alt="" style={{ width: "5.4cqw", height: "5.4cqw" }} />
+          <img src={platform.logoSrc} alt="" style={{ width: "5.4cqw", height: "5.4cqw" }} />
           <span
             style={{
               display: "flex",
@@ -51,8 +53,8 @@ export function CertificateSheet({ cert }: { cert: MyCertificate }) {
               lineHeight: 1.2,
             }}
           >
-            <span>{brand.brandLine1}</span>
-            <span>{brand.brandLine2}</span>
+            <span>{brand.line1}</span>
+            <span>{brand.line2}</span>
           </span>
         </div>
 

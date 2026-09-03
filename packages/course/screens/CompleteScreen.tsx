@@ -177,7 +177,7 @@ export function CompleteScreen({ courseId: id }: { courseId: string }) {
             Ширина шире остальных секций: у макета A4 свои пропорции, и на 620px
             подписи в подвале мельчают до нечитаемых */}
         <section style={{ maxWidth: 900, margin: "0 auto", width: "100%" }} className="stack g16">
-          <div className="card" style={{ padding: 12, background: "var(--bg)" }}>
+          <div className="card" style={{ padding: 12, background: "var(--surface-sunken)" }}>
             <CertificateSheet cert={cert} />
           </div>
           <div className="row g10 wrap">

@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, isApiError, NETWORK_ERROR, type Verify } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { dayTime, dayYear } from "@lms/ui/i18n";
-import { useChrome, useContacts } from "../host";
+import { useBrand, useChrome, useContacts } from "../host";
 import { Button, Note } from "@lms/ui";
 import {
   IconAlert,
@@ -38,6 +38,9 @@ export function VerifyScreen({ preset }: { preset: string }) {
   const { t, lang } = useLang();
   const { Footer, PublicShell } = useChrome();
   const { mail } = useContacts();
+  /* Документ выдала та площадка, на которой его проверяют: экран общий,
+     а имя в подписи — своё у каждой */
+  const brand = useBrand();
   const [value, setValue] = useState(preset);
   const [result, setResult] = useState<Result | null>(null);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
@@ -128,7 +131,9 @@ export function VerifyScreen({ preset }: { preset: string }) {
                     <h1 className="h1" style={{ color: revoked ? "var(--warning-text)" : "var(--success-strong)" }}>
                       {revoked ? t.vfRevoked : t.vfValid}
                     </h1>
-                    <span className="small muted">{revoked ? t.vfRevokedSub : t.vfValidSub}</span>
+                    <span className="small muted">
+                      {revoked ? t.vfRevokedSub : t.vfValidSub(brand[lang].name)}
+                    </span>
                     {revoked && cert.revoked_at && (
                       <span className="small" style={{ color: "var(--warning-text)", fontWeight: 600 }}>
                         {t.vfRevokedOn(dayYear(cert.revoked_at, lang))}

@@ -53,6 +53,11 @@
   --surface-muted: #f1f5f9; /* нейтральная подложка: наведение, неактивные метки */
   --surface-subtle: #fbfcfe; /* шапка таблицы, зона перетаскивания */
   --surface-tint: #fbfcff; /* поверхность с акцентным оттенком: программа курса, непрочитанное */
+  /* Утопленная в карточку поверхность: наведение на строку урока и на заголовок
+     программы, врезка под QR, выключенное поле. У первой площадки это тот же цвет,
+     что и фон страницы, но роль другая: у второй площадки фон белый, и на нём
+     заливка наведения цветом фона просто исчезала бы */
+  --surface-sunken: #f8fafc;
   --track: #e8edf5; /* дорожка прогресса и кольца результата */
   --skel-base: #eef2f7; /* скелетон: полоса */
   --skel-shine: #f6f8fb; /* скелетон: блик */
@@ -152,6 +157,46 @@
   --ring-primary-sm: 0 0 0 3px rgba(76, 111, 255, 0.12); /* та же обводка потоньше: галочка в тесте */
   --ring-danger: 0 0 0 4px rgba(220, 38, 38, 0.12);
 
+  /* Типографика — шрифт и шкала.
+     Гарнитуру подставляет приложение: `--font-manrope` объявляет next/font
+     в его layout. Вторая площадка берёт свой шрифт и свою шкалу тем же
+     способом — переопределением этих токенов, а не копией правил ниже. */
+  --font-ui: var(--font-manrope);
+  --h1-size: 26px;
+  --h1-lh: 32px;
+  --h1-weight: 800;
+  --h1-track: -0.02em;
+  --h1-size-md: 32px;
+  --h1-lh-md: 40px;
+  --h2-size: 20px;
+  --h2-lh: 28px;
+  --h2-weight: 700;
+  --h2-track: -0.015em;
+  --h2-size-md: 24px;
+  --h2-lh-md: 32px;
+  --h3-size: 17px;
+  --h3-lh: 24px;
+  --h3-weight: 700;
+  --h3-track: -0.01em;
+  --h3-size-md: 18px;
+  --h3-lh-md: 26px;
+  --body-size: 16px;
+  --body-lh: 24px;
+  --small-size: 14px;
+  --small-lh: 20px;
+  --caption-size: 12px;
+  --caption-lh: 16px;
+  --caption-weight: 600;
+
+  /* Плотность — сколько воздуха между блоками и внутри них */
+  --section-pad: 32px;
+  --section-pad-lg: 48px;
+  --card-pad: 16px;
+  --card-pad-md: 20px;
+  --btn-h: 44px;
+  --btn-pad-x: 18px;
+  --btn-weight: 700;
+
   /* Раскладка */
   --header-h: 60px;
   --tabbar-h: 64px;
@@ -172,9 +217,9 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-manrope), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 16px;
-  line-height: 24px;
+  font-family: var(--font-ui), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: var(--body-size);
+  line-height: var(--body-lh);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -235,37 +280,37 @@ ol {
 /* ---------- Типографика ---------- */
 
 .h1 {
-  font-size: 26px;
-  line-height: 32px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: var(--h1-size);
+  line-height: var(--h1-lh);
+  font-weight: var(--h1-weight);
+  letter-spacing: var(--h1-track);
   text-wrap: balance;
 }
 .h2 {
-  font-size: 20px;
-  line-height: 28px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-size: var(--h2-size);
+  line-height: var(--h2-lh);
+  font-weight: var(--h2-weight);
+  letter-spacing: var(--h2-track);
   text-wrap: balance;
 }
 .h3 {
-  font-size: 17px;
-  line-height: 24px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: var(--h3-size);
+  line-height: var(--h3-lh);
+  font-weight: var(--h3-weight);
+  letter-spacing: var(--h3-track);
 }
 .body {
-  font-size: 16px;
-  line-height: 24px;
+  font-size: var(--body-size);
+  line-height: var(--body-lh);
 }
 .small {
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--small-size);
+  line-height: var(--small-lh);
 }
 .caption {
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
+  font-size: var(--caption-size);
+  line-height: var(--caption-lh);
+  font-weight: var(--caption-weight);
 }
 .muted {
   color: var(--text-2);
@@ -279,16 +324,16 @@ ol {
 
 @media (min-width: 768px) {
   .h1 {
-    font-size: 32px;
-    line-height: 40px;
+    font-size: var(--h1-size-md);
+    line-height: var(--h1-lh-md);
   }
   .h2 {
-    font-size: 24px;
-    line-height: 32px;
+    font-size: var(--h2-size-md);
+    line-height: var(--h2-lh-md);
   }
   .h3 {
-    font-size: 18px;
-    line-height: 26px;
+    font-size: var(--h3-size-md);
+    line-height: var(--h3-lh-md);
   }
 }
 
@@ -370,11 +415,11 @@ ol {
 /* Только вертикальные отступы — горизонтальные поля остаются от `.page`,
    иначе на мобильном контент прилипает к краям экрана. */
 .section {
-  padding-block: 32px;
+  padding-block: var(--section-pad);
 }
 @media (min-width: 1024px) {
   .section {
-    padding-block: 48px;
+    padding-block: var(--section-pad-lg);
   }
 }
 
@@ -408,13 +453,13 @@ ol {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 0 18px;
+  min-height: var(--btn-h);
+  padding: 0 var(--btn-pad-x);
   border-radius: var(--r-btn);
   border: 1px solid transparent;
   background: none;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: var(--btn-weight);
   line-height: 20px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.06s;
@@ -455,7 +500,7 @@ ol {
 }
 .btn-secondary:disabled {
   color: var(--text-3);
-  background: var(--bg);
+  background: var(--surface-sunken);
 }
 
 .btn-ghost {
@@ -542,11 +587,11 @@ ol {
   box-shadow: var(--shadow);
 }
 .card-pad {
-  padding: 16px;
+  padding: var(--card-pad);
 }
 @media (min-width: 768px) {
   .card-pad {
-    padding: 20px;
+    padding: var(--card-pad-md);
   }
 }
 .card-link {
@@ -669,7 +714,7 @@ ol {
   box-shadow: var(--ring-primary);
 }
 .input:disabled {
-  background: var(--bg);
+  background: var(--surface-sunken);
   color: var(--text-3);
   cursor: not-allowed;
 }
@@ -1124,9 +1169,9 @@ select.input {
   height: 38px;
   flex-shrink: 0;
 }
-/* Название длинное («Академия педагогов и психологов»), поэтому в логотипе
-   оно набрано в две строки мелким кеглем — иначе шапка растягивается
-   и выдавливает навигацию. */
+/* Названия площадок длинные, поэтому в логотипе имя набрано в две строки
+   мелким кеглем — иначе шапка растягивается и выдавливает навигацию.
+   Сами строки приходят из бренда площадки, а не из этого пакета. */
 .logo-text {
   font-weight: 800;
   font-size: 13.5px;
@@ -1530,7 +1575,7 @@ select.input {
   transition: background 0.14s;
 }
 .acc-head:hover {
-  background: var(--bg);
+  background: var(--surface-sunken);
 }
 .acc-chevron {
   color: var(--text-3);
@@ -1564,7 +1609,7 @@ select.input {
   border-top: 1px solid var(--line-soft);
 }
 .lesson-row:hover:not([data-locked="true"]) {
-  background: var(--bg);
+  background: var(--surface-sunken);
 }
 .lesson-row[data-locked="true"] {
   cursor: not-allowed;
