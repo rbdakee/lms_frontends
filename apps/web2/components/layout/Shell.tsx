@@ -7,16 +7,21 @@
  * брендов, и повторённая раскладка обесценила бы второе приложение. Отличия
  * не косметические, у каждого своя причина:
  *
- * - **Шапка в две полки.** Верхняя отвечает на «кто мы и кто вы» — логотип,
- *   язык, колокольчик, аккаунт; нижняя на «куда идти» — разделы. Имя площадки
- *   будет длинным, и в одном ряду с навигацией оно не помещается: первой
- *   площадке ради этого пришлось прятать название на телефоне.
+ * - **Шапка в один ряд, разделы — за бургером справа.** Решение владельца
+ *   04.09.2026: полка с разделами под логотипом убрана совсем. Причина, по
+ *   которой она когда-то появилась, никуда не делась — имя площадки длинное
+ *   и в один ряд с навигацией не встаёт, — но закрыта теперь иначе:
+ *   навигации в шапке нет вовсе, и месту для имени никто не мешает.
+ *   Расхождение с брифом намеренное: раздел 5.1 держит «Курсы» и «Проверить
+ *   сертификат» прямо в шапке.
  * - **Одна шапка на витрину и кабинет.** Набор разделов зависит от того,
  *   вошёл человек или нет, а не от того, какой экран его показывает: вошедший
  *   видит свой кабинет отовсюду, включая лендинг. Разное у каркасов — только
  *   таб-панель, подвал и отступ под липкую кнопку.
- * - **Меню пользователя — про аккаунт, а не про разделы.** Разделы стоят
- *   в навигации и в таб-панели, и дублировать их в меню незачем.
+ * - **Меню одно на всё.** Разделы, аккаунт и язык лежат в одной шторке:
+ *   два меню рядом — под бургером и под аватаром — заставляли гадать,
+ *   в каком из них искать «Сертификаты». Таб-панель на телефоне осталась:
+ *   она не меню, а короткий путь к четырём главным экранам кабинета.
  * - **Подвал в два блока.** Наверху контакты администратора: доступ к курсу
  *   на этой платформе открывают руками, и связь с админом важнее столбца
  *   ссылок. Внизу одна строка ссылок и копирайт.
@@ -84,7 +89,7 @@ export function Logo() {
   const brand = BRAND[lang];
   return (
     <Link href="/" className="logo" aria-label={`${brand.name} — на лендинг`}>
-      <img src={BRAND.logoSrc} alt="" className="logo-emblem" width={38} height={38} />
+      <img src={BRAND.logoSrc} alt="" className="logo-emblem" width={44} height={44} />
       <span className="logo-text stack">
         <span>{brand.line1}</span>
         <span>{brand.line2}</span>
@@ -329,142 +334,21 @@ function NotificationsBell() {
   );
 }
 
-/* ============ Меню пользователя ============ */
+/* ============ Меню разделов ============ */
 
 /**
- * Меню про аккаунт: профиль, уведомления, выход и — только админу — переход
- * в админку. Разделов здесь нет намеренно, они стоят в навигации и в
- * таб-панели. Переключатель языка виден только на телефоне: на широком экране
- * он и так стоит в верхней полке шапки.
+ * Единственное меню площадки: разделы, аккаунт и язык — всё за кнопкой
+ * с тремя полосками справа в шапке, на любой ширине экрана.
+ *
+ * Шторка взята штатная (`Sheet` из дизайн-системы): она сама закрывается
+ * по Escape, держит фон от прокрутки, на телефоне выезжает снизу, а на
+ * широком экране открывается окном по центру.
+ *
+ * Порядок пунктов — от частого к редкому: сначала разделы, за ними аккаунт,
+ * язык и выход. Выход стоит последним и отбит линией: промахнуться по нему,
+ * целясь в «Профиль», человек не должен.
  */
-function UserMenu() {
-  const { t } = useLang();
-  const { me, logout } = useMe();
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  /* Пока /me не ответил, меню не рисуем — шапка не «мигает» заглушкой */
-  if (!me) return null;
-
-  const initials = userInitials(me);
-  const name = fullName(me);
-  const items = [
-    { href: "/profile", label: t.navProfile, icon: IconUser },
-    { href: "/notifications", label: t.navNotifications, icon: IconBell },
-  ];
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      {/* Кнопка — только аватар: имя и телефон человек видит в самом меню,
-          а в шапке они отнимают место у длинного названия площадки */}
-      <button
-        className="user-btn"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="Меню пользователя"
-      >
-        <Avatar initials={initials} size={32} />
-      </button>
-
-      {open && (
-        <div className="card usermenu" role="menu">
-          <div className="row g12" style={{ padding: "14px 16px" }}>
-            <Avatar initials={initials} size={44} />
-            <div className="stack grow g2" style={{ minWidth: 0 }}>
-              <strong className="small clamp-2">{name || t.navProfile}</strong>
-              <span className="caption muted">{phoneFmt(me.phone)}</span>
-            </div>
-          </div>
-          <hr className="divider" />
-
-          <div style={{ padding: 6 }}>
-            {items.map((it) => {
-              const Icon = it.icon;
-              return (
-                <Link
-                  key={it.href}
-                  href={it.href}
-                  role="menuitem"
-                  onClick={() => setOpen(false)}
-                  className="usermenu-item"
-                >
-                  <Icon size={18} className="muted" />
-                  <span className="grow">{it.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* На телефоне это единственное место, где меняется язык кабинета */}
-          <div className="mobile-only stack">
-            <hr className="divider" />
-            <div className="row between g10" style={{ padding: "10px 16px" }}>
-              <span className="caption muted">{t.language}</span>
-              <LangSwitch />
-            </div>
-          </div>
-
-          <hr className="divider" />
-          <div style={{ padding: 6 }}>
-            {/* Отдельного входа в админку нет — пункт виден только админам */}
-            {me.is_admin && (
-              <a href={admin()} role="menuitem" className="usermenu-item">
-                <IconSettings size={18} className="muted" />
-                <span className="grow">Админка</span>
-              </a>
-            )}
-            <button
-              role="menuitem"
-              className="usermenu-item"
-              style={{
-                color: "var(--danger)",
-                width: "100%",
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-              }}
-              onClick={async () => {
-                setOpen(false);
-                await logout();
-                router.push("/");
-              }}
-            >
-              <IconLogout size={18} />
-              <span className="grow" style={{ textAlign: "left" }}>
-                {t.logout}
-              </span>
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ============ Шторка разделов на телефоне ============ */
-
-/**
- * Нижняя полка шапки на телефоне не помещается, а таб-панели в публичной части
- * нет — разделы уезжают в шторку. Шторка взята штатная (`Sheet` из
- * дизайн-системы): она сама закрывается по Escape и держит фон от прокрутки.
- */
-function MobileMenu({
+function NavMenu({
   open,
   onClose,
   items,
@@ -476,9 +360,34 @@ function MobileMenu({
   authed: boolean;
 }) {
   const { t } = useLang();
+  const { me, logout } = useMe();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  /* Пункты аккаунта — те же, что стояли в меню под аватаром, пока оно было */
+  const account = me
+    ? [
+        { href: "/profile", label: t.navProfile, icon: IconUser },
+        { href: "/notifications", label: t.navNotifications, icon: IconBell },
+      ]
+    : [];
+
   return (
     <Sheet open={open} onClose={onClose} title={<Logo />}>
       <div className="stack g4">
+        {me && (
+          <>
+            <div className="row g12" style={{ padding: "2px 0 10px" }}>
+              <Avatar initials={userInitials(me)} size={44} />
+              <div className="stack grow g2" style={{ minWidth: 0 }}>
+                <strong className="small clamp-2">{fullName(me) || t.navProfile}</strong>
+                <span className="caption muted">{phoneFmt(me.phone)}</span>
+              </div>
+            </div>
+            <hr className="divider" style={{ margin: "0 0 8px" }} />
+          </>
+        )}
+
         {items.map((l) => {
           const Icon = l.icon;
           return (
@@ -486,14 +395,42 @@ function MobileMenu({
               key={l.href}
               href={l.href}
               onClick={onClose}
-              className="row g12"
-              style={{ minHeight: 52, fontSize: 16, fontWeight: 600 }}
+              className="p2-menu-item"
+              data-active={isActive(pathname, l)}
             >
-              <Icon size={20} className="muted" />
+              <Icon size={20} className="p2-menu-ico" />
               {l.label}
             </Link>
           );
         })}
+
+        {account.length > 0 && (
+          <>
+            <hr className="divider" style={{ margin: "8px 0" }} />
+            {account.map((it) => {
+              const Icon = it.icon;
+              return (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  onClick={onClose}
+                  className="p2-menu-item"
+                  data-active={pathname === it.href}
+                >
+                  <Icon size={20} className="p2-menu-ico" />
+                  {it.label}
+                </Link>
+              );
+            })}
+            {/* Отдельного входа в админку нет — пункт виден только админам */}
+            {me?.is_admin && (
+              <a href={admin()} className="p2-menu-item">
+                <IconSettings size={20} className="p2-menu-ico" />
+                Админка
+              </a>
+            )}
+          </>
+        )}
 
         {/* Вошедшему кнопки входа не нужны: его разделы уже в списке выше */}
         {!authed && (
@@ -513,7 +450,49 @@ function MobileMenu({
           <span className="caption muted">{t.language}</span>
           <LangSwitch />
         </div>
+
+        {me && (
+          <>
+            <hr className="divider" style={{ margin: "8px 0" }} />
+            <button
+              className="p2-menu-item"
+              style={{ color: "var(--danger)", width: "100%", border: "none", background: "none", cursor: "pointer" }}
+              onClick={async () => {
+                onClose();
+                await logout();
+                router.push("/");
+              }}
+            >
+              <IconLogout size={20} />
+              {t.logout}
+            </button>
+          </>
+        )}
       </div>
+
+      <style>{`
+        /* Строка меню. Раскладки для неё в дизайн-системе нет: там пункт меню
+           (.usermenu-item) рассчитан на выпадающую панель под аватаром,
+           а здесь строки крупные — по ним попадают пальцем. */
+        .p2-menu-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-height: 52px;
+          padding: 0 12px;
+          margin: 0 -12px;
+          border-radius: var(--r-btn);
+          font-size: 16px;
+          font-weight: 600;
+          text-align: left;
+        }
+        .p2-menu-item:hover { background: var(--surface-muted); }
+        .p2-menu-ico { color: var(--text-3); }
+        /* Текущий раздел залит цветом бренда бледно, а не плотно: меню читают
+           списком, и одна плотная плашка в нём перетягивает взгляд на себя. */
+        .p2-menu-item[data-active="true"] { background: var(--primary-bg); color: var(--primary); }
+        .p2-menu-item[data-active="true"] .p2-menu-ico { color: var(--primary); }
+      `}</style>
     </Sheet>
   );
 }
@@ -521,23 +500,25 @@ function MobileMenu({
 /* ============ Шапка ============ */
 
 /**
- * Одна шапка на витрину и кабинет — различается только набор разделов.
+ * Одна шапка на витрину и кабинет, один ряд, разделы — за бургером.
  *
  * `title` заменяет логотип на телефоне: в кабинете это единственная строка,
- * где помещается название экрана. `menuOnMobile` включает бургер там, где
- * снизу нет таб-панели, иначе разделы на телефоне становятся недоступны.
+ * где помещается название экрана.
+ *
+ * Справа стоит только то, что не является навигацией: язык (на широком
+ * экране), кнопки входа для гостя, колокольчик для вошедшего — у него свой
+ * счётчик, и прятать его в меню значит прятать и счётчик. Всё остальное —
+ * под бургером.
  */
-function Header({ title, menuOnMobile }: { title?: string; menuOnMobile: boolean }) {
+function Header({ title }: { title?: string }) {
   const { t } = useLang();
   const authed = Boolean(useMe().me);
-  const pathname = usePathname();
   const items = useNavItems(authed);
   const [menu, setMenu] = useState(false);
 
   return (
     <>
       <header className="appbar">
-        {/* Верхняя полка: кто мы и кто вы */}
         <div className="page appbar-inner">
           {title ? (
             <>
@@ -557,10 +538,7 @@ function Header({ title, menuOnMobile }: { title?: string; menuOnMobile: boolean
               <LangSwitch />
             </div>
             {authed ? (
-              <>
-                <NotificationsBell />
-                <UserMenu />
-              </>
+              <NotificationsBell />
             ) : (
               <div className="desktop-only g8">
                 <Link href="/login" className="btn btn-secondary btn-sm" style={{ minHeight: 40 }}>
@@ -571,70 +549,30 @@ function Header({ title, menuOnMobile }: { title?: string; menuOnMobile: boolean
                 </Link>
               </div>
             )}
-            {menuOnMobile && (
-              <button
-                className="btn btn-icon mobile-only"
-                onClick={() => setMenu(true)}
-                aria-label="Разделы"
-              >
-                <IconMenu />
-              </button>
-            )}
+            <button
+              className="btn btn-icon"
+              onClick={() => setMenu(true)}
+              aria-expanded={menu}
+              aria-haspopup="dialog"
+              aria-label="Меню"
+            >
+              <IconMenu />
+            </button>
           </div>
         </div>
 
-        {/* Нижняя полка: куда идти */}
-        <div className="p2-nav">
-          <nav className="page" aria-label={authed ? "Разделы кабинета" : "Разделы сайта"}>
-            {items.map((l) => {
-              const Icon = l.icon;
-              const active = isActive(pathname, l);
-              return (
-                <Link key={l.href} href={l.href} className="navlink" data-active={active}>
-                  <Icon size={18} strokeWidth={active ? 2.1 : 1.75} />
-                  {l.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-
         <style>{`
-          /* Вторая полка шапки. В дизайн-системе шапка однорядная: там навигация
-             (.navbar) пристёгнута к логотипу слева. Второй площадке этот ряд
-             разорвёт длинное название, поэтому разделы вынесены под него —
-             раскладки для этого в globals.css нет, и она написана здесь.
-             На телефоне полки нет: разделы уходят в таб-панель и в шторку. */
-          .p2-nav { display: none; }
-          @media (min-width: 1024px) {
-            .p2-nav {
-              display: block;
-              border-top: 1px solid var(--line-soft);
-            }
-            .p2-nav > nav {
-              display: flex;
-              align-items: center;
-              gap: 4px;
-              height: 46px;
-            }
-          }
-
           /* Липкая шапка накрывает то, куда ведут якоря лендинга («Вопросы»,
-             «Как это работает»). Отступ равен её высоте: на широком экране
-             шапка выше на нижнюю полку. */
+             «Как это работает»). Отступ равен её высоте; полок теперь одна,
+             поэтому и правило одно на все ширины. */
           :target { scroll-margin-top: calc(var(--header-h) + 12px); }
-          @media (min-width: 1024px) {
-            :target { scroll-margin-top: calc(var(--header-h) + 58px); }
-          }
         `}</style>
       </header>
 
       {/* Шторка стоит рядом с шапкой, а не внутри неё: `backdrop-filter`
           на `.appbar` делает её точкой отсчёта для `position: fixed`, и
           затемнение с окном остались бы внутри 60 px шапки */}
-      {menuOnMobile && (
-        <MobileMenu open={menu} onClose={() => setMenu(false)} items={items} authed={authed} />
-      )}
+      <NavMenu open={menu} onClose={() => setMenu(false)} items={items} authed={authed} />
     </>
   );
 }
@@ -710,7 +648,7 @@ export function TeacherShell({
 
   return (
     <>
-      <Header title={title} menuOnMobile={Boolean(hideTabBar)} />
+      <Header title={title} />
       <main className={main}>{children}</main>
       {!hideTabBar && <TabBar />}
     </>
@@ -720,8 +658,8 @@ export function TeacherShell({
 /* ============ Каркас публичной страницы ============ */
 
 /**
- * Таб-панель — навигация кабинета, и в публичной части её нет никогда.
- * Разделы на телефоне живут в шторке, поэтому бургер здесь обязателен.
+ * Таб-панель — навигация кабинета, и в публичной части её нет никогда:
+ * разделы витрины живут в шторке под бургером.
  */
 export function PublicShell({
   children,
@@ -732,7 +670,7 @@ export function PublicShell({
 }) {
   return (
     <>
-      <Header menuOnMobile />
+      <Header />
       <main
         className={hasStickyCta ? "has-sticky-cta no-tabbar" : undefined}
         style={hasStickyCta ? undefined : { paddingBottom: 0 }}
