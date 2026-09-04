@@ -16,16 +16,34 @@
  * - **Витрина каталога стоит второй, а не четвёртой, и занимает отдельную
  *   комнату** — секцию во всю ширину окна, отбитую каймой. За курсами сюда
  *   и приходят, рассказ о платформе может подождать до следующего экрана.
- * - **Герой — типографическое заявление во всю колонку**, без нарисованного
- *   макета карточки справа. Макет показывал придуманный курс с придуманным
- *   прогрессом и номером сертификата, а тема площадки (белый фон, крупные
- *   радиусы, Rubik) держится на воздухе и шрифте, а не на иллюстрации.
  * - **Шаги — лестница с крупной нумерацией**, а не четыре одинаковые карточки:
  *   у первой площадки вся страница набрана однотипными `.card card-pad`,
  *   и повторить это значило бы сделать ту же страницу другим цветом.
  * - **«Как это работает» и «Частые вопросы» стоят в две колонки**: заголовок
  *   в левой полосе, содержание в правой. У первой площадки заголовок всегда
  *   над сеткой, и одна эта перестановка меняет ритм всей страницы.
+ *
+ * **Первый экран показывает продукт (04.09.2026).** До этого дня он был
+ * набран одним текстом: прошлая сессия убрала макет карточки курса, потому
+ * что тот показывал придуманный курс с придуманным прогрессом. Владелец
+ * попросил, чтобы площадка «казалась живой», и иллюстрация вернулась
+ * в виде, который ничего не выдумывает: окно браузера, а в нём сам
+ * интерфейс — плеер, результат теста, бумага сертификата с серыми плашками
+ * вместо ФИО. Правила, по которым она собрана, — в `components/landing/
+ * Showcase.tsx`; иллюстрация на первом экране стоит и в брифе.
+ *
+ * **Движение — часть той же задачи.** Блоки появляются при прокрутке, ответы
+ * в вопросах разворачиваются, полоса первого экрана медленно дышит светом.
+ * Правило одно: движение либо показывает продукт, либо помогает понять,
+ * что произошло, — и всё оно выключается по `prefers-reduced-motion`.
+ * Обвязка и её цена в килобайтах — в `components/landing/Motion.tsx`.
+ *
+ * **Сроков получения сертификата на витрине нет (04.09.2026).** Заголовок обещал
+ * сертификат «через три недели», а финальный призыв повторял то же число. Владелец
+ * убрал обещание: сертификат выдаёт админ по подтверждению
+ * (`CERTIFICATES_BRIEF.md`), и срок от нас не зависит. Сколько занимает сам курс,
+ * страница по-прежнему отвечает — но в «Частых вопросах», где об этом спросили,
+ * а не в заголовке, где это звучало бы обязательством.
  *
  * Тексты — те же, что были: русский текст лендинга написан прямо в разметке
  * и на казахский не переводится вовсе. Это долг первой площадки; углублять
@@ -38,10 +56,14 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AnimatePresence, useReducedMotion, type Variants } from "motion/react";
+import * as m from "motion/react-m";
 import { api, useLoad, useMe, type CatalogOut } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { SUPPORT_MAIL } from "@/lib/brand";
 import { Footer, PublicShell } from "@/components/layout/Shell";
+import { EASE, MotionRoot, Reveal } from "@/components/landing/Motion";
+import { Showcase } from "@/components/landing/Showcase";
 import { CourseCard } from "@lms/course";
 import { Button, CourseCardSkeleton, Empty } from "@lms/ui";
 import {
@@ -70,8 +92,8 @@ const features = [
   },
   {
     icon: IconGlobe,
-    title: "Курсы на русском и казахском",
-    text: "Короткие видеоуроки, конспекты и практические задания.",
+    title: "Русский и казахский",
+    text: "Курс идёт на одном языке; языковая версия — отдельный курс в каталоге.",
   },
 ];
 
@@ -79,50 +101,63 @@ const features = [
    спорил бы за то же место в строке. */
 const steps = [
   {
-    title: "Выбрали курс",
-    text: "Каталог открыт без регистрации. Фильтры по предмету, языку и длительности.",
+    title: "Открыть каталог",
+    text: "Регистрация не нужна: фильтры по предмету, языку и объёму часов работают сразу.",
   },
   {
-    title: "Прошли уроки",
-    text: "Видео, короткий конспект и файлы для скачивания. Урок — 10–15 минут.",
+    title: "Пройти уроки",
+    text: "Видео на 10–15 минут, конспект под ним и файлы, которые можно скачать себе.",
   },
   {
-    title: "Сдали тест и задание",
-    text: "Итоговый тест — одна попытка, с разбором ответов. Задание проверяет методист.",
+    title: "Сдать тест и работу",
+    text: "Тест — одна попытка, с разбором ответов. Практическую работу читает методист.",
   },
   {
-    title: "Получили сертификат",
-    text: "PDF с номером и QR-кодом. Проверяется на этом сайте за пару секунд.",
+    title: "Забрать сертификат",
+    text: "PDF с номером и QR-кодом. Комиссия проверяет его здесь же, без регистрации.",
   },
 ];
 
 const faq = [
   {
-    q: "Кто проверяет задания?",
-    a: "Практические задания смотрит методист платформы. Ответ приходит в рабочие дни — обычно в течение суток. Если задание вернули на доработку, в комментарии будет написано, что именно поправить.",
+    q: "Кто проверяет практические работы?",
+    a: "Методист площадки, не автомат. Ответ обычно приходит в течение рабочего дня. Если работу вернули, в комментарии сказано, что именно переделать.",
   },
   {
-    q: "Сертификат подойдёт для аттестации?",
-    a: "На сертификате указан объём в академических часах, уникальный номер и QR-код. Комиссия может проверить подлинность на странице «Проверить сертификат» — без регистрации, за пару секунд.",
+    q: "Примут ли сертификат на аттестации?",
+    a: "На нём стоят объём в академических часах, номер и QR-код. Комиссия открывает страницу проверки и видит имя, курс и дату — регистрироваться ей не нужно.",
   },
   {
-    q: "Сколько времени занимает курс?",
-    a: "Курс на 36 часов большинство проходит за 2–3 недели по 20–30 минут в день. Жёстких сроков нет: прогресс сохраняется, можно прерваться и вернуться через месяц.",
+    q: "Сколько это займёт времени?",
+    a: "Курс на 36 часов обычно укладывается в 2–3 недели по 20–30 минут в день. Жёстких сроков нет: прогресс сохраняется, можно вернуться и через месяц.",
   },
   {
-    q: "Можно учиться только с телефона?",
-    a: "Да. Платформа сделана так, чтобы весь путь — от записи до сертификата — проходился с телефона. Ноутбук не нужен.",
+    q: "Хватит ли одного телефона?",
+    a: "Хватит. Уроки, тест, сдача работы и сам сертификат открываются с телефона — ноутбук не нужен ни на одном шаге.",
   },
   {
-    q: "Что делать, если не приходит код в WhatsApp?",
-    a: `Проверьте, что WhatsApp установлен на этом номере — код приходит именно туда. Подождите минуту и нажмите «Отправить код повторно». Если код так и не пришёл — напишите на ${SUPPORT_MAIL}, поможем войти вручную.`,
+    q: "Не приходит код в WhatsApp",
+    a: `Проверьте, что WhatsApp стоит именно на этом номере — код уходит туда. Подождите минуту и нажмите «Отправить код повторно». Если не помогло, напишите на ${SUPPORT_MAIL} — откроем вход вручную.`,
   },
 ];
+
+/* Первый экран — единственное место, где блоки появляются по загрузке,
+   а не по прокрутке: он и так перед глазами. Очередь на 90 мс задаёт
+   порядок чтения — надзаголовок, заявление, кнопки. */
+const heroBox: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
+};
+const heroItem: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
+};
 
 export default function LandingPage() {
   const { t } = useLang();
   const authed = Boolean(useMe().me);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const still = Boolean(useReducedMotion());
   /* Витрина каталога — те же живые данные, что и на «/courses». Сервер отдаёт
      свежие группы сверху, поэтому первые шесть — это буквально новые курсы,
      а не «популярные»: популярность на пустой площадке не из чего посчитать. */
@@ -133,196 +168,314 @@ export default function LandingPage() {
 
   return (
     <PublicShell hasStickyCta>
-      {/* ===== Первый экран ===== */}
-      <section className="page" style={{ paddingTop: 36, paddingBottom: 32 }}>
-        <div className="stack g24 p2-hero">
-          <div className="stack g14">
-            <span className="caption p2-eyebrow">Онлайн-курсы с сертификатом</span>
-            <h1
-              className="h1"
-              style={{ fontSize: "clamp(32px, 6vw, 54px)", lineHeight: 1.07, letterSpacing: "-0.03em" }}
+      <MotionRoot>
+        {/* ===== Первый экран — плотная полоса цветом знака ===== */}
+        <section className="p2-top">
+          <div className="page p2-top-inner p2-hero-grid">
+            <m.div
+              className="stack g24 p2-hero"
+              variants={heroBox}
+              initial={still ? false : "hidden"}
+              animate="show"
             >
-              Повышение квалификации онлайн — в своём темпе, с сертификатом
-            </h1>
-            <p className="body muted pretty" style={{ maxWidth: 560 }}>
-              Учитесь с телефона между уроками, а в конце получаете сертификат
-              с номером — его может проверить любая комиссия.
-            </p>
-          </div>
+              <m.div className="stack g14" variants={heroItem}>
+                <span className="caption p2-eyebrow">Учёба между уроками</span>
+                <h1
+                  className="h1"
+                  style={{ fontSize: "clamp(32px, 6vw, 54px)", lineHeight: 1.07, letterSpacing: "-0.03em" }}
+                >
+                  Повышение квалификации по двадцать минут в день
+                </h1>
+                <p className="body pretty p2-lede" style={{ maxWidth: 560 }}>
+                  Видеоурок на 10–15 минут, конспект под ним и практическая работа,
+                  которую читает методист. Всё открывается с телефона — в дороге,
+                  на перемене, вечером.
+                </p>
+              </m.div>
 
-          <div className="stack g10">
-            <div className="row wrap g10">
-              <Link href={startHref} className="btn btn-primary btn-lg p2-hero-btn">
-                {startLabel}
-              </Link>
-              <Link href="/courses" className="btn btn-secondary btn-lg p2-hero-btn">
-                {t.openCatalog}
-              </Link>
-            </div>
-            <p className="small muted-3">Регистрация по номеру телефона — около минуты.</p>
-          </div>
-        </div>
-
-        <ul className="p2-props">
-          {features.map((f) => {
-            const Icon = f.icon;
-            return (
-              <li key={f.title} className="p2-prop">
-                <span className="p2-prop-ico">
-                  <Icon size={22} />
-                </span>
-                <div className="stack g4">
-                  <strong className="h3">{f.title}</strong>
-                  <span className="small muted pretty">{f.text}</span>
+              <m.div className="stack g10" variants={heroItem}>
+                <div className="row wrap g10">
+                  <Link href={startHref} className="btn btn-lg p2-hero-btn p2-cta">
+                    {startLabel}
+                  </Link>
+                  <Link href="/courses" className="btn btn-lg p2-hero-btn p2-cta-ghost">
+                    {t.openCatalog}
+                  </Link>
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+                <p className="small p2-note">Вход по номеру телефона, пароль не нужен.</p>
+              </m.div>
+            </m.div>
 
-      {/* ===== Витрина каталога — главный блок страницы ===== */}
-      <section className="p2-room">
-        <div className="page section">
-          <div className="row between wrap g12" style={{ marginBottom: 24 }}>
-            <h2 className="h2">{t.secNewCourses}</h2>
-            <Link href="/courses" className="btn btn-secondary">
-              {t.viewAll}
-              <IconArrowRight size={17} />
+            <Showcase />
+          </div>
+        </section>
+
+        {/* ===== Три свойства — уже на светлом, встык под полосой ===== */}
+        <section className="page" style={{ paddingTop: 8, paddingBottom: 8 }}>
+          <ul className="p2-props">
+            {features.map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <Reveal as="li" key={f.title} className="p2-prop" delay={i * 0.08}>
+                  <span className="p2-prop-ico">
+                    <Icon size={22} />
+                  </span>
+                  <div className="stack g4">
+                    <strong className="h3">{f.title}</strong>
+                    <span className="small muted pretty">{f.text}</span>
+                  </div>
+                </Reveal>
+              );
+            })}
+          </ul>
+        </section>
+
+        {/* ===== Витрина каталога — главный блок страницы ===== */}
+        <section className="p2-room">
+          <div className="page section">
+            <Reveal>
+              <div className="row between wrap g12" style={{ marginBottom: 24 }}>
+                <h2 className="h2">{t.secNewCourses}</h2>
+                <Link href="/courses" className="btn btn-secondary">
+                  {t.viewAll}
+                  <IconArrowRight size={17} />
+                </Link>
+              </div>
+            </Reveal>
+
+            {catalog.loading ? (
+              <div className="grid-courses">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <CourseCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : catalog.error ? (
+              <div className="card">
+                <Empty
+                  title={t.loadError}
+                  text={t.loadErrorText}
+                  action={
+                    <Button variant="secondary" onClick={catalog.reload}>
+                      {t.retry}
+                    </Button>
+                  }
+                />
+              </div>
+            ) : fresh.length === 0 ? (
+              <div className="card">
+                <Empty title={t.emptyCatalogTitle} text={t.emptyCatalogText} />
+              </div>
+            ) : (
+              <div className="grid-courses">
+                {fresh.map((g, i) => (
+                  /* Карточки появляются очередью по строке сетки, а не разом:
+                     задержка привязана к позиции, поэтому на телефоне
+                     (одна колонка) очередь читается так же, как на десктопе. */
+                  <Reveal key={g.group_id} className="p2-cell" delay={(i % 3) * 0.07}>
+                    <CourseCard group={g} />
+                  </Reveal>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ===== Как это работает ===== */}
+        <section id="how" className="page section p2-split">
+          <Reveal>
+            <div className="stack g10">
+              <h2 className="h2">{t.secHowItWorks}</h2>
+              <p className="body muted pretty">
+                Четыре шага. Прогресс сохраняется на каждом, поэтому прерваться можно
+                где угодно.
+              </p>
+            </div>
+          </Reveal>
+          <ol className="p2-steps">
+            {steps.map((s, i) => (
+              <Reveal as="li" key={s.title} className="p2-step" delay={i * 0.07}>
+                <span className="p2-step-num">{i + 1}</span>
+                <div className="stack g6">
+                  <h3 className="h3">{s.title}</h3>
+                  <p className="small muted pretty">{s.text}</p>
+                </div>
+              </Reveal>
+            ))}
+          </ol>
+        </section>
+
+        {/* ===== Частые вопросы ===== */}
+        <section id="faq" className="page section p2-split" style={{ paddingTop: 0 }}>
+          <Reveal>
+            <div className="stack g12">
+              <h2 className="h2">{t.secFaq}</h2>
+              <p className="body muted pretty">
+                Не нашли своего вопроса — напишите, ответим в рабочие дни.
+              </p>
+              <a
+                href={`mailto:${SUPPORT_MAIL}`}
+                className="btn btn-secondary"
+                style={{ alignSelf: "flex-start" }}
+              >
+                Задать вопрос
+              </a>
+            </div>
+          </Reveal>
+          <div className="stack g10">
+            {faq.map((f, i) => (
+              <div key={f.q} className="accordion">
+                <button
+                  className="acc-head"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                >
+                  <span className="grow h3">{f.q}</span>
+                  <IconChevronDown className="acc-chevron" data-open={openFaq === i} />
+                </button>
+                {/* Ответ разворачивается, а не возникает: рывок в середине
+                    списка сбивает с той строки, которую человек читал.
+                    Кайма живёт на внутреннем блоке — иначе при высоте 0
+                    от закрытого ответа оставалась бы висеть линия. */}
+                <AnimatePresence initial={false}>
+                  {openFaq === i && (
+                    <m.div
+                      key="body"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: still ? 0 : 0.3, ease: EASE }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <div className="acc-body">
+                        <p className="body muted pretty" style={{ padding: "14px 16px" }}>
+                          {f.a}
+                        </p>
+                      </div>
+                    </m.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ===== Финальный призыв ===== */}
+        <section className="p2-close">
+          <div className="page section p2-close-inner">
+            <Reveal className="stack g8">
+              <h2 className="h2">Начните с одного урока</h2>
+              <p className="body muted pretty">
+                Вход по коду из WhatsApp. Прогресс сохраняется — прерваться можно
+                на любом уроке.
+              </p>
+            </Reveal>
+            <Link href={startHref} className="btn btn-primary btn-lg" style={{ minWidth: 220 }}>
+              {startLabel}
             </Link>
           </div>
+        </section>
 
-          {catalog.loading ? (
-            <div className="grid-courses">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <CourseCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : catalog.error ? (
-            <div className="card">
-              <Empty
-                title={t.loadError}
-                text={t.loadErrorText}
-                action={
-                  <Button variant="secondary" onClick={catalog.reload}>
-                    {t.retry}
-                  </Button>
-                }
-              />
-            </div>
-          ) : fresh.length === 0 ? (
-            <div className="card">
-              <Empty title={t.emptyCatalogTitle} text={t.emptyCatalogText} />
-            </div>
-          ) : (
-            <div className="grid-courses">
-              {fresh.map((g) => (
-                <CourseCard key={g.group_id} group={g} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+        <Footer />
 
-      {/* ===== Как это работает ===== */}
-      <section id="how" className="page section p2-split">
-        <div className="stack g10">
-          <h2 className="h2">{t.secHowItWorks}</h2>
-          <p className="body muted pretty">
-            Четыре шага от каталога до сертификата. Прогресс сохраняется — можно прерваться
-            и вернуться.
-          </p>
-        </div>
-        <ol className="p2-steps">
-          {steps.map((s, i) => (
-            <li key={s.title} className="p2-step">
-              <span className="p2-step-num">{i + 1}</span>
-              <div className="stack g6">
-                <h3 className="h3">{s.title}</h3>
-                <p className="small muted pretty">{s.text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {/* ===== Частые вопросы ===== */}
-      <section id="faq" className="page section p2-split" style={{ paddingTop: 0 }}>
-        <div className="stack g12">
-          <h2 className="h2">{t.secFaq}</h2>
-          <p className="body muted pretty">
-            Не нашли ответ — напишите нам, отвечаем в рабочие дни.
-          </p>
-          <a
-            href={`mailto:${SUPPORT_MAIL}`}
-            className="btn btn-secondary"
-            style={{ alignSelf: "flex-start" }}
-          >
-            Задать вопрос
-          </a>
-        </div>
-        <div className="stack g10">
-          {faq.map((f, i) => (
-            <div key={f.q} className="accordion">
-              <button
-                className="acc-head"
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                aria-expanded={openFaq === i}
-              >
-                <span className="grow h3">{f.q}</span>
-                <IconChevronDown className="acc-chevron" data-open={openFaq === i} />
-              </button>
-              {openFaq === i && (
-                <div className="acc-body">
-                  <p className="body muted pretty" style={{ padding: "14px 16px" }}>
-                    {f.a}
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ===== Финальный призыв ===== */}
-      <section className="p2-close">
-        <div className="page section p2-close-inner">
-          <div className="stack g8">
-            <h2 className="h2">Начните с одного урока — сегодня вечером</h2>
-            <p className="body muted pretty">
-              Регистрация по номеру телефона — без документов и анкет.
-            </p>
+        {/* Липкая кнопка на мобильном — страница длинная, решение принимают в любой момент */}
+        <div className="sticky-cta mobile-only no-tabbar">
+          <div className="sticky-cta-inner row g8">
+            <Link href={startHref} className="btn btn-primary btn-lg grow">
+              {startLabel}
+            </Link>
+            <Link href="/courses" className="btn btn-secondary btn-lg">
+              {t.navCatalog}
+            </Link>
           </div>
-          <Link href={startHref} className="btn btn-primary btn-lg" style={{ minWidth: 220 }}>
-            {startLabel}
-          </Link>
         </div>
-      </section>
-
-      <Footer />
-
-      {/* Липкая кнопка на мобильном — страница длинная, решение принимают в любой момент */}
-      <div className="sticky-cta mobile-only no-tabbar">
-        <div className="sticky-cta-inner row g8">
-          <Link href={startHref} className="btn btn-primary btn-lg grow">
-            {startLabel}
-          </Link>
-          <Link href="/courses" className="btn btn-secondary btn-lg">
-            {t.navCatalog}
-          </Link>
-        </div>
-      </div>
+      </MotionRoot>
 
       <style>{`
         /* Герой занимает одну колонку и ограничен по ширине строки, а не сеткой
            50/50: длинную строку в 54 px читать невозможно, и рамку заявлению
            задаёт мера набора. */
         .p2-hero { max-width: 720px; }
+        /* Первый экран залит цветом знака. У первой площадки на этом месте
+           бледный градиент на белом — одна и та же раскладка на разном фоне
+           расходится в глазах быстрее, чем перестановка блоков. Заодно это
+           единственное место, где цвет бренда виден плотным, а не намёком. */
+        .p2-top {
+          position: relative;
+          overflow: hidden;
+          background: linear-gradient(158deg, var(--primary) 0%, var(--primary-pressed) 100%);
+          color: var(--text-on-fill);
+        }
+        /* Два пятна света под содержимым. Плотная заливка на пол-экрана
+           выглядит печатной плашкой; медленное движение возвращает ей глубину.
+           Мягкость даёт сам градиент, а не filter: blur() — размытие такого
+           размера стоит кадров на телефонах, ради которых площадка и делалась. */
+        .p2-top::before,
+        .p2-top::after {
+          content: "";
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+        }
+        .p2-top::before {
+          width: 620px;
+          height: 620px;
+          top: -260px;
+          right: -160px;
+          background: radial-gradient(circle, rgba(140, 175, 255, 0.32), rgba(140, 175, 255, 0) 68%);
+          animation: p2-drift 24s ease-in-out infinite;
+        }
+        .p2-top::after {
+          width: 520px;
+          height: 520px;
+          bottom: -280px;
+          left: -160px;
+          background: radial-gradient(circle, rgba(96, 132, 246, 0.28), rgba(96, 132, 246, 0) 70%);
+          animation: p2-drift 30s ease-in-out infinite reverse;
+        }
+        @keyframes p2-drift {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-46px, 34px) scale(1.14); }
+        }
+        .p2-top-inner {
+          position: relative;
+          z-index: 1;
+          padding-top: 48px;
+          padding-bottom: 52px;
+        }
+        .p2-top .h1 { color: var(--text-on-fill); }
+        .p2-lede { color: var(--text-on-fill-soft); }
+        .p2-note { color: rgba(255, 255, 255, 0.62); }
         .p2-eyebrow {
-          color: var(--primary);
+          color: var(--text-on-fill-soft);
           text-transform: uppercase;
           letter-spacing: 0.12em;
         }
+        /* Заявление и окно стоят рядом только там, где обоим хватает ширины:
+           ниже 980 окно уезжает под кнопки, и первый экран читается сверху
+           вниз — заголовок, кнопки, продукт. */
+        .p2-hero-grid { display: grid; gap: 40px; align-items: center; }
+        @media (min-width: 980px) {
+          .p2-hero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 470px); gap: 56px; }
+          .p2-top-inner { padding-top: 64px; padding-bottom: 72px; }
+        }
+        /* Кнопки на заливке: обе из дизайн-системы здесь неразличимы —
+           основная залита тем же цветом, что и фон. Белая и обведённая
+           берут ту же геометрию (.btn-lg), меняется только окраска. */
+        .p2-cta {
+          background: var(--card);
+          color: var(--primary-pressed);
+        }
+        .p2-cta:hover { background: var(--primary-bg); }
+        .p2-cta-ghost {
+          background: transparent;
+          color: var(--text-on-fill);
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+        }
+        .p2-cta-ghost:hover { background: rgba(255, 255, 255, 0.12); }
+        /* Подъём под курсором — то же, что делает карточка курса в каталоге:
+           у площадки одна манера отвечать на наведение. */
+        .p2-cta, .p2-cta-ghost { transition: background 0.16s, transform 0.16s; }
+        .p2-cta:hover, .p2-cta-ghost:hover { transform: translateY(-2px); }
         /* На телефоне обе кнопки тянутся на всю ширину и делят строку пополам
            только когда помещаются: «Начать обучение» в две строки — это не кнопка. */
         .p2-hero-btn { flex: 1 1 200px; }
@@ -344,7 +497,20 @@ export default function LandingPage() {
           padding: 18px 0;
           border-top: 1px solid var(--line-soft);
         }
-        .p2-prop-ico { color: var(--primary); display: flex; padding-top: 2px; }
+        /* Значок в оправе. У первой площадки значки стоят голыми в строке;
+           оправа повторяет заливку первого экрана и связывает светлую часть
+           страницы с тёмной. */
+        .p2-prop-ico {
+          color: var(--text-on-fill);
+          background: var(--primary);
+          width: 44px;
+          height: 44px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
         @media (min-width: 860px) {
           .p2-props {
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -358,7 +524,7 @@ export default function LandingPage() {
             border-left: 1px solid var(--line-soft);
           }
           .p2-prop:first-child { border-left: 0; padding-left: 0; }
-          .p2-prop-ico { padding-top: 0; }
+
         }
 
         /* Каталогу отдана отдельная комната во всю ширину окна. Это главное,
@@ -370,6 +536,9 @@ export default function LandingPage() {
           border-top: 1px solid var(--border);
           border-bottom: 1px solid var(--border);
         }
+        /* Обёртка появления — не лишний слой в сетке: карточка должна тянуться
+           на высоту строки так же, как тянулась без неё. */
+        .p2-cell { display: grid; }
 
         /* Заголовок секции — левая полоса, содержание — правая. */
         .p2-split { display: grid; gap: 24px; align-items: start; }
@@ -416,6 +585,11 @@ export default function LandingPage() {
             align-items: center;
             gap: 48px;
           }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .p2-top::before, .p2-top::after { animation: none; }
+          .p2-cta:hover, .p2-cta-ghost:hover { transform: none; }
         }
       `}</style>
     </PublicShell>
