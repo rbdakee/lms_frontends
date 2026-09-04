@@ -104,13 +104,13 @@ export default function LandingPage() {
         <div className="hero-grid">
           <div className="stack g20">
             <Badge kind="accepted" icon={<IconShield size={14} />}>
-              Онлайн-курсы с сертификатом
+              Курсы для педагогов и школьных психологов
             </Badge>
             <h1
               className="h1"
               style={{ fontSize: "clamp(28px, 5vw, 44px)", lineHeight: 1.14, letterSpacing: "-0.03em" }}
             >
-              Повышение квалификации онлайн — в своём темпе, с сертификатом
+              Повышение квалификации педагогов и школьных психологов
             </h1>
             <p className="body muted pretty" style={{ maxWidth: 560 }}>
               Курсы на русском и казахском: короткие видеоуроки, конспекты и практические
@@ -129,8 +129,8 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="small muted-3">
-              Регистрация по номеру телефона — около минуты. Доступ к курсам сразу
-              после входа.
+              Регистрация по номеру телефона — около минуты. Доступ к курсу
+              открывает администратор.
             </p>
           </div>
 
