@@ -28,6 +28,7 @@ import { useState } from "react";
 import {
   api,
   isApiError,
+  useDictionaries,
   useLoad,
   type AdminTeacherCard,
   type AdminTeacherEnrollment,
@@ -60,6 +61,7 @@ import {
 import {
   IconCertificate,
   IconCheck,
+  IconEdit,
   IconLock,
   IconPhone,
   IconQuiz,
@@ -81,16 +83,86 @@ const RETAKE_BLOCKER: Record<RetakeBlocker, string> = {
   certificate_issued: "По курсу есть сертификат или заявка на него — пересдача закрыта",
 };
 
+/** Строковые поля профиля: правятся и сравниваются одинаково, потому и списком */
+const PROFILE_TEXT_FIELDS = [
+  "last_name",
+  "first_name",
+  "middle_name",
+  "email",
+  "school",
+  "position",
+  "region",
+  "city",
+  "subject",
+] as const;
+
+type ProfileForm = Record<(typeof PROFILE_TEXT_FIELDS)[number], string> & {
+  /* ИИН и стаж в форме тоже строки: пустое поле — это не «нет номера»
+     и не «ноль лет», и решается это при сборке тела запроса */
+  iin: string;
+  experience: string;
+};
+
+/** Форма из карточки — ею она пересобирается при каждом открытии шторки. */
+const profileForm = (teacher: AdminTeacherCard): ProfileForm => ({
+  last_name: teacher.last_name,
+  first_name: teacher.first_name,
+  middle_name: teacher.middle_name,
+  email: teacher.email,
+  school: teacher.school,
+  position: teacher.position,
+  region: teacher.region,
+  city: teacher.city,
+  subject: teacher.subject,
+  /* Заглушку в поле показывать нельзя: двенадцать нулей читаются как
+     настоящий ИИН, и админ сохранил бы их, ничего не заметив */
+  iin: teacher.iin === IIN_PLACEHOLDER ? "" : teacher.iin,
+  experience: teacher.experience === null ? "" : String(teacher.experience),
+});
+
+/**
+ * Что именно поменялось. Неприсланное поле сервер понимает как «не трогать»,
+ * поэтому шлём только отличия: так `PATCH` не переписывает соседние поля
+ * значениями, которых админ не касался.
+ */
+function profileChanges(teacher: AdminTeacherCard, f: ProfileForm): AdminTeacherPatch {
+  const patch: AdminTeacherPatch = {};
+
+  for (const key of PROFILE_TEXT_FIELDS) {
+    /* Пробелы по краям сервер срезает сам — сравниваем уже срезанное,
+       иначе лишний пробел выглядел бы правкой, которой не было */
+    const value = f[key].trim();
+    if (value !== teacher[key]) patch[key] = value === "" ? null : value;
+  }
+
+  /* Пустой ИИН — не «стереть»: снять номер нельзя вовсе, а `null` сервер
+     читает как «не трогать». Значит, слать тут нечего */
+  const iin = f.iin.trim();
+  if (iin !== "" && iin !== teacher.iin) patch.iin = iin;
+
+  /* Стаж, в отличие от ИИН, стирается: пустое поле — «не указан» */
+  const raw = f.experience.trim();
+  const years = raw === "" ? null : Number.parseInt(raw, 10);
+  const experience = years !== null && Number.isNaN(years) ? null : years;
+  if (experience !== teacher.experience) patch.experience = experience;
+
+  return patch;
+}
+
 export default function TeacherCardPage() {
   const { id } = useParams<{ id: string }>();
   const { lang, t } = useLang();
   const toast = useToast();
   const platformName = usePlatformName();
   const card = useLoad(() => api<AdminTeacherCard>(`/admin/teachers/${id}`), [id]);
+  const dictionaries = useDictionaries();
 
   const [tab, setTab] = useState<Tab>("courses");
   const [retakeFor, setRetakeFor] = useState<AdminTeacherQuiz | null>(null);
   const [reason, setReason] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [form, setForm] = useState<ProfileForm | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [newPhone, setNewPhone] = useState("");
   const [blockOpen, setBlockOpen] = useState(false);
@@ -147,8 +219,16 @@ export default function TeacherCardPage() {
   const initials =
     ((teacher.first_name[0] ?? "") + (teacher.last_name[0] ?? "")).toUpperCase() || "??";
 
-  /** Профиль у нового учителя почти пустой — пустые строки просто не рисуем */
-  const profile: [string, string][] = [
+  /**
+   * Профиль показываем целиком, вместе с пустыми строками: эти поля админ
+   * теперь правит с карточки, и пустая строка — подсказка, что заполнить,
+   * а не мусор на экране. ФИО в списке нет — оно стоит заголовком карточки.
+   *
+   * Третий элемент — что написать вместо пустого значения: у ИИН слово
+   * мужского рода, и оно обязано совпадать с тем, что печатает `IinValue`
+   * на странице сертификатов.
+   */
+  const profile: [string, string, string?][] = [
     ["Школа", teacher.school],
     ["Должность", teacher.position],
     ["Регион", teacher.region],
@@ -161,8 +241,8 @@ export default function TeacherCardPage() {
         : `${teacher.experience} ${plural(teacher.experience, "год", "года", "лет")}`,
     ],
     /* Заглушка — метка «не заполнен», а не номер: двенадцать нулей на экране
-       читались бы как настоящий ИИН. Пустые строки этот список не рисует */
-    ["ИИН", teacher.iin === IIN_PLACEHOLDER ? "" : teacher.iin],
+       читались бы как настоящий ИИН */
+    ["ИИН", teacher.iin === IIN_PLACEHOLDER ? "" : teacher.iin, "не заполнен"],
     ["Телефон", phoneFmt(teacher.phone)],
     ["Email", teacher.email],
     ["Регистрация", dayYear(teacher.created_at, lang)],
@@ -250,6 +330,64 @@ export default function TeacherCardPage() {
     }
   };
 
+  const f = form ?? profileForm(teacher);
+  const profilePatch = profileChanges(teacher, f);
+  const profileChanged = Object.keys(profilePatch).length > 0;
+  const regions = dictionaries.data?.regions ?? [];
+
+  /* Форма собирается заново на каждое открытие: прошлый черновик соврал бы
+     о том, что сейчас на сервере */
+  const openProfile = () => {
+    setForm(profileForm(teacher));
+    setErrors({});
+    setProfileOpen(true);
+  };
+
+  const setField = (key: keyof ProfileForm, value: string) => {
+    setForm((prev) => ({ ...(prev ?? profileForm(teacher)), [key]: value }));
+    /* Подпись из отказа относилась к прежнему значению — правка её снимает */
+    setErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  /**
+   * Правка профиля — свой обработчик рядом с `patch`: тот закрывает шторку
+   * и чистит поле телефона в любом случае, а здесь отказ обязан остаться
+   * под полем, в открытой форме, где его и исправляют.
+   */
+  const saveProfile = async () => {
+    if (!profileChanged || busy) return;
+    setBusy(true);
+    try {
+      const updated = await api<AdminTeacherCard>(`/admin/teachers/${teacher.id}`, {
+        method: "PATCH",
+        json: profilePatch,
+      });
+      card.setData(updated);
+      toast("Данные сохранены", "success");
+      setProfileOpen(false);
+    } catch (e) {
+      const fields = fieldErrors(e);
+      if (Object.keys(fields).length > 0) {
+        setErrors(fields);
+        return;
+      }
+      /* Занятый ИИН — подписью под тем же полем. Чей это аккаунт, сервер
+         нарочно не называет, и искать владельца номера мы не идём */
+      if (isApiError(e, "iin_taken")) {
+        setErrors({ iin: e.message });
+        return;
+      }
+      toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <AdminShell
       title={name}
@@ -271,19 +409,19 @@ export default function TeacherCardPage() {
             <hr className="divider" />
 
             <dl className="stack g10" style={{ margin: 0 }}>
-              {profile
-                .filter(([, v]) => v)
-                .map(([k, v]) => (
-                  <div key={k} className="row between g10" style={{ alignItems: "flex-start" }}>
-                    <dt className="caption muted nowrap">{k}</dt>
-                    <dd
-                      className="small"
-                      style={{ margin: 0, textAlign: "right", fontWeight: 600 }}
-                    >
-                      {v}
-                    </dd>
-                  </div>
-                ))}
+              {profile.map(([k, v, empty]) => (
+                <div key={k} className="row between g10" style={{ alignItems: "flex-start" }}>
+                  <dt className="caption muted nowrap">{k}</dt>
+                  {/* Приглушено само значение, а не подпись: подпись — это то,
+                      что ищут глазами, и гасить её незачем */}
+                  <dd
+                    className={v ? "small" : "small muted-3"}
+                    style={{ margin: 0, textAlign: "right", fontWeight: v ? 600 : 400 }}
+                  >
+                    {v || empty || "не заполнено"}
+                  </dd>
+                </div>
+              ))}
             </dl>
           </div>
 
@@ -292,6 +430,16 @@ export default function TeacherCardPage() {
             {/* Главное действие карточки */}
             <Button block size="lg" icon={<IconCheck size={18} />} onClick={() => setGrantOpen(true)}>
               Открыть доступ к курсу
+            </Button>
+            {/* Опечатку в ФИО или в ИИН чинить больше некому: учитель свой
+                номер только видит, а в реестр академии он уходит как есть */}
+            <Button
+              variant="secondary"
+              block
+              icon={<IconEdit size={17} />}
+              onClick={openProfile}
+            >
+              Изменить данные
             </Button>
             <Button
               variant="secondary"
@@ -669,6 +817,164 @@ export default function TeacherCardPage() {
         </div>
       </Sheet>
 
+      {/* Правка данных. Телефона тут нет нарочно: он меняется своей кнопкой
+          и отзывает сессии — мешать это с правкой опечатки нельзя */}
+      <Sheet
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        title="Изменить данные учителя"
+        footer={
+          <div className="stack g8">
+            <Button
+              block
+              size="lg"
+              loading={busy}
+              disabled={!profileChanged}
+              onClick={saveProfile}
+            >
+              Сохранить
+            </Button>
+            {!profileChanged && <span className="caption muted-3">Менять нечего</span>}
+            <Button variant="secondary" block onClick={() => setProfileOpen(false)}>
+              Отмена
+            </Button>
+          </div>
+        }
+      >
+        <div className="stack g14">
+          <Note kind="muted">
+            <span className="small">
+              ФИО в уже выданных сертификатах не изменится — там снимок на момент выдачи,
+              и правят его на карточке сертификата. А ИИН на бумаге читается живым:
+              исправленный номер попадёт в PDF, скачанный после правки.
+            </span>
+          </Note>
+
+          <ProfileField
+            id="tp-last"
+            label="Фамилия"
+            value={f.last_name}
+            error={errors.last_name}
+            onChange={(v) => setField("last_name", v)}
+          />
+          <ProfileField
+            id="tp-first"
+            label="Имя"
+            value={f.first_name}
+            error={errors.first_name}
+            onChange={(v) => setField("first_name", v)}
+          />
+          <ProfileField
+            id="tp-middle"
+            label="Отчество"
+            value={f.middle_name}
+            error={errors.middle_name}
+            onChange={(v) => setField("middle_name", v)}
+          />
+
+          <div className="field">
+            <label className="label" htmlFor="tp-iin">
+              ИИН
+            </label>
+            <input
+              id="tp-iin"
+              className={`input mono${errors.iin ? " input-error" : ""}`}
+              inputMode="numeric"
+              maxLength={12}
+              value={f.iin}
+              /* Пробелы и буквы сервер всё равно отобьёт — не даём их ввести */
+              onChange={(e) => setField("iin", e.target.value.replace(/\D/g, ""))}
+              placeholder="990000000042"
+            />
+            <span className="hint">
+              12 цифр. Номер печатается в сертификате и уходит в реестр академии —
+              сверьте с документом.
+            </span>
+            {errors.iin && <span className="error-text">{errors.iin}</span>}
+          </div>
+
+          <ProfileField
+            id="tp-email"
+            label="Email"
+            value={f.email}
+            error={errors.email}
+            onChange={(v) => setField("email", v)}
+          />
+          <ProfileField
+            id="tp-school"
+            label="Школа"
+            value={f.school}
+            error={errors.school}
+            onChange={(v) => setField("school", v)}
+          />
+          <ProfileField
+            id="tp-position"
+            label="Должность"
+            value={f.position}
+            error={errors.position}
+            onChange={(v) => setField("position", v)}
+          />
+
+          <div className="field">
+            <label className="label" htmlFor="tp-region">
+              Регион
+            </label>
+            <select
+              id="tp-region"
+              className={`input${errors.region ? " input-error" : ""}`}
+              value={f.region}
+              onChange={(e) => setField("region", e.target.value)}
+            >
+              <option value="">Не указан</option>
+              {/* Пока справочник грузится — и если регион в карточке с ним
+                  разошёлся — своего варианта нет, и `select` молча показал бы
+                  «Не указан», а сохранил бы совсем другое */}
+              {f.region !== "" && !regions.includes(f.region) && (
+                <option value={f.region}>{f.region}</option>
+              )}
+              {regions.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            {errors.region && <span className="error-text">{errors.region}</span>}
+          </div>
+
+          <ProfileField
+            id="tp-city"
+            label="Город"
+            value={f.city}
+            error={errors.city}
+            onChange={(v) => setField("city", v)}
+          />
+          <ProfileField
+            id="tp-subject"
+            label="Предмет"
+            value={f.subject}
+            error={errors.subject}
+            onChange={(v) => setField("subject", v)}
+          />
+
+          <div className="field">
+            <label className="label" htmlFor="tp-exp">
+              Стаж
+            </label>
+            <input
+              id="tp-exp"
+              type="number"
+              min={0}
+              max={70}
+              className={`input${errors.experience ? " input-error" : ""}`}
+              value={f.experience}
+              onChange={(e) => setField("experience", e.target.value)}
+            />
+            <span className="hint">Полных лет, от 0 до 70. Пустое поле — стаж не указан</span>
+            {errors.experience && <span className="error-text">{errors.experience}</span>}
+          </div>
+        </div>
+      </Sheet>
+
       {/* Смена номера */}
       <Sheet
         open={phoneOpen}
@@ -759,5 +1065,39 @@ export default function TeacherCardPage() {
         @media (min-width: 1024px) { .teacher-two { grid-template-columns: 320px 1fr; gap: 24px; } }
       `}</style>
     </AdminShell>
+  );
+}
+
+/**
+ * Простое поле шторки «Изменить данные»: подпись, ввод и подпись отказа.
+ * Своя разметка есть только у ИИН, региона и стажа — там своя клавиатура,
+ * свой список и свой разбор пустого значения.
+ */
+function ProfileField({
+  id,
+  label,
+  value,
+  error,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  error?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="field">
+      <label className="label" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        className={`input${error ? " input-error" : ""}`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {error && <span className="error-text">{error}</span>}
+    </div>
   );
 }

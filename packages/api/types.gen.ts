@@ -2845,12 +2845,50 @@ export interface components {
              */
             created_at: string;
         };
-        /** AdminTeacherPatchIn */
+        /**
+         * AdminTeacherPatchIn
+         * @description Админ правит карточку учителя целиком: опечатку в ФИО или в ИИН чинить
+         *     больше некому — учитель свой ИИН только видит, а в реестр академии эти
+         *     строки уходят как есть.
+         *
+         *     Три поля `UserPatch` сюда нарочно не взяты:
+         *
+         *     - `lang` — личная настройка интерфейса человека, а не запись о нём: админ,
+         *       тронув её, молча переключил бы учителю язык кабинета;
+         *     - `is_admin` — права выдаются на своей странице настроек, а снятия прав
+         *       в продукте нет;
+         *     - `photo_url` — загрузки фото не существует.
+         *
+         *     Остальные поля повторяют `UserPatch` по типам и длинам: правит их тот же
+         *     сценарий, и ограничениям двух форм расходиться нельзя.
+         */
         AdminTeacherPatchIn: {
             /** Is Blocked */
             is_blocked?: boolean | null;
             /** Phone */
             phone?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /** Middle Name */
+            middle_name?: string | null;
+            /** Iin */
+            iin?: string | null;
+            /** Email */
+            email?: string | null;
+            /** School */
+            school?: string | null;
+            /** Position */
+            position?: string | null;
+            /** Region */
+            region?: string | null;
+            /** City */
+            city?: string | null;
+            /** Subject */
+            subject?: string | null;
+            /** Experience */
+            experience?: number | null;
         };
         /**
          * AdminTeacherQuizOut
