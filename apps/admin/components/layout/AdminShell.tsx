@@ -21,6 +21,7 @@ import { api, useLoad, useMe, userInitials, type AdminOverview } from "@lms/api"
 import { web } from "@/lib/urls";
 import { Avatar, Empty, Sheet } from "@lms/ui";
 import {
+  IconCertificate,
   IconChart,
   IconChevronRight,
   IconExternal,
@@ -44,7 +45,7 @@ interface NavItem {
   label: string;
   icon: (p: { size?: number }) => React.JSX.Element;
   exact?: boolean;
-  badge?: "leads" | "queue" | "questions";
+  badge?: "leads" | "queue" | "questions" | "certs";
 }
 
 const NAV: { group: string; items: NavItem[] }[] = [
@@ -66,6 +67,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/leads", label: "Заявки", icon: IconMail, badge: "leads" },
       { href: "/submissions", label: "Проверка работ", icon: IconInbox, badge: "queue" },
+      { href: "/certificates", label: "Сертификаты", icon: IconCertificate, badge: "certs" },
       { href: "/questions", label: "Вопросы", icon: IconMessage, badge: "questions" },
       { href: "/reviews", label: "Отзывы", icon: IconStar },
     ],
@@ -86,10 +88,13 @@ const NAV: { group: string; items: NavItem[] }[] = [
 ];
 
 /**
- * Счётчики есть у трёх очередей, которые кто-то действительно ждёт:
- * заявки, проверка работ и вопросы без ответа. Все три считает сервер
- * и отдаёт одним `GET /admin/overview` — тем же ответом, из которого
- * рисуется дашборд, иначе числа меню и плиток разъезжаются.
+ * Счётчики есть у четырёх очередей, которые кто-то действительно ждёт:
+ * заявки, проверка работ, заявки на сертификат и вопросы без ответа.
+ * Сертификаты попали в этот же список потому, что документ теперь выписывает
+ * админ руками: учитель ждёт бумаги так же, как ответа на заявку.
+ * Все четыре считает сервер и отдаёт одним `GET /admin/overview` — тем же
+ * ответом, из которого рисуется дашборд, иначе числа меню и плиток
+ * разъезжаются.
  *
  * Колокольчика в админке нет: уведомления админа живут в Telegram-боте (5.15).
  */
@@ -101,6 +106,7 @@ function useBadgeValue() {
     if (key === "leads") return d.leads_count;
     if (key === "queue") return d.submissions_count;
     if (key === "questions") return d.questions_count;
+    if (key === "certs") return d.certificates_count;
     return 0;
   };
 }

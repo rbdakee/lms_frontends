@@ -53,3 +53,14 @@ export function buildPatch(user: User, form: UserForm): UserPatch {
   }
   return patch;
 }
+
+/**
+ * ИИН обязателен с 04.09.2026, а поле в базе непустое, поэтому «номера ещё
+ * нет» у зарегистрированных раньше обозначено значением, которого не бывает.
+ * В форме его показывать нельзя: двенадцать нулей читаются как настоящий ИИН.
+ */
+export const IIN_PLACEHOLDER = "000000000000";
+
+export function iinFilled(iin: string): boolean {
+  return iin !== "" && iin !== IIN_PLACEHOLDER;
+}

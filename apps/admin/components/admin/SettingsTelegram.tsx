@@ -54,6 +54,18 @@ const telegramSamples = [
     ],
     action: "Проверить",
   },
+  /* Ни ФИО, ни ИИН здесь нет намеренно: бот — не защищённый экран, сервер
+     их в сообщение не кладёт, и пример обязан показывать правду */
+  {
+    id: "tg-cert",
+    icon: "🎓",
+    title: "Заявка на сертификат",
+    lines: [
+      "Площадка: Институт науки и образования будущего",
+      "Курс: Критериальное оценивание в начальной школе",
+    ],
+    action: "Открыть в админке",
+  },
 ];
 
 /** 583 → «9:43» */
@@ -171,7 +183,7 @@ export function SettingsTelegram({
   };
 
   /* Флаг уходит своим полем: `telegram` в теле `PATCH` принимает только
-     их двоих, привязка меняется другими ручками */
+     флаги, привязка меняется другими ручками */
   const setFlag = async (body: SettingsTelegramIn) => {
     if (busy) return;
     setBusy("flag");
@@ -199,7 +211,7 @@ export function SettingsTelegram({
         <Note kind="muted">
           <span className="small">
             Уведомления администратора живут в Telegram-боте, а не в интерфейсе:
-            колокольчика в админке нет. Бот шлёт два типа сообщений, оба
+            колокольчика в админке нет. Бот шлёт три типа сообщений, все
             со ссылкой на нужный экран.
           </span>
         </Note>
@@ -316,6 +328,22 @@ export function SettingsTelegram({
               disabled={busy === "flag"}
             />
           </div>
+          <div className="row between g12" style={{ minHeight: 44 }}>
+            <div className="stack g2 grow">
+              <span className="small" style={{ fontWeight: 600 }}>
+                Заявки на сертификат
+              </span>
+              <span className="caption muted-3">Учитель запросил документ</span>
+            </div>
+            <button
+              className="switch"
+              data-on={telegram.notify_certificates}
+              onClick={() => setFlag({ notify_certificates: !telegram.notify_certificates })}
+              aria-pressed={telegram.notify_certificates}
+              aria-label="Заявки на сертификат"
+              disabled={busy === "flag"}
+            />
+          </div>
           {!telegram.connected && (
             <span className="caption muted-3 pretty">
               Переключатели сохраняются и без привязки — сообщения просто некуда слать,
@@ -380,7 +408,8 @@ export function SettingsTelegram({
           ))}
         </div>
         <span className="caption muted-3 pretty">
-          Кнопка в сообщении ведёт прямо на заявку или на экран проверки работы.
+          Кнопка в сообщении ведёт прямо на заявку, на экран проверки работы
+          или на сертификат.
         </span>
       </div>
 

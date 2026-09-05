@@ -115,6 +115,14 @@ export function CertificateScreen({ certificateId }: { certificateId: string }) 
               {t.certIssuedOn(dayYear(cert.issued_at, lang)).toLowerCase()} ·{" "}
               {cert.lang === "kz" ? t.certLangKz : t.certLangRu}
             </span>
+            {/* Рег. номер академии админ проставляет руками, у выданных до 04.09.2026
+                он пуст. Место ему рядом с листом, а не в листе: у подвала макета
+                плотная вёрстка — решение владельца */}
+            {cert.registration_number && (
+              <span className="small muted">
+                {t.certRegNumber}: <span className="mono">{cert.registration_number}</span>
+              </span>
+            )}
           </div>
 
           <div className="card" style={{ padding: 12, background: "var(--surface-sunken)" }}>

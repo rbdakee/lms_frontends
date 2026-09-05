@@ -338,8 +338,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Issue Certificate */
-        post: operations["issue_certificate_courses__course_id__certificate_post"];
+        /** Request Certificate */
+        post: operations["request_certificate_courses__course_id__certificate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1257,6 +1257,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Certificates */
+        get: operations["admin_certificates_admin_certificates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/certificates/{certificate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Certificate */
+        get: operations["admin_certificate_admin_certificates__certificate_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Certificate */
+        patch: operations["patch_certificate_admin_certificates__certificate_id__patch"];
+        trace?: never;
+    };
+    "/admin/certificates/{certificate_id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Certificate */
+        post: operations["issue_certificate_admin_certificates__certificate_id__issue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/certificates/{certificate_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Certificate */
+        post: operations["revoke_certificate_admin_certificates__certificate_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/reviews": {
         parameters: {
             query?: never;
@@ -1590,6 +1659,90 @@ export interface components {
             order_index: number;
             /** Courses Count */
             courses_count: number;
+        };
+        /**
+         * AdminCertificateCardOut
+         * @description Ответ карточки и всех трёх действий над ней — одной формы, чтобы экран
+         *     перерисовывался одним и тем же куском кода.
+         */
+        AdminCertificateCardOut: {
+            certificate: components["schemas"]["AdminCertificateOut"];
+            warning: components["schemas"]["RegistrationNumberWarningOut"] | null;
+        };
+        /**
+         * AdminCertificateOut
+         * @description Строка списка «Сертификаты» — она же карточка: полей у документа
+         *     немного, и второй формы под карточку заводить незачем.
+         *
+         *     `status` — три состояния одной и той же строки, отдельной таблицы заявок
+         *     нет (CERTIFICATES_BRIEF, 5).
+         */
+        AdminCertificateOut: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "requested" | "issued" | "revoked";
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "p1" | "p2";
+            /** Number */
+            number: string | null;
+            /** Registration Number */
+            registration_number: string;
+            /** Holder Name */
+            holder_name: string;
+            /** Course Id */
+            course_id: number;
+            /** Course Title */
+            course_title: string;
+            /** Hours */
+            hours: number;
+            /** Lang */
+            lang: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Issued At */
+            issued_at: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            teacher: components["schemas"]["AdminCertificateTeacherOut"];
+        };
+        /**
+         * AdminCertificateTeacherOut
+         * @description Владелец документа глазами админа. Телефона и школы здесь нет: строка
+         *     списка их не показывает, а лишнее поле — это лишние персональные данные
+         *     в ответе.
+         */
+        AdminCertificateTeacherOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+            /** Iin */
+            iin: string;
+        };
+        /** AdminCertificatesPageOut */
+        AdminCertificatesPageOut: {
+            /** Items */
+            items: components["schemas"]["AdminCertificateOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
         };
         /**
          * AdminCourseCardOut
@@ -1936,6 +2089,8 @@ export interface components {
             submissions_count: number;
             /** Questions Count */
             questions_count: number;
+            /** Certificates Count */
+            certificates_count: number;
             /** Leads */
             leads: components["schemas"]["OverviewLeadOut"][];
             /** Submissions */
@@ -2302,6 +2457,8 @@ export interface components {
             notify_leads?: boolean | null;
             /** Notify Submissions */
             notify_submissions?: boolean | null;
+            /** Notify Certificates */
+            notify_certificates?: boolean | null;
         };
         /**
          * AdminSettingsTelegramOut
@@ -2319,6 +2476,8 @@ export interface components {
             notify_leads: boolean;
             /** Notify Submissions */
             notify_submissions: boolean;
+            /** Notify Certificates */
+            notify_certificates: boolean;
         };
         /** AdminSubmissionCardOut */
         AdminSubmissionCardOut: {
@@ -2528,6 +2687,8 @@ export interface components {
             first_name: string;
             /** Middle Name */
             middle_name: string;
+            /** Iin */
+            iin: string;
             /** Phone */
             phone: string;
             /** Email */
@@ -2564,12 +2725,23 @@ export interface components {
             /** Certificates */
             certificates: components["schemas"]["AdminTeacherCertificateOut"][];
         };
-        /** AdminTeacherCertificateOut */
+        /**
+         * AdminTeacherCertificateOut
+         * @description Строка вкладки «Сертификаты»: и заявки, и выданные, и отозванные —
+         *     админ смотрит на человека целиком, а не только на то, что у него на руках.
+         */
         AdminTeacherCertificateOut: {
             /** Id */
             id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "requested" | "issued" | "revoked";
             /** Number */
-            number: string;
+            number: string | null;
+            /** Registration Number */
+            registration_number: string;
             /** Course Id */
             course_id: number;
             /**
@@ -2582,10 +2754,12 @@ export interface components {
             /** Hours */
             hours: number;
             /**
-             * Issued At
+             * Requested At
              * Format: date-time
              */
-            issued_at: string;
+            requested_at: string;
+            /** Issued At */
+            issued_at: string | null;
             /** Revoked At */
             revoked_at: string | null;
         };
@@ -2763,7 +2937,7 @@ export interface components {
         };
         /**
          * BlockerOut
-         * @description Почему кнопка выдачи неактивна, хотя условия выполнены.
+         * @description Почему кнопка заявки неактивна, хотя условия выполнены.
          */
         BlockerOut: {
             /**
@@ -2804,53 +2978,66 @@ export interface components {
             /** Title */
             title: string;
         };
-        /**
-         * CertificateBriefOut
-         * @description Уже выданный сертификат в чек-листе: ссылка на документ, не сам документ.
-         */
-        CertificateBriefOut: {
-            /** Id */
-            id: number;
-            /** Number */
-            number: string;
-            /**
-             * Issued At
-             * Format: date-time
-             */
-            issued_at: string;
+        /** CertificateIssueIn */
+        CertificateIssueIn: {
+            /** Registration Number */
+            registration_number: string;
         };
-        /** CertificateOut */
-        CertificateOut: {
+        /**
+         * CertificatePatchIn
+         * @description Правятся только снимки и то, что админ вписал руками. `number`,
+         *     `user_id`, `course_id` и `platform` не правятся: смена любого означает
+         *     другой документ, а не правку этого (CERTIFICATES_BRIEF, 4) — присланные
+         *     отбивает `extra: forbid`.
+         */
+        CertificatePatchIn: {
+            /** Registration Number */
+            registration_number?: string | null;
+            /** Holder Name */
+            holder_name?: string | null;
+            /** Course Title */
+            course_title?: string | null;
+            /** Hours */
+            hours?: number | null;
+            /** Lang */
+            lang?: ("ru" | "kz") | null;
+            /** Issued At */
+            issued_at?: string | null;
+        };
+        /**
+         * CertificateStateOut
+         * @description Строка сертификата глазами учителя: заявка до выдачи, документ после.
+         *
+         *     Состояния два, а строка одна: отдельной таблицы заявок нет
+         *     (CERTIFICATES_BRIEF, 5). Отозванные сюда не приходят — для учителя
+         *     их просто нет.
+         */
+        CertificateStateOut: {
             /** Id */
             id: number;
-            /** Number */
-            number: string;
-            /** Course Id */
-            course_id: number;
-            /** Course Title */
-            course_title: string;
-            /** Holder Name */
-            holder_name: string;
-            /** Hours */
-            hours: number;
-            /** Lang */
-            lang: string;
             /**
-             * Issued At
+             * Status
+             * @enum {string}
+             */
+            status: "requested" | "issued";
+            /** Number */
+            number: string | null;
+            /**
+             * Requested At
              * Format: date-time
              */
-            issued_at: string;
-            /** Revoked At */
-            revoked_at: string | null;
+            requested_at: string;
+            /** Issued At */
+            issued_at: string | null;
         };
         /** CompletionOut */
         CompletionOut: {
             /** Conditions */
             conditions: (components["schemas"]["ConditionOut"] | components["schemas"]["FinalQuizConditionOut"])[];
-            /** Can Issue */
-            can_issue: boolean;
+            /** Can Request */
+            can_request: boolean;
             blocker: components["schemas"]["BlockerOut"] | null;
-            certificate: components["schemas"]["CertificateBriefOut"] | null;
+            certificate: components["schemas"]["CertificateStateOut"] | null;
         };
         /**
          * ConditionOut
@@ -3188,12 +3375,17 @@ export interface components {
          * MyCertificateOut
          * @description Элемент списка `/certificates` — он же всё, что печатает `/certificates/{id}`:
          *     отдельного эндпоинта за одним сертификатом нет.
+         *
+         *     Заявок в кабинете нет, только выданные документы, — поэтому `number`
+         *     и `issued_at` здесь обязательные, в отличие от `CertificateStateOut`.
          */
         MyCertificateOut: {
             /** Id */
             id: number;
             /** Number */
             number: string;
+            /** Registration Number */
+            registration_number: string;
             /** Course Id */
             course_id: number;
             /** Course Title */
@@ -3941,6 +4133,27 @@ export interface components {
             /** Items */
             items: components["schemas"]["ReadinessCheckOut"][];
         };
+        /**
+         * RegistrationNumberWarningOut
+         * @description Номер академии уже стоит у другого документа.
+         *
+         *     Не отказ: правил чужой нумерации мы не знаем, а запрет остановил бы админа
+         *     посреди работы (CERTIFICATES_BRIEF, 2). Пришло предупреждение — значит,
+         *     сохранение всё равно прошло.
+         */
+        RegistrationNumberWarningOut: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "registration_number_taken";
+            /** Message */
+            message: string;
+            /** Certificate Id */
+            certificate_id: number;
+            /** Number */
+            number: string | null;
+        };
         /** ReportCourseOut */
         ReportCourseOut: {
             /** Id */
@@ -4417,6 +4630,8 @@ export interface components {
             last_name: string;
             /** Middle Name */
             middle_name: string;
+            /** Iin */
+            iin: string;
             /** Photo Url */
             photo_url: string | null;
             /** Email */
@@ -4457,6 +4672,8 @@ export interface components {
             last_name?: string | null;
             /** Middle Name */
             middle_name?: string | null;
+            /** Iin */
+            iin?: string | null;
             /** Email */
             email?: string | null;
             /** School */
@@ -4498,6 +4715,9 @@ export interface components {
          * VerifyOut
          * @description Публичная проверка: только то, что напечатано на бумаге — ни user_id,
          *     ни course_id, ни id сертификата, ни ссылок в кабинет.
+         *
+         *     ИИН здесь нет и не будет: страницу открывает посторонний человек, и отдавать
+         *     ему персональные данные владельца незачем (CERTIFICATES_BRIEF, 1).
          */
         VerifyOut: {
             /**
@@ -4507,6 +4727,8 @@ export interface components {
             status: "valid" | "revoked";
             /** Number */
             number: string;
+            /** Registration Number */
+            registration_number: string;
             /** Holder Name */
             holder_name: string;
             /** Course Title */
@@ -5106,7 +5328,7 @@ export interface operations {
             };
         };
     };
-    issue_certificate_courses__course_id__certificate_post: {
+    request_certificate_courses__course_id__certificate_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -5123,7 +5345,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CertificateOut"];
+                    "application/json": components["schemas"]["CertificateStateOut"];
                 };
             };
             /** @description Validation Error */
@@ -7229,6 +7451,173 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_certificates_admin_certificates_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                platform?: string | null;
+                q?: string | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCertificatesPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_certificate_admin_certificates__certificate_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                certificate_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCertificateCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_certificate_admin_certificates__certificate_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                certificate_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CertificatePatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCertificateCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_certificate_admin_certificates__certificate_id__issue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                certificate_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CertificateIssueIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCertificateCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_certificate_admin_certificates__certificate_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                certificate_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCertificateCardOut"];
+                };
             };
             /** @description Validation Error */
             422: {

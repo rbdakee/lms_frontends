@@ -27,6 +27,7 @@ const host: Host = {
     certificate: (certificateId) => `/certificates/${certificateId}`,
     profile: "/profile",
     login: (next) => `/login?next=${encodeURIComponent(next)}`,
+    onboarding: (next) => `/onboarding?next=${encodeURIComponent(next)}`,
     /* Проверка сертификата живёт на этом же сайте: у площадки свой домен,
        и номер второй площадки проверяется только на ней */
     verifyOrigin: null,

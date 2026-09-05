@@ -100,14 +100,19 @@ export type AdminSubmissionCard = S["AdminSubmissionCardOut"];
 export type SubmissionReviewIn = S["SubmissionReviewIn"];
 export type SubmissionVerdict = SubmissionReviewIn["verdict"];
 
-/* Сертификат: чек-лист условий (`GET /courses/{id}/completion`), выдача
+/* Сертификат: чек-лист условий (`GET /courses/{id}/completion`), заявка
    и публичная проверка. Экран `/certificates/{id}` живёт списком
-   `GET /me/certificates` — отдельного эндпоинта за одним документом нет. */
+   `GET /me/certificates` — отдельного эндпоинта за одним документом нет.
+
+   С 04.09.2026 документ выписывает админ (`CERTIFICATES_BRIEF`), поэтому
+   `POST /courses/{id}/certificate` отдаёт не документ, а **состояние строки**:
+   заявка это или уже выданная бумага. Схемы `CertificateOut` больше нет —
+   у заявки нет ни номера, ни ФИО, ни часов, и печатать в ней нечего. */
 export type Completion = S["CompletionOut"];
 export type Condition = Completion["conditions"][number];
 export type ConditionStatus = Condition["status"];
 export type Blocker = S["BlockerOut"];
-export type Certificate = S["CertificateOut"];
+export type CertificateState = S["CertificateStateOut"];
 export type MyCertificate = S["MyCertificateOut"];
 export type MyCertificates = S["MyCertificatesOut"];
 export type Verify = S["VerifyOut"];
@@ -276,3 +281,29 @@ export type AdminCategoryIn = S["AdminCategoryIn"];
 export type AdminAdmins = S["AdminAdminsOut"];
 export type AdminAdmin = S["AdminAdminOut"];
 export type AdminAdminIn = S["AdminAdminIn"];
+
+/* ============ Сертификаты в админке (сессия «Сертификаты 2») ============
+
+   Документ выписывает админ руками, вводя регистрационный номер академии
+   (`CERTIFICATES_BRIEF`, решение владельца 04.09.2026). Строка сертификата
+   бывает в трёх состояниях, и они же — три вкладки экрана: `requested`
+   (заявка), `issued` (документ), `revoked` (отозван).
+
+   Ловушка в именах здесь своя: `AdminCertificate` — это и строка списка,
+   и сам документ в карточке. `AdminCertificateCard` — не документ, а **ответ**
+   карточки и всех трёх действий: документ плюс предупреждение о повторе
+   регистрационного номера. */
+
+export type AdminCertificate = S["AdminCertificateOut"];
+export type AdminCertificatesPage = S["AdminCertificatesPageOut"];
+export type AdminCertificateCard = S["AdminCertificateCardOut"];
+export type CertificateStatus = AdminCertificate["status"];
+/** Учитель в строке сертификата: ФИО живое, плюс ИИН. Телефона здесь нет. */
+export type AdminCertificateTeacher = AdminCertificate["teacher"];
+export type CertificateIssueIn = S["CertificateIssueIn"];
+export type CertificatePatchIn = S["CertificatePatchIn"];
+/* Повтор чужого номера — предупреждение, а не отказ: документ уже сохранён.
+   Приходит только в ответ на запись, при открытии карточки его нет. */
+export type RegistrationNumberWarning = S["RegistrationNumberWarningOut"];
+/** Язык документа. У сертификата он свой — снимок языка курса. */
+export type CertificateLang = NonNullable<CertificatePatchIn["lang"]>;

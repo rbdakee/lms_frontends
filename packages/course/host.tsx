@@ -63,6 +63,14 @@ export interface CourseRoutes {
   certificate: ((certificateId: Id) => string) | null;
   /** Профиль учителя */
   profile: string | null;
+  /**
+   * Онбординг: туда ведёт отказ `iin_required` — ИИН правится там.
+   *
+   * Поле необязательное, а не `null`, как соседние выходы наружу: онбординга
+   * в предпросмотре админки нет вовсе, а обязательное поле пришлось бы гасить
+   * в `PreviewHost`, который эта сессия править не вправе.
+   */
+  onboarding?: (next: string) => string;
   /** Куда отправлять гостя; `next` — полный путь возврата */
   login: (next: string) => string;
   /**

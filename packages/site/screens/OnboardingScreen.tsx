@@ -2,23 +2,42 @@
 
 /**
  * Онбординг — раздел 5.5 брифа.
- * Шаг 1: обязательны только фамилия и имя. Фото необязательное — без него
+ * Шаг 1: обязательны фамилия, имя и ИИН. Фото необязательное — без него
  * показываем инициалы, чтобы загрузка не стояла в критическом пути входа.
  * Шаг 2: можно пропустить.
  *
  * Сохранение — `PATCH /me`: шлём только изменённые поля, `null` для строки —
  * «стереть». Успешный PATCH отмечает `onboarding_done` на сервере.
  * `?next=` — куда идти после завершения (заявка на курс, начатая до входа).
+ *
+ * ИИН — самые чувствительные данные экрана: он не попадает ни в тост,
+ * ни в текст ошибки, ни в вывод — только в поле и в запрос.
  */
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, isApiError, useDictionaries, useMe, type User } from "@lms/api";
+import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
-import { buildPatch, formFromUser, type UserForm } from "../lib/userForm";
+import { buildPatch, formFromUser, iinFilled, type UserForm } from "../lib/userForm";
 import { useChrome, useRoutes } from "../host";
 import { Button, Note, Progress } from "@lms/ui";
 import { IconArrowLeft, IconCamera, IconInfo, IconUpload, IconUser } from "@lms/ui/icons";
+
+/**
+ * Подпись поля из `422 validation_error`: сервер шлёт готовые строки,
+ * своих формулировок не сочиняем — иначе экран и сервер скажут разное.
+ * `null` — отказ не про это поле.
+ */
+function fieldMessage(e: unknown, field: string): string | null {
+  if (!isApiError(e, "validation_error")) return null;
+  const raw = e.details.fields;
+  if (!Array.isArray(raw)) return null;
+  for (const f of raw as { field?: string; message?: string }[]) {
+    if (f?.field === field) return f.message ?? "";
+  }
+  return null;
+}
 
 export function OnboardingScreen() {
   const router = useRouter();
@@ -37,6 +56,7 @@ export function OnboardingScreen() {
 function OnboardingForm({ user }: { user: User }) {
   const router = useRouter();
   const { setMe } = useMe();
+  const { t } = useLang();
   const toast = useToast();
   const dictionaries = useDictionaries();
   const routes = useRoutes();
@@ -47,26 +67,53 @@ function OnboardingForm({ user }: { user: User }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<UserForm>(() => formFromUser(user));
+  /* ИИН держим отдельно от формы: `buildPatch` стирает пустую строку
+     в `null`, а снять ИИН нельзя */
+  const [iin, setIin] = useState(() => (iinFilled(user.iin) ? user.iin : ""));
+  const [iinError, setIinError] = useState<string | null>(null);
 
   const upd = (k: keyof UserForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const step1Valid = form.last_name.trim() && form.first_name.trim();
+
+  /* Админа про ИИН не спрашиваем: он не учится и сертификатов не получает,
+     а `onboarding_done` у него от номера не зависит — так же считает сервер */
+  const asksIin = !user.is_admin;
+  const step1Valid =
+    form.last_name.trim() && form.first_name.trim() && (!asksIin || iin.length === 12);
+
+  /* ФИО есть, а ИИН — заглушка: человека вернул заслон, а не первый вход,
+     и без объяснения он не поймёт, почему онбординг открылся снова */
+  const returnedForIin =
+    asksIin && !iinFilled(user.iin) && Boolean(user.last_name && user.first_name);
 
   const finish = async (skipped: boolean) => {
     if (saving) return;
     setSaving(true);
     setError(null);
     try {
-      /* PATCH нужен даже без изменений: он отмечает onboarding_done */
+      /* PATCH нужен даже без изменений: он отмечает onboarding_done.
+         Своё же значение ИИН слать незачем */
       const updated = await api<User>("/me", {
         method: "PATCH",
-        json: buildPatch(user, form),
+        json: { ...buildPatch(user, form), ...(iin !== user.iin ? { iin } : {}) },
       });
       setMe(updated);
       toast(skipped ? "Профиль можно дозаполнить позже" : "Профиль сохранён", "success");
       const next = new URLSearchParams(window.location.search).get("next");
       router.push(next ?? routes.my);
     } catch (e) {
-      setError(isApiError(e) ? e.message : "Не удалось сохранить — попробуйте ещё раз");
+      /* Поле ИИН на первом шаге, а сохранение уходит со второго: отказ по нему
+         обязан вернуть человека туда, где номер можно исправить */
+      const invalid = fieldMessage(e, "iin");
+      if (invalid !== null) {
+        setStep(1);
+        setIinError(invalid || t.iinInvalid);
+      } else if (isApiError(e, "iin_taken")) {
+        /* Чей это аккаунт, сервер не называет — показываем ровно его текст */
+        setStep(1);
+        setIinError(e.message);
+      } else {
+        setError(isApiError(e) ? e.message : "Не удалось сохранить — попробуйте ещё раз");
+      }
       setSaving(false);
     }
   };
@@ -102,8 +149,9 @@ function OnboardingForm({ user }: { user: User }) {
                 <div className="stack g8">
                   <h1 className="h1">Давайте познакомимся</h1>
                   <Note kind="info">
-                    ФИО будет напечатано в сертификате — проверьте написание.
+                    ФИО и ИИН будут напечатаны в сертификате — проверьте написание.
                   </Note>
+                  {returnedForIin && <Note kind="info">{t.iinAddedNote}</Note>}
                 </div>
 
                 <div className="row g16 wrap" style={{ alignItems: "center" }}>
@@ -197,6 +245,33 @@ function OnboardingForm({ user }: { user: User }) {
                       placeholder="Сериковна"
                     />
                   </div>
+                  {/* ИИН стоит рядом с ФИО: в сертификат они идут вместе */}
+                  {asksIin && (
+                    <div className="field">
+                      <label className="label" htmlFor="iin">
+                        {t.iinLabel}
+                      </label>
+                      <input
+                        id="iin"
+                        className={`input${iinError ? " input-error" : ""}`}
+                        inputMode="numeric"
+                        maxLength={12}
+                        value={iin}
+                        onChange={(e) => {
+                          /* Пробелы и буквы сервер всё равно отобьёт — не даём их ввести */
+                          setIin(e.target.value.replace(/\D/g, ""));
+                          setIinError(null);
+                        }}
+                        onBlur={() => {
+                          /* Длина — единственная проверка: контрольной цифры нет и на сервере */
+                          if (iin.length > 0 && iin.length < 12) setIinError(t.iinInvalid);
+                        }}
+                        placeholder="990000000042"
+                      />
+                      <span className="hint">{t.iinHint}</span>
+                      {iinError && <span className="error-text">{iinError}</span>}
+                    </div>
+                  )}
                 </div>
 
                 <Button block size="lg" disabled={!step1Valid} onClick={() => setStep(2)}>

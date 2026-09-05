@@ -380,9 +380,9 @@ export function CourseCertChecklist({
     );
   }
 
-  const { conditions, can_issue, blocker, certificate } = completion;
-  /* Курс без единого условия и без выданного документа показывать нечем */
-  if (conditions.length === 0 && !certificate && !can_issue) return null;
+  const { conditions, can_request, blocker, certificate } = completion;
+  /* Курс без единого условия, без документа и без права просить показывать нечем */
+  if (conditions.length === 0 && !certificate && !can_request) return null;
 
   return (
     <div className="card card-pad stack g14" style={{ background: "var(--surface-tint)" }}>
@@ -397,13 +397,21 @@ export function CourseCertChecklist({
       )}
 
       {certificate ? (
-        /* Экрана сертификата может не быть — тогда показывать нечего */
-        routes.certificate && (
-          <LinkButton href={routes.certificate(certificate.id)} variant="secondary" block>
-            {t.certOpen}
-          </LinkButton>
+        certificate.status === "issued" ? (
+          /* Экрана сертификата может не быть — тогда показывать нечего */
+          routes.certificate && (
+            <LinkButton href={routes.certificate(certificate.id)} variant="secondary" block>
+              {t.certOpen}
+            </LinkButton>
+          )
+        ) : (
+          /* Заявка подана: документа ещё нет, вести некуда — только ждать админа */
+          <div className="stack g6" style={{ textAlign: "center" }}>
+            <span className="caption muted">{t.certRequested}</span>
+            <span className="caption muted-3">{t.certRequestedHint}</span>
+          </div>
         )
-      ) : can_issue ? (
+      ) : can_request ? (
         <div className="stack g6">
           <LinkButton href={routes.complete(course.id)} block>
             {t.certGet}

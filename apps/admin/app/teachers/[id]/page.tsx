@@ -41,6 +41,7 @@ import { PhoneInput } from "@lms/ui/PhoneInput";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
+import { IIN_PLACEHOLDER } from "@/components/admin/certificatesApi";
 import { GrantAccessSheet } from "@/components/admin/GrantAccess";
 import { PlatformChip, usePlatformName } from "@/components/admin/platforms";
 import { SubmissionStatusBadge } from "@/components/admin/submissionsApi";
@@ -74,7 +75,10 @@ const RETAKE_BLOCKER: Record<RetakeBlocker, string> = {
   quiz_retakable: "Тест и так пересдаваемый — попыток не ограничено",
   no_attempt: "Человек ещё не проходил этот тест",
   attempt_in_progress: "Попытка ещё не завершена — дождитесь её конца",
-  certificate_issued: "Сертификат по курсу уже выдан — пересдача закрыта",
+  /* Код один, а случая два: сервер не различает в этом ответе выданный
+     документ и заявку на него. Обещать «выдан» там, где заявка только подана,
+     значит врать админу, поэтому текст говорит про оба */
+  certificate_issued: "По курсу есть сертификат или заявка на него — пересдача закрыта",
 };
 
 export default function TeacherCardPage() {
@@ -156,6 +160,9 @@ export default function TeacherCardPage() {
         ? ""
         : `${teacher.experience} ${plural(teacher.experience, "год", "года", "лет")}`,
     ],
+    /* Заглушка — метка «не заполнен», а не номер: двенадцать нулей на экране
+       читались бы как настоящий ИИН. Пустые строки этот список не рисует */
+    ["ИИН", teacher.iin === IIN_PLACEHOLDER ? "" : teacher.iin],
     ["Телефон", phoneFmt(teacher.phone)],
     ["Email", teacher.email],
     ["Регистрация", dayYear(teacher.created_at, lang)],
@@ -511,30 +518,50 @@ export default function TeacherCardPage() {
                 <div className="card">
                   <Empty
                     icon={<IconCertificate size={34} />}
-                    title="Сертификатов пока нет"
-                    text="Появятся, когда учитель выполнит условия хотя бы одного курса."
+                    title="Сертификатов и заявок пока нет"
+                    text="Появятся, когда учитель запросит документ: выдаёт его админ, руками."
                   />
                 </div>
               ) : (
+                /* Вкладка показывает и заявки, поэтому состояние берём
+                   из `status`, а не из `revoked_at`: у заявки нет ни номера,
+                   ни даты выдачи, и печатать их как у выданного — врать */
                 teacher.certificates.map((c) => (
-                  <div key={c.id} className="card card-pad row between wrap g10">
+                  <Link
+                    key={c.id}
+                    href={`/certificates/${c.id}`}
+                    className="card card-link card-pad row between wrap g10"
+                  >
                     <div className="stack g2">
                       <strong className="small pretty">{c.course_title}</strong>
-                      <span className="caption mono muted-3">{c.number}</span>
+                      {c.number ? (
+                        <span className="caption mono muted-3">{c.number}</span>
+                      ) : (
+                        <span className="caption muted-3">номер появится при выдаче</span>
+                      )}
                       <span className="caption muted-3">
                         {c.hours} {plural(c.hours, "час", "часа", "часов")} ·{" "}
-                        {dayYear(c.issued_at, lang)}
+                        {c.status === "requested"
+                          ? `запрошен ${dayYear(c.requested_at, lang)}`
+                          : `выдан ${dayYear(c.issued_at, lang)}`}
                       </span>
+                      {/* Документы до 04.09.2026: номер академии админ
+                          проставит на странице «Сертификаты» */}
+                      {c.status === "issued" && !c.registration_number && (
+                        <span className="caption muted-3">рег. номер не проставлен</span>
+                      )}
                     </div>
                     <span className="row g8 wrap">
                       <PlatformChip platform={c.platform} />
-                      {c.revoked_at ? (
-                        <Badge kind="locked">Отозван {dayYear(c.revoked_at, lang)}</Badge>
-                      ) : (
+                      {c.status === "requested" ? (
+                        <Badge kind="review">Ждёт выдачи</Badge>
+                      ) : c.status === "issued" ? (
                         <Badge kind="accepted">Выдан</Badge>
+                      ) : (
+                        <Badge kind="locked">Отозван {dayYear(c.revoked_at, lang)}</Badge>
                       )}
                     </span>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>

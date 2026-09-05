@@ -7,7 +7,7 @@ import "./theme.css";
 import { MeProvider } from "@lms/api";
 import { LangProvider } from "@lms/ui/lang";
 import { ToastProvider } from "@lms/ui/toast";
-import { BlockedGate } from "@lms/site";
+import { BlockedGate, OnboardingGate } from "@lms/site";
 import { BRAND } from "@/lib/brand";
 import { CourseHost } from "@/components/layout/CourseHost";
 import { SiteHost } from "@/components/layout/SiteHost";
@@ -50,7 +50,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ToastProvider>
               <CourseHost>
                 <SiteHost>
-                  <BlockedGate>{children}</BlockedGate>
+                  <BlockedGate>
+                    <OnboardingGate>{children}</OnboardingGate>
+                  </BlockedGate>
                 </SiteHost>
               </CourseHost>
             </ToastProvider>

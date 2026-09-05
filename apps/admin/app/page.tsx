@@ -3,8 +3,9 @@
 /**
  * Рабочий стол админа «/» — раздел 5.15 брифа.
  *
- * Это не аналитика: сверху три плитки того, что требует действия, под ними
- * три списка тех же сущностей, внизу три справочных числа. Графиков по неделям,
+ * Это не аналитика: сверху четыре плитки того, что требует действия, под ними
+ * три списка — заявки, работы и вопросы; у заявок на сертификат списка нет,
+ * сервер его не отдаёт. Внизу три справочных числа. Графиков по неделям,
  * периодов, дельт «+312» и «обновлено 2 минуты назад» здесь нет и не будет —
  * ради них пришлось бы хранить историю и агрегаты (раздел 9а).
  *
@@ -120,8 +121,8 @@ function Dashboard() {
       <div className="stack g24">
         {filter}
 
-        {/* ===== Три плитки: кликабельные, с красным счётчиком ===== */}
-        <div className="dash-tiles">
+        {/* ===== Четыре плитки: кликабельные, с красным счётчиком ===== */}
+        <div className="dash-queues">
           <Tile
             href="/leads"
             icon={<IconMail size={22} />}
@@ -142,6 +143,13 @@ function Dashboard() {
             count={d.questions_count}
             label={t.dashQuestions}
             hint={t.dashQuestionsHint}
+          />
+          <Tile
+            href="/certificates"
+            icon={<IconCertificate size={22} />}
+            count={d.certificates_count}
+            label={t.dashCertQueue}
+            hint={t.dashCertQueueHint}
           />
         </div>
 
@@ -256,9 +264,14 @@ function Dashboard() {
 
       <style>{`
         .dash-tiles { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        /* Очередей четыре, справочных чисел — три, поэтому сетка у них своя:
+           общий .dash-tiles на четвёртой плитке ломался на ряд «3 + 1» */
+        .dash-queues { display: grid; grid-template-columns: 1fr; gap: 12px; }
         .dash-three { display: grid; grid-template-columns: 1fr; gap: 16px; }
         @media (min-width: 700px) { .dash-tiles { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 700px) { .dash-queues { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 900px) { .dash-three { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1200px) { .dash-queues { grid-template-columns: repeat(4, 1fr); } }
       `}</style>
     </AdminShell>
   );

@@ -94,6 +94,11 @@ export function VerifyScreen({ preset }: { preset: string }) {
         { label: t.vfHours, value: t.academicHours(cert.hours) },
         { label: t.vfIssued, value: dayYear(cert.issued_at, lang) },
         { label: t.vfNumber, value: cert.number, mono: true },
+        /* Номер академии комиссии полезнее нашего, но у документов до 04.09.2026
+           его ещё нет: пустую строку показывать нечем — строки тогда просто нет */
+        ...(cert.registration_number
+          ? [{ label: t.vfRegNumber, value: cert.registration_number, mono: true }]
+          : []),
       ]
     : [];
 

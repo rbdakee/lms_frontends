@@ -26,7 +26,7 @@ import {
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { dayTime, phoneFmt } from "@lms/ui/i18n";
-import { buildPatch, formFromUser } from "../lib/userForm";
+import { buildPatch, formFromUser, iinFilled } from "../lib/userForm";
 import { useChrome, useRoutes } from "../host";
 import { Avatar, Badge, Button, LinkButton, Note, Sheet, Skeleton } from "@lms/ui";
 import {
@@ -229,6 +229,18 @@ function ProfileForm({ user }: { user: User }) {
                 onChange={(e) => upd("middle_name", e.target.value)}
               />
             </div>
+
+            {/* ИИН только на показ (решение владельца): он печатается
+                в сертификате и в реестре академии, поэтому опечатку
+                исправляет админ, а не сам учитель. Заглушку не рисуем —
+                строки без значения здесь и так нет */}
+            {iinFilled(user.iin) && (
+              <div className="field">
+                <span className="label">{t.iinLabel}</span>
+                <strong className="mono">{user.iin}</strong>
+                <span className="hint">{t.iinLocked}</span>
+              </div>
+            )}
 
             <Note kind="muted">
               <span className="small">
