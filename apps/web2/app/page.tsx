@@ -60,11 +60,10 @@ import { AnimatePresence, useReducedMotion, type Variants } from "motion/react";
 import * as m from "motion/react-m";
 import { api, useLoad, useMe, type CatalogOut } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
-import { SUPPORT_MAIL } from "@/lib/brand";
 import { Footer, PublicShell } from "@/components/layout/Shell";
 import { EASE, MotionRoot, Reveal } from "@/components/landing/Motion";
 import { Showcase } from "@/components/landing/Showcase";
-import { CourseCard } from "@lms/course";
+import { ContactAdmin, CourseCard } from "@lms/course";
 import { Button, CourseCardSkeleton, Empty } from "@lms/ui";
 import {
   IconArrowRight,
@@ -137,7 +136,7 @@ const faq = [
   },
   {
     q: "Не приходит код в WhatsApp",
-    a: `Проверьте, что WhatsApp стоит именно на этом номере — код уходит туда. Подождите минуту и нажмите «Отправить код повторно». Если не помогло, напишите на ${SUPPORT_MAIL} — откроем вход вручную.`,
+    a: "Проверьте, что WhatsApp стоит именно на этом номере — код уходит туда. Подождите минуту и нажмите «Отправить код повторно». Если не помогло, напишите администратору — откроем вход вручную.",
   },
 ];
 
@@ -310,15 +309,12 @@ export default function LandingPage() {
             <div className="stack g12">
               <h2 className="h2">{t.secFaq}</h2>
               <p className="body muted pretty">
-                Не нашли своего вопроса — напишите, ответим в рабочие дни.
+                Не нашли своего вопроса — напишите администратору, ответим
+                в рабочие дни.
               </p>
-              <a
-                href={`mailto:${SUPPORT_MAIL}`}
-                className="btn btn-secondary"
-                style={{ alignSelf: "flex-start" }}
-              >
-                Задать вопрос
-              </a>
+              <div style={{ alignSelf: "flex-start" }}>
+                <ContactAdmin variant="link" label="Задать вопрос" />
+              </div>
             </div>
           </Reveal>
           <div className="stack g10">

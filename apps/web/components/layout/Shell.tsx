@@ -694,9 +694,6 @@ export function Footer() {
             <Link href="/#faq" className="small muted">
               Частые вопросы
             </Link>
-            <a href="mailto:help@lms.kz" className="small muted">
-              Написать нам
-            </a>
             <span className="small muted">Правила платформы</span>
           </div>
           {/* Контакты администратора из настроек платформы — те же, что в кнопке

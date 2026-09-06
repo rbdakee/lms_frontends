@@ -63,7 +63,15 @@ export function Price({
  * ссылку wa.me собираем здесь. Пока настройки не пришли или канал
  * не заполнен — не рисуем ничего: скелет на вторичной кнопке шумнее пользы.
  */
-export function ContactAdmin({ variant = "button" }: { variant?: "button" | "link" }) {
+export function ContactAdmin({
+  variant = "button",
+  label,
+}: {
+  variant?: "button" | "link";
+  /** Своя подпись у ссылки. На входе это «Не приходит код?»: экран отвечает
+      на конкретный страх, а не зовёт «связаться с администратором» вообще. */
+  label?: string;
+}) {
   const { t } = useLang();
   const settings = usePublicSettings();
   const contacts = settings.data?.contacts;
@@ -84,7 +92,7 @@ export function ContactAdmin({ variant = "button" }: { variant?: "button" | "lin
         style={{ color: "var(--primary)", fontWeight: 700, minHeight: 44 }}
       >
         {wa ? <IconWhatsapp size={17} /> : <IconPhone size={17} />}
-        {t.contactAdmin}
+        {label ?? t.contactAdmin}
       </a>
     );
   }

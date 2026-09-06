@@ -5,13 +5,12 @@
  *
  * Вход, онбординг, профиль, уведомления, сертификаты и проверка сертификата
  * одинаковы у обеих площадок и живут в `@lms/site`. Своё у площадки — адреса,
- * кадр, логотип с переключателем языка и почта поддержки; всё это отдаётся
- * отсюда, ровно как экраны курса получают своё из `CourseHost`.
+ * кадр, логотип с переключателем языка; всё это отдаётся отсюда, ровно как
+ * экраны курса получают своё из `CourseHost`.
  */
 
 import type { ReactNode } from "react";
 import { SiteHostProvider, type SiteHost as Host } from "@lms/site/host";
-import { SUPPORT_MAIL } from "@/lib/brand";
 import { admin } from "@/lib/urls";
 import { Footer, LangSwitch, Logo, PublicShell, TabBar, TeacherShell } from "@/components/layout/Shell";
 
@@ -36,7 +35,6 @@ const host: Host = {
     admin,
   },
   chrome: { TeacherShell, PublicShell, Footer, TabBar, Logo, LangSwitch },
-  contacts: { mail: SUPPORT_MAIL },
 };
 
 export function SiteHost({ children }: { children: ReactNode }) {

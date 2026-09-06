@@ -49,7 +49,7 @@ import {
 } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { dayTime, phoneFmt } from "@lms/ui/i18n";
-import { BRAND, SUPPORT_MAIL } from "@/lib/brand";
+import { BRAND } from "@/lib/brand";
 import { admin } from "@/lib/urls";
 import {
   markRead,
@@ -66,7 +66,6 @@ import {
   IconHome,
   IconInfo,
   IconLogout,
-  IconMail,
   IconMenu,
   IconPhone,
   IconSettings,
@@ -732,10 +731,6 @@ export function Footer() {
               </a>
             )}
             {contacts?.hours && <span className="caption muted">{contacts.hours}</span>}
-            <a href={`mailto:${SUPPORT_MAIL}`} className="row g8 small muted">
-              <IconMail size={16} />
-              {SUPPORT_MAIL}
-            </a>
           </div>
         </div>
 

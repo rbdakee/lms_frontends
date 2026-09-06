@@ -8,7 +8,7 @@ import { api, useLoad, useMe, type CatalogOut } from "@lms/api";
 import { fmt, rating as fmtRating } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { Footer, PublicShell } from "@/components/layout/Shell";
-import { CourseCard } from "@lms/course";
+import { ContactAdmin, CourseCard } from "@lms/course";
 import { Badge, CourseCardSkeleton, Cover, Stars } from "@lms/ui";
 import {
   IconArrowRight,
@@ -85,7 +85,7 @@ const faq = [
   },
   {
     q: "Что делать, если не приходит код в WhatsApp?",
-    a: "Проверьте, что WhatsApp установлен на этом номере — код приходит именно туда. Подождите минуту и нажмите «Отправить код повторно». Если код так и не пришёл — напишите на help@lms.kz, поможем войти вручную.",
+    a: "Проверьте, что WhatsApp установлен на этом номере — код приходит именно туда. Подождите минуту и нажмите «Отправить код повторно». Если код так и не пришёл — напишите администратору, поможем войти вручную.",
   },
 ];
 
@@ -318,11 +318,11 @@ export default function LandingPage() {
         <div className="row between wrap g12" style={{ marginBottom: 20 }}>
           <div className="stack g4">
             <h2 className="h2">{t.secFaq}</h2>
-            <p className="small muted">Не нашли ответ — напишите нам, отвечаем в рабочие дни.</p>
+            <p className="small muted">
+              Не нашли ответ — напишите администратору, отвечаем в рабочие дни.
+            </p>
           </div>
-          <a href="mailto:help@lms.kz" className="btn btn-secondary">
-            Задать вопрос
-          </a>
+          <ContactAdmin variant="link" label="Задать вопрос" />
         </div>
         <div className="stack g10" style={{ maxWidth: 820 }}>
           {faq.map((f, i) => (

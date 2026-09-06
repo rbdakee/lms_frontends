@@ -17,7 +17,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, isApiError, useMe, type User } from "@lms/api";
 import { useToast } from "@lms/ui/toast";
-import { useChrome, useContacts, useRoutes } from "../host";
+import { useChrome, useRoutes } from "../host";
+import { ContactAdmin } from "@lms/course";
 import { Button, Note } from "@lms/ui";
 import { IconArrowLeft, IconCheck, IconInfo } from "@lms/ui/icons";
 
@@ -76,7 +77,6 @@ export function LoginScreen() {
   const { me, setMe } = useMe();
   const routes = useRoutes();
   const { Logo, LangSwitch } = useChrome();
-  const { mail } = useContacts();
 
   const [step, setStep] = useState<1 | 2>(1);
   /** Только 10 цифр номера, без «+7» — маска строится из них */
@@ -370,10 +370,10 @@ export function LoginScreen() {
                   Получить код
                 </Button>
 
+                {/* Единственный контакт на этом экране: человек сюда ещё
+                    не вошёл, и написать ему больше некому */}
                 <div className="row center">
-                  <Link href={`mailto:${mail}`} className="btn btn-ghost btn-sm">
-                    Не приходит код?
-                  </Link>
+                  <ContactAdmin variant="link" label="Не приходит код?" />
                 </div>
               </>
             ) : (

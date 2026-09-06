@@ -17,12 +17,12 @@ import { useCallback, useEffect, useState } from "react";
 import { api, isApiError, NETWORK_ERROR, type Verify } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { dayTime, dayYear } from "@lms/ui/i18n";
-import { useBrand, useChrome, useContacts } from "../host";
+import { useBrand, useChrome } from "../host";
+import { ContactAdmin } from "@lms/course";
 import { Button, Note } from "@lms/ui";
 import {
   IconAlert,
   IconCheckCircle,
-  IconMail,
   IconQr,
   IconSearch,
   IconShield,
@@ -37,7 +37,6 @@ type Result =
 export function VerifyScreen({ preset }: { preset: string }) {
   const { t, lang } = useLang();
   const { Footer, PublicShell } = useChrome();
-  const { mail } = useContacts();
   /* Документ выдала та площадка, на которой его проверяют: экран общий,
      а имя в подписи — своё у каждой */
   const brand = useBrand();
@@ -207,24 +206,18 @@ export function VerifyScreen({ preset }: { preset: string }) {
                 <ul className="stack g10" style={{ paddingLeft: 20 }}>
                   <li className="small">{t.vfTip1}</li>
                   <li className="small">{t.vfTip2}</li>
-                  <li className="small">
-                    {t.vfTip3}{" "}
-                    <a href={`mailto:${mail}`} style={{ color: "var(--primary)" }}>
-                      {mail}
-                    </a>
-                  </li>
+                  <li className="small">{t.vfTip3}</li>
                 </ul>
+                {/* Проверяющий не наш учитель и войти не может — контакты
+                    администратора здесь единственный путь дальше */}
+                <div style={{ maxWidth: 320 }}>
+                  <ContactAdmin />
+                </div>
               </div>
 
-              <div className="row g10 wrap">
-                <Button size="lg" block onClick={() => reset(true)}>
-                  {t.vfAgain}
-                </Button>
-                <a href={`mailto:${mail}`} className="btn btn-secondary btn-lg">
-                  <IconMail size={18} />
-                  {t.vfSupport}
-                </a>
-              </div>
+              <Button size="lg" block onClick={() => reset(true)}>
+                {t.vfAgain}
+              </Button>
             </>
           ) : presetPending ? (
             /* ===== Ответ по ссылке из QR ещё не пришёл ===== */
