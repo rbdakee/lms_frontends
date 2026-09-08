@@ -91,10 +91,16 @@ function OnboardingForm({ user }: { user: User }) {
     setError(null);
     try {
       /* PATCH нужен даже без изменений: он отмечает onboarding_done.
-         Своё же значение ИИН слать незачем */
+         Своё же значение ИИН слать незачем, а у админа поля нет вовсе:
+         без `asksIin` сюда уходила пустая строка, сервер отвечал 422,
+         и админ запирался снаружи — ошибку ему показывали на поле,
+         которого ему не рисуют */
       const updated = await api<User>("/me", {
         method: "PATCH",
-        json: { ...buildPatch(user, form), ...(iin !== user.iin ? { iin } : {}) },
+        json: {
+          ...buildPatch(user, form),
+          ...(asksIin && iin !== user.iin ? { iin } : {}),
+        },
       });
       setMe(updated);
       toast(skipped ? "Профиль можно дозаполнить позже" : "Профиль сохранён", "success");
