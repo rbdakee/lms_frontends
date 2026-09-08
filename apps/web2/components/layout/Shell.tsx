@@ -84,10 +84,10 @@ import {
  * приходят из бренда площадки, в разметке их нет.
  */
 export function Logo() {
-  const { lang } = useLang();
+  const { t, lang } = useLang();
   const brand = BRAND[lang];
   return (
-    <Link href="/" className="logo" aria-label={`${brand.name} — на лендинг`}>
+    <Link href="/" className="logo" aria-label={t.shLogoAria(brand.name)}>
       <img src={BRAND.logoSrc} alt="" className="logo-emblem" width={44} height={44} />
       <span className="logo-text stack">
         <span>{brand.line1}</span>
@@ -100,9 +100,9 @@ export function Logo() {
 /* ============ Переключатель языка ============ */
 
 export function LangSwitch() {
-  const { lang, setLang } = useLang();
+  const { t, lang, setLang } = useLang();
   return (
-    <div className="lang-switch" role="group" aria-label="Язык интерфейса">
+    <div className="lang-switch" role="group" aria-label={t.language}>
       <button data-active={lang === "ru"} onClick={() => setLang("ru")}>
         РУС
       </button>
@@ -235,7 +235,7 @@ function NotificationsBell() {
         className="btn btn-icon bell"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-label={`${t.navNotifications}${unread ? `, непрочитанных: ${unread}` : ""}`}
+        aria-label={t.shBellAria(unread)}
       >
         <IconBell />
         {unread > 0 && <span className="bell-dot">{unread}</span>}
@@ -425,7 +425,7 @@ function NavMenu({
             {me?.is_admin && (
               <a href={admin()} className="p2-menu-item">
                 <IconSettings size={20} className="p2-menu-ico" />
-                Админка
+                {t.shAdmin}
               </a>
             )}
           </>
@@ -553,7 +553,7 @@ function Header({ title }: { title?: string }) {
               onClick={() => setMenu(true)}
               aria-expanded={menu}
               aria-haspopup="dialog"
-              aria-label="Меню"
+              aria-label={t.shMenu}
             >
               <IconMenu />
             </button>
@@ -588,7 +588,7 @@ export function TabBar() {
     { href: "/profile", label: t.navProfile, icon: IconUser },
   ];
   return (
-    <nav className="tabbar" aria-label="Основная навигация">
+    <nav className="tabbar" aria-label={t.shNavMain}>
       {tabs.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(tab.href + "/");
         const Icon = tab.icon;
@@ -737,7 +737,7 @@ export function Footer() {
         <hr className="divider" />
 
         <div className="p2-foot-bottom">
-          <nav className="row wrap g20" aria-label="Ссылки подвала">
+          <nav className="row wrap g20" aria-label={t.shFootNav}>
             {links.map((l) => (
               <Link key={l.href} href={l.href} className="small muted">
                 {l.label}

@@ -318,7 +318,7 @@ export function LessonScreen({
             onClick={() => setProgramOpen(true)}
           >
             <IconLayers size={16} />
-            Программа
+            {t.lsnProgramBtn}
           </button>
         }
       />

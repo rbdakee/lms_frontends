@@ -140,7 +140,7 @@ export function CourseProgram({
     if (item.kind === "quiz") {
       meta = [
         t.questions(item.questions_count),
-        item.time_limit_min ? `${item.time_limit_min} мин` : "",
+        item.time_limit_min ? t.minShort(item.time_limit_min) : "",
         t.passScore(item.pass_score),
       ]
         .filter(Boolean)
@@ -148,7 +148,7 @@ export function CourseProgram({
     } else if (item.kind === "task") {
       meta = t.submitFormat(item.submit_format);
     } else {
-      meta = item.duration_label ?? `${item.time_required_min} мин`;
+      meta = item.duration_label ?? t.minShort(item.time_required_min);
     }
     if (locked) return `${meta} · ${t.lockedLesson.toLowerCase()}`;
     if (statusOf(item) === "locked") return t.lockedAfterCurrent;
@@ -243,7 +243,9 @@ export function CourseProgram({
                       <span className="caption muted-3">{itemMeta(item, active)}</span>
                     </span>
 
-                    {item.kind === "quiz" && item.is_final && <Badge kind="new">Итоговый</Badge>}
+                    {item.kind === "quiz" && item.is_final && (
+                      <Badge kind="new">{t.finalQuiz}</Badge>
+                    )}
                   </>
                 );
 

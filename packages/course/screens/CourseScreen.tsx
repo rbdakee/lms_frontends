@@ -101,7 +101,7 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
       course.setData((c) =>
         c ? { ...c, access: { state: "requested", waiting_days: lead.waiting_days } } : c,
       );
-      toast("Заявка отправлена — администратор свяжется с вами", "success");
+      toast(t.crsLeadSent, "success");
     } catch (e) {
       if (isApiError(e, "unauthorized")) {
         router.push(routes.login(`${routes.course(id)}?lead=1`));
@@ -110,7 +110,7 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
         toast(e.message, e.code === "already_enrolled" ? "info" : "error");
         course.reload();
       } else {
-        toast("Не удалось отправить заявку — попробуйте ещё раз", "error");
+        toast(t.crsLeadError, "error");
       }
     } finally {
       setEnrolling(false);
@@ -152,12 +152,8 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
         <div className="page section">
           <div className="card">
             <Empty
-              title={notFound ? "Курс не найден" : t.loadError}
-              text={
-                notFound
-                  ? "Возможно, курс скрыт администратором или ссылка устарела."
-                  : t.loadErrorText
-              }
+              title={notFound ? t.courseNotFound : t.loadError}
+              text={notFound ? t.crsNotFoundText : t.loadErrorText}
               action={
                 !notFound ? (
                   <Button variant="secondary" onClick={course.reload}>
@@ -165,7 +161,7 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
                   </Button>
                 ) : routes.catalog ? (
                   <LinkButton href={routes.catalog} variant="secondary">
-                    В каталог
+                    {t.openCatalog}
                   </LinkButton>
                 ) : undefined
               }
@@ -211,12 +207,12 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
         {t.setClosed}
       </Button>
       <span className="caption muted pretty" style={{ textAlign: "center" }}>
-        Напишите администратору, если хотите попасть в следующий поток
+        {t.crsClosedHint}
       </span>
     </div>
   ) : (
     <Button block size="lg" loading={enrolling} onClick={enroll}>
-      {authed ? t.enroll : "Войти и записаться"}
+      {authed ? t.enroll : t.crsLoginAndEnroll}
     </Button>
   );
 
@@ -230,7 +226,7 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
       {c.status === "planned" && c.starts_at && (
         <span className="small muted row g6">
           <IconCalendar size={16} />
-          Обучение начнётся {day(c.starts_at, lang)}, заявку можно оставить сейчас
+          {t.crsStartsAt(day(c.starts_at, lang))}
         </span>
       )}
     </div>
@@ -241,16 +237,16 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
       <div className="row between small">
         {/* Счётчики — по всем элементам программы (уроки, тесты, задания),
             поэтому без слова «уроков»: их в M больше, чем уроков на карточке */}
-        <span className="muted">
-          Пройдено {access.done_count} из {access.total_count}
-        </span>
+        <span className="muted">{t.crsDoneOf(access.done_count, access.total_count)}</span>
         <strong style={{ color: finished ? "var(--success)" : "var(--primary)" }}>
           {access.progress_percent}%
         </strong>
       </div>
       <Progress value={access.progress_percent} thick />
       {access.next_lesson && (
-        <span className="caption muted-3 pretty">Следующий: {access.next_lesson.title}</span>
+        <span className="caption muted-3 pretty">
+          {t.crsNextItem(access.next_lesson.title)}
+        </span>
       )}
     </div>
   );
@@ -265,14 +261,14 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
           <Breadcrumbs
             items={
               routes.catalog
-                ? [{ label: "Каталог", href: routes.catalog }, { label: c.title }]
+                ? [{ label: t.navCatalog, href: routes.catalog }, { label: c.title }]
                 : [{ label: c.title }]
             }
           />
           {routes.catalog && (
             <Link href={routes.catalog} className="btn btn-ghost btn-sm mobile-only">
               <IconArrowLeft size={16} />
-              Каталог
+              {t.navCatalog}
             </Link>
           )}
         </div>
@@ -313,7 +309,7 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
                       className="chip"
                       data-active={v.id === c.id || undefined}
                     >
-                      {v.lang === "ru" ? "Русская версия" : "Қазақша нұсқасы"}
+                      {v.lang === "ru" ? t.crsVersionRu : t.crsVersionKz}
                     </Link>
                   ))}
                 </div>
@@ -357,7 +353,7 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
                 </Note>
               )}
               <hr className="divider" />
-              <span className="caption muted">Оплата принимается менеджером</span>
+              <span className="caption muted">{t.crsPayByManager}</span>
               <ContactAdmin />
             </div>
 
@@ -398,7 +394,7 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
             {/* Полное описание */}
             {c.full && (
               <section className="stack g10">
-                <h2 className="h2">О курсе</h2>
+                <h2 className="h2">{t.crsAbout}</h2>
                 <p className="body muted pretty">{c.full}</p>
               </section>
             )}
@@ -409,7 +405,8 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
                 <h2 className="h2">{t.secProgram}</h2>
                 {granted && (
                   <span className="small muted">
-                    {access.done_count} из {access.total_count} пройдено
+                    {t.ofTotal(access.done_count, access.total_count)}{" "}
+                    {t.progressDone.toLowerCase()}
                   </span>
                 )}
               </div>
@@ -440,17 +437,14 @@ export function CourseScreen({ courseId: id }: { courseId: string }) {
                   {t.sentAgo(access.state === "requested" ? access.waiting_days : 0)}
                 </span>
               ) : (
-                <span className="small muted pretty">
-                  Нажмите «Записаться» — заявка уйдёт администратору. Имя и телефон
-                  возьмём из профиля, заполнять ничего не нужно.
-                </span>
+                <span className="small muted pretty">{t.crsEnrollHint}</span>
               )}
 
               {cta}
 
               <hr className="divider" />
               <span className="caption muted" style={{ textAlign: "center" }}>
-                Оплата принимается менеджером
+                {t.crsPayByManager}
               </span>
               <ContactAdmin />
               <hr className="divider" />

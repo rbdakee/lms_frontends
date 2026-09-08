@@ -121,7 +121,7 @@ export default function MyPage() {
   return (
     <TeacherShell>
       <div className="page section stack g32" style={{ paddingTop: 20 }}>
-        <h1 className="h1">{t.greeting(me.first_name || "учитель")}</h1>
+        <h1 className="h1">{t.greeting(me.first_name || t.myTeacherFallback)}</h1>
 
         {/* ===== Продолжить обучение ===== */}
         {primary ? (
@@ -143,10 +143,8 @@ export default function MyPage() {
         inProgress.length === 0 && myCourses.length > 0 ? (
           <div className="card card-pad row between g12 wrap">
             <div className="stack g4">
-              <strong>Все начатые курсы пройдены</strong>
-              <span className="small muted">
-                Заберите сертификаты или выберите следующий курс
-              </span>
+              <strong>{t.myAllDoneTitle}</strong>
+              <span className="small muted">{t.myAllDoneText}</span>
             </div>
             <LinkButton href="/courses" variant="secondary">
               {t.openCatalog}
@@ -161,10 +159,10 @@ export default function MyPage() {
               <h2 className="h2">{t.secMyCourses}</h2>
               <div className="segmented">
                 <button data-active={tab === "progress"} onClick={() => setTab("progress")}>
-                  В процессе · {inProgress.length}
+                  {t.myTabProgress} · {inProgress.length}
                 </button>
                 <button data-active={tab === "done"} onClick={() => setTab("done")}>
-                  Пройденные · {finished.length}
+                  {t.myTabDone} · {finished.length}
                 </button>
               </div>
             </div>
@@ -172,14 +170,8 @@ export default function MyPage() {
             {(tab === "progress" ? inProgress : finished).length === 0 ? (
               <div className="card">
                 <Empty
-                  title={
-                    tab === "progress" ? "Нет курсов в процессе" : "Пока нет пройденных курсов"
-                  }
-                  text={
-                    tab === "progress"
-                      ? "Все начатые курсы завершены — выберите новый в каталоге"
-                      : "Завершите курс, чтобы он появился здесь вместе с сертификатом"
-                  }
+                  title={tab === "progress" ? t.myEmptyProgressTitle : t.myEmptyDoneTitle}
+                  text={tab === "progress" ? t.myEmptyProgressText : t.myEmptyDoneText}
                   action={
                     <LinkButton href="/courses" variant="secondary">
                       {t.openCatalog}
@@ -268,7 +260,9 @@ function ContinueBlock({ course }: { course: MyCourse }) {
               </h3>
             </Link>
             {course.next_lesson && (
-              <span className="small muted pretty">Следующий: {course.next_lesson.title}</span>
+              <span className="small muted pretty">
+                {t.crsNextItem(course.next_lesson.title)}
+              </span>
             )}
           </div>
 

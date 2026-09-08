@@ -7,6 +7,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
 } from "react";
+import { useLang } from "./lang";
 import {
   IconAlert,
   IconArrowLeft,
@@ -79,10 +80,11 @@ export function BackHeader({
   subtitle?: string;
   right?: ReactNode;
 }) {
+  const { t } = useLang();
   return (
     <header className="appbar">
       <div className="page appbar-inner g10">
-        <Link href={href} className="btn btn-icon" aria-label="Назад">
+        <Link href={href} className="btn btn-icon" aria-label={t.back}>
           <IconArrowLeft />
         </Link>
         <div className="grow" style={{ minWidth: 0 }}>
@@ -257,8 +259,9 @@ export function Avatar({
 /* ============ Звёзды ============ */
 
 export function Stars({ value, size = 14 }: { value: number; size?: number }) {
+  const { t } = useLang();
   return (
-    <span className="stars" aria-label={`Оценка ${value} из 5`}>
+    <span className="stars" aria-label={t.uiStarsLabel(value)}>
       {[1, 2, 3, 4, 5].map((i) => (
         <IconStar key={i} size={size} filled={i <= Math.round(value)} strokeWidth={1.4} />
       ))}
@@ -310,6 +313,8 @@ export function Sheet({
   footer?: ReactNode;
   wide?: boolean;
 }) {
+  const { t } = useLang();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -333,7 +338,7 @@ export function Sheet({
         {title && (
           <div className="sheet-head">
             <div className="h3">{title}</div>
-            <button className="btn btn-icon" onClick={onClose} aria-label="Закрыть">
+            <button className="btn btn-icon" onClick={onClose} aria-label={t.uiClose}>
               <IconClose />
             </button>
           </div>
@@ -507,8 +512,9 @@ export function LangBadge({ langs }: { langs: ("ru" | "kz")[] }) {
 /* ============ Хлебные крошки ============ */
 
 export function Breadcrumbs({ items }: { items: { label: string; href?: string }[] }) {
+  const { t } = useLang();
   return (
-    <nav className="row wrap g6 small muted" aria-label="Хлебные крошки">
+    <nav className="row wrap g6 small muted" aria-label={t.uiBreadcrumbs}>
       {items.map((it, i) => (
         <span key={i} className="row g6">
           {i > 0 && <span className="muted-3">›</span>}

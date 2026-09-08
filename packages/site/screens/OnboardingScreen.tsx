@@ -103,7 +103,7 @@ function OnboardingForm({ user }: { user: User }) {
         },
       });
       setMe(updated);
-      toast(skipped ? "Профиль можно дозаполнить позже" : "Профиль сохранён", "success");
+      toast(skipped ? t.onbSkippedToast : t.onbSavedToast, "success");
       const next = new URLSearchParams(window.location.search).get("next");
       router.push(next ?? routes.my);
     } catch (e) {
@@ -118,7 +118,7 @@ function OnboardingForm({ user }: { user: User }) {
         setStep(1);
         setIinError(e.message);
       } else {
-        setError(isApiError(e) ? e.message : "Не удалось сохранить — попробуйте ещё раз");
+        setError(isApiError(e) ? e.message : t.onbSaveError);
       }
       setSaving(false);
     }
@@ -132,13 +132,13 @@ function OnboardingForm({ user }: { user: User }) {
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
       <header className="page row between g12" style={{ height: 64, flexShrink: 0 }}>
         {step === 2 ? (
-          <button className="btn btn-icon" onClick={() => setStep(1)} aria-label="Назад">
+          <button className="btn btn-icon" onClick={() => setStep(1)} aria-label={t.back}>
             <IconArrowLeft />
           </button>
         ) : (
           <Logo />
         )}
-        <span className="caption muted-3">Шаг {step} из 2</span>
+        <span className="caption muted-3">{t.onbStep(step, 2)}</span>
       </header>
 
       <div className="page" style={{ marginBottom: 20 }}>
@@ -153,10 +153,8 @@ function OnboardingForm({ user }: { user: User }) {
             {step === 1 ? (
               <>
                 <div className="stack g8">
-                  <h1 className="h1">Давайте познакомимся</h1>
-                  <Note kind="info">
-                    ФИО и ИИН будут напечатаны в сертификате — проверьте написание.
-                  </Note>
+                  <h1 className="h1">{t.onbTitle}</h1>
+                  <Note kind="info">{t.onbNameNote}</Note>
                   {returnedForIin && <Note kind="info">{t.iinAddedNote}</Note>}
                 </div>
 
@@ -181,7 +179,7 @@ function OnboardingForm({ user }: { user: User }) {
                   </div>
                   <div className="stack g8 grow" style={{ minWidth: 180 }}>
                     <span className="small" style={{ fontWeight: 600 }}>
-                      Фото <span className="label-optional">· необязательно</span>
+                      {t.onbPhoto} <span className="label-optional">· {t.optional}</span>
                     </span>
                     <div className="row g8 wrap">
                       <Button
@@ -190,10 +188,10 @@ function OnboardingForm({ user }: { user: User }) {
                         icon={<IconUpload size={16} />}
                         onClick={() => {
                           setPhoto(true);
-                          toast("Фото загружено", "success");
+                          toast(t.onbPhotoUploaded, "success");
                         }}
                       >
-                        Загрузить фото
+                        {t.onbPhotoUpload}
                       </Button>
                       <Button
                         variant="secondary"
@@ -201,15 +199,14 @@ function OnboardingForm({ user }: { user: User }) {
                         icon={<IconCamera size={16} />}
                         onClick={() => {
                           setPhoto(true);
-                          toast("Снимок сделан", "success");
+                          toast(t.onbPhotoTaken, "success");
                         }}
                       >
-                        Сделать снимок
+                        {t.onbPhotoShoot}
                       </Button>
                     </div>
                     <span className="caption muted-3">
-                      Без фото показываем инициалы — {initials || "например, АН"}.
-                      В сертификате фото нет.
+                      {t.onbInitialsNote(initials || t.onbInitialsSample)}
                     </span>
                   </div>
                 </div>
@@ -217,38 +214,38 @@ function OnboardingForm({ user }: { user: User }) {
                 <div className="stack g14">
                   <div className="field">
                     <label className="label" htmlFor="ln">
-                      Фамилия
+                      {t.prfLastName}
                     </label>
                     <input
                       id="ln"
                       className="input"
                       value={form.last_name}
                       onChange={(e) => upd("last_name", e.target.value)}
-                      placeholder="Нурланова"
+                      placeholder={t.onbLastNamePh}
                     />
                   </div>
                   <div className="field">
                     <label className="label" htmlFor="fn">
-                      Имя
+                      {t.prfFirstName}
                     </label>
                     <input
                       id="fn"
                       className="input"
                       value={form.first_name}
                       onChange={(e) => upd("first_name", e.target.value)}
-                      placeholder="Айгуль"
+                      placeholder={t.onbFirstNamePh}
                     />
                   </div>
                   <div className="field">
                     <label className="label" htmlFor="mn">
-                      Отчество <span className="label-optional">· если есть</span>
+                      {t.prfMiddleName} <span className="label-optional">· {t.onbIfAny}</span>
                     </label>
                     <input
                       id="mn"
                       className="input"
                       value={form.middle_name}
                       onChange={(e) => upd("middle_name", e.target.value)}
-                      placeholder="Сериковна"
+                      placeholder={t.onbMiddleNamePh}
                     />
                   </div>
                   {/* ИИН стоит рядом с ФИО: в сертификат они идут вместе */}
@@ -281,21 +278,19 @@ function OnboardingForm({ user }: { user: User }) {
                 </div>
 
                 <Button block size="lg" disabled={!step1Valid} onClick={() => setStep(2)}>
-                  Продолжить
+                  {t.continueShort}
                 </Button>
               </>
             ) : (
               <>
                 <div className="stack g8">
-                  <h1 className="h1">Немного о работе</h1>
-                  <p className="body muted pretty">
-                    Все поля необязательные — можно заполнить позже в профиле.
-                  </p>
+                  <h1 className="h1">{t.onbWorkTitle}</h1>
+                  <p className="body muted pretty">{t.onbWorkLead}</p>
                 </div>
 
                 <div className="field">
                   <label className="label" htmlFor="em">
-                    Email <span className="label-optional">· необязательно</span>
+                    {t.prfEmail} <span className="label-optional">· {t.optional}</span>
                   </label>
                   <input
                     id="em"
@@ -305,28 +300,26 @@ function OnboardingForm({ user }: { user: User }) {
                     onChange={(e) => upd("email", e.target.value)}
                     placeholder="name@mail.kz"
                   />
-                  <span className="hint">
-                    Пригодится, чтобы не потерять доступ и получать письма о проверке работ
-                  </span>
+                  <span className="hint">{t.prfEmailHint}</span>
                 </div>
 
                 <div className="field">
                   <label className="label" htmlFor="sc">
-                    Школа
+                    {t.prfSchool}
                   </label>
                   <input
                     id="sc"
                     className="input"
                     value={form.school}
                     onChange={(e) => upd("school", e.target.value)}
-                    placeholder="КГУ «Средняя школа №27»"
+                    placeholder={t.prfSchoolPh}
                   />
                 </div>
 
                 <div className="onb-two">
                   <div className="field">
                     <label className="label" htmlFor="rg">
-                      Регион
+                      {t.prfRegion}
                     </label>
                     <select
                       id="rg"
@@ -334,7 +327,7 @@ function OnboardingForm({ user }: { user: User }) {
                       value={form.region}
                       onChange={(e) => upd("region", e.target.value)}
                     >
-                      <option value="">Выберите регион</option>
+                      <option value="">{t.onbRegionPick}</option>
                       {regions.map((r) => (
                         <option key={r}>{r}</option>
                       ))}
@@ -342,7 +335,7 @@ function OnboardingForm({ user }: { user: User }) {
                   </div>
                   <div className="field">
                     <label className="label" htmlFor="ct">
-                      Город или село
+                      {t.prfCity}
                     </label>
                     <input
                       id="ct"
@@ -358,19 +351,19 @@ function OnboardingForm({ user }: { user: User }) {
                   {/* Должность — обычное текстовое поле, справочника нет */}
                   <div className="field">
                     <label className="label" htmlFor="ps">
-                      Должность
+                      {t.prfPosition}
                     </label>
                     <input
                       id="ps"
                       className="input"
                       value={form.position}
                       onChange={(e) => upd("position", e.target.value)}
-                      placeholder="Учитель математики"
+                      placeholder={t.prfPositionPh}
                     />
                   </div>
                   <div className="field">
                     <label className="label" htmlFor="ex">
-                      Стаж, лет
+                      {t.prfExperience}
                     </label>
                     <input
                       id="ex"
@@ -385,7 +378,7 @@ function OnboardingForm({ user }: { user: User }) {
 
                 <div className="field">
                   <label className="label" htmlFor="sj">
-                    Предмет
+                    {t.prfSubject}
                   </label>
                   <input
                     id="sj"
@@ -400,16 +393,16 @@ function OnboardingForm({ user }: { user: User }) {
 
                 <div className="stack g10">
                   <Button block size="lg" loading={saving} onClick={() => finish(false)}>
-                    Сохранить и начать
+                    {t.onbFinish}
                   </Button>
                   <Button variant="secondary" block disabled={saving} onClick={() => finish(true)}>
-                    Пропустить
+                    {t.skip}
                   </Button>
                 </div>
 
                 <div className="row center g6 caption muted-3">
                   <IconInfo size={15} />
-                  Без этих полей всё работает — их можно заполнить в профиле
+                  {t.onbSkipHint}
                 </div>
               </>
             )}

@@ -337,7 +337,7 @@ export function CompleteScreen({ courseId: id }: { courseId: string }) {
                       onMouseEnter={() => setHover(s)}
                       onMouseLeave={() => setHover(0)}
                       onClick={() => setStars(s)}
-                      aria-label={`Оценка ${s}`}
+                      aria-label={t.cmpRateStar(s)}
                       style={{
                         background: "none",
                         border: "none",

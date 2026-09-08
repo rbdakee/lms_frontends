@@ -55,10 +55,10 @@ import {
  * (см. `.logo-text` в globals.css).
  */
 export function Logo() {
-  const { lang } = useLang();
+  const { t, lang } = useLang();
   const brand = BRAND[lang];
   return (
-    <Link href="/" className="logo" aria-label={`${brand.name} — на лендинг`}>
+    <Link href="/" className="logo" aria-label={t.shLogoAria(brand.name)}>
       <img src={BRAND.logoSrc} alt="" className="logo-emblem" width={38} height={38} />
       <span className="logo-text stack">
         <span>{brand.line1}</span>
@@ -71,9 +71,9 @@ export function Logo() {
 /* ============ Переключатель языка ============ */
 
 export function LangSwitch() {
-  const { lang, setLang } = useLang();
+  const { t, lang, setLang } = useLang();
   return (
-    <div className="lang-switch" role="group" aria-label="Язык интерфейса">
+    <div className="lang-switch" role="group" aria-label={t.language}>
       <button data-active={lang === "ru"} onClick={() => setLang("ru")}>
         РУС
       </button>
@@ -164,7 +164,7 @@ function NotificationsBell() {
       <button
         className="btn btn-icon bell"
         onClick={() => setOpen((v) => !v)}
-        aria-label={`${t.navNotifications}${unread ? `, непрочитанных: ${unread}` : ""}`}
+        aria-label={t.shBellAria(unread)}
       >
         <IconBell />
         {unread > 0 && <span className="bell-dot">{unread}</span>}
@@ -306,7 +306,7 @@ export function PublicHeader() {
     <header className="appbar">
       <div className="page appbar-inner">
         <Logo />
-        <NavLinks items={links} label="Разделы сайта" />
+        <NavLinks items={links} label={t.shNavPublic} />
         <div className="grow" />
         <div className="row g8">
           {/* Вход в кабинет: главное действие для вошедшего. На мобильном
@@ -348,7 +348,7 @@ export function PublicHeader() {
           <button
             className="btn btn-icon mobile-only"
             onClick={() => setMenu(true)}
-            aria-label="Меню"
+            aria-label={t.shMenu}
           >
             <IconMenu />
           </button>
@@ -364,7 +364,7 @@ export function PublicHeader() {
           >
             <div className="sheet-head">
               <Logo />
-              <button className="btn btn-icon" onClick={() => setMenu(false)} aria-label="Закрыть">
+              <button className="btn btn-icon" onClick={() => setMenu(false)} aria-label={t.shClose}>
                 <IconClose />
               </button>
             </div>
@@ -435,7 +435,7 @@ export function TeacherHeader({ title }: { title?: string }) {
           <Logo />
         </div>
 
-        <NavLinks items={links} label="Разделы кабинета" />
+        <NavLinks items={links} label={t.shNavCabinet} />
 
         {/* Мобильная шапка: логотип или заголовок экрана */}
         <div className="mobile-only row g10 grow" style={{ minWidth: 0 }}>
@@ -500,10 +500,10 @@ function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Меню пользователя"
+        aria-label={t.shUserMenu}
       >
         <Avatar initials={initials} size={32} />
-        <span className="user-btn-name desktop-only">{me.first_name || "Профиль"}</span>
+        <span className="user-btn-name desktop-only">{me.first_name || t.navProfile}</span>
         <IconChevronDown size={16} className="user-btn-chevron desktop-only" data-open={open} />
       </button>
 
@@ -512,7 +512,7 @@ function UserMenu() {
           <div className="row g10" style={{ padding: "14px 14px 12px" }}>
             <Avatar initials={initials} size={40} />
             <div className="stack grow" style={{ minWidth: 0, lineHeight: 1.3 }}>
-              <strong className="small clamp-2">{name || "Заполните профиль"}</strong>
+              <strong className="small clamp-2">{name || t.shFillProfile}</strong>
               <span className="caption muted-3">{phoneFmt(me.phone)}</span>
             </div>
           </div>
@@ -556,7 +556,7 @@ function UserMenu() {
             {me.is_admin && (
               <a href={admin()} role="menuitem" className="usermenu-item">
                 <IconSettings size={18} />
-                <span className="grow">Админка</span>
+                <span className="grow">{t.shAdmin}</span>
                 <IconChevronRight size={15} className="muted-3" />
               </a>
             )}
@@ -594,7 +594,7 @@ export function TabBar() {
     { href: "/profile", label: t.navProfile, icon: IconUser },
   ];
   return (
-    <nav className="tabbar" aria-label="Основная навигация">
+    <nav className="tabbar" aria-label={t.shNavMain}>
       {tabs.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(tab.href + "/");
         const Icon = tab.icon;
@@ -672,34 +672,31 @@ export function Footer() {
         <div className="footer-grid">
           <div className="stack g12 footer-brand" style={{ maxWidth: 320 }}>
             <Logo />
-            <p className="small muted pretty">
-              Курсы повышения квалификации для учителей — на русском и казахском языках.
-              Сертификат с номером и проверкой по QR-коду.
-            </p>
+            <p className="small muted pretty">{t.shFootAbout}</p>
           </div>
           <div className="stack g10">
-            <strong className="small">Обучение</strong>
+            <strong className="small">{t.shFootLearn}</strong>
             <Link href="/courses" className="small muted">
-              Каталог курсов
+              {t.shFootCatalog}
             </Link>
             <Link href="/#how" className="small muted">
-              Как это работает
+              {t.secHowItWorks}
             </Link>
             <Link href="/verify" className="small muted">
               {t.navVerify}
             </Link>
           </div>
           <div className="stack g10">
-            <strong className="small">Помощь</strong>
+            <strong className="small">{t.shFootHelp}</strong>
             <Link href="/#faq" className="small muted">
-              Частые вопросы
+              {t.secFaq}
             </Link>
-            <span className="small muted">Правила платформы</span>
+            <span className="small muted">{t.shFootRules}</span>
           </div>
           {/* Контакты администратора из настроек платформы — те же, что в кнопке
               «Связаться с администратором» на странице курса */}
           <div className="stack g10">
-            <strong className="small">Контакты администратора</strong>
+            <strong className="small">{t.shFootContacts}</strong>
             {phone && (
               <a href={`tel:${phone}`} className="small muted">
                 {phone}
@@ -745,11 +742,12 @@ export function Footer() {
 /* ============ Хедер с кнопкой «назад» (плеер, тест, задание) ============ */
 
 export function TrustRow() {
+  const { t } = useLang();
   return (
     <div className="row g8 small muted">
       <IconGraduation size={18} />
-      <span>Сертификат с номером и QR-кодом</span>
-      <Badge kind="accepted">Проверяется онлайн</Badge>
+      <span>{t.lndCertQr}</span>
+      <Badge kind="accepted">{t.lndTrustOnline}</Badge>
     </div>
   );
 }

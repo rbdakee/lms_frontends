@@ -37,8 +37,12 @@ import {
   IconPhone,
 } from "@lms/ui/icons";
 
-/** «Mozilla/5.0 (iPhone; …) … Safari/…» → «iPhone · Safari» */
-function deviceLabel(ua: string): string {
+/**
+ * «Mozilla/5.0 (iPhone; …) … Safari/…» → «iPhone · Safari».
+ * Словарь приходит параметром: функция не компонент, хук в ней не вызвать,
+ * а запасные подписи человек видит наравне с остальными.
+ */
+function deviceLabel(ua: string, t: { prfDevice: string; prfBrowser: string }): string {
   const device = /iPhone/i.test(ua)
     ? "iPhone"
     : /iPad/i.test(ua)
@@ -49,7 +53,7 @@ function deviceLabel(ua: string): string {
           ? "Mac"
           : /Windows/i.test(ua)
             ? "Windows"
-            : "Устройство";
+            : t.prfDevice;
   const browser = /Edg\//i.test(ua)
     ? "Edge"
     : /OPR\/|Opera/i.test(ua)
@@ -60,7 +64,7 @@ function deviceLabel(ua: string): string {
           ? "Firefox"
           : /Safari\//i.test(ua)
             ? "Safari"
-            : "браузер";
+            : t.prfBrowser;
   return `${device} · ${browser}`;
 }
 
@@ -119,9 +123,9 @@ function ProfileForm({ user }: { user: User }) {
       const updated = await api<User>("/me", { method: "PATCH", json: patch });
       setMe(updated);
       setForm(formFromUser(updated));
-      toast("Изменения сохранены", "success");
+      toast(t.prfSavedToast, "success");
     } catch (e) {
-      toast(isApiError(e) ? e.message : "Не удалось сохранить", "error");
+      toast(isApiError(e) ? e.message : t.prfSaveError, "error");
     } finally {
       setSaving(false);
     }
@@ -130,9 +134,9 @@ function ProfileForm({ user }: { user: User }) {
   const revokeSession = async (s: Session) => {
     try {
       await api<undefined>(`/me/sessions/${s.id}`, { method: "DELETE" });
-      toast("Выход выполнен на этом устройстве", "success");
+      toast(t.prfDeviceOut, "success");
     } catch (e) {
-      toast(isApiError(e) ? e.message : "Не получилось — попробуйте ещё раз", "error");
+      toast(isApiError(e) ? e.message : t.prfActionError, "error");
     }
     sessions.reload();
   };
@@ -144,13 +148,11 @@ function ProfileForm({ user }: { user: User }) {
         { method: "POST" },
       );
       toast(
-        revoked_count > 0
-          ? `Вышли на других устройствах: ${revoked_count}`
-          : "Других устройств нет",
+        revoked_count > 0 ? t.prfOthersOut(revoked_count) : t.prfNoOthers,
         "success",
       );
     } catch (e) {
-      toast(isApiError(e) ? e.message : "Не получилось — попробуйте ещё раз", "error");
+      toast(isApiError(e) ? e.message : t.prfActionError, "error");
     }
     sessions.reload();
   };
@@ -170,20 +172,20 @@ function ProfileForm({ user }: { user: User }) {
           <Avatar initials={userInitials(user)} size={72} />
           <div className="grow stack g6" style={{ minWidth: 200 }}>
             <strong style={{ fontSize: 18, letterSpacing: "-0.01em" }} className="pretty">
-              {name || "Заполните ФИО"}
+              {name || t.prfFillName}
             </strong>
             <span className="small muted pretty">
               {[user.school, user.region, user.subject].filter(Boolean).join(" · ") ||
-                "Школа и предмет не указаны"}
+                t.prfNoSchool}
             </span>
             <Button
               variant="secondary"
               size="sm"
               icon={<IconCamera size={16} />}
-              onClick={() => toast("Открылась бы камера или выбор файла")}
+              onClick={() => toast(t.prfPhotoStub)}
               style={{ alignSelf: "flex-start", marginTop: 4 }}
             >
-              Изменить фото
+              {t.prfPhotoChange}
             </Button>
           </div>
         </div>
@@ -191,12 +193,12 @@ function ProfileForm({ user }: { user: User }) {
         <div className="profile-grid">
           {/* Личные данные */}
           <section className="card card-pad stack g16">
-            <h2 className="h3">Личные данные</h2>
+            <h2 className="h3">{t.prfPersonal}</h2>
 
             <div className="p-two">
               <div className="field">
                 <label className="label" htmlFor="ln">
-                  Фамилия
+                  {t.prfLastName}
                 </label>
                 <input
                   id="ln"
@@ -207,7 +209,7 @@ function ProfileForm({ user }: { user: User }) {
               </div>
               <div className="field">
                 <label className="label" htmlFor="fn">
-                  Имя
+                  {t.prfFirstName}
                 </label>
                 <input
                   id="fn"
@@ -220,7 +222,7 @@ function ProfileForm({ user }: { user: User }) {
 
             <div className="field">
               <label className="label" htmlFor="mn">
-                Отчество
+                {t.prfMiddleName}
               </label>
               <input
                 id="mn"
@@ -243,14 +245,12 @@ function ProfileForm({ user }: { user: User }) {
             )}
 
             <Note kind="muted">
-              <span className="small">
-                ФИО печатается в сертификате — проверьте написание перед завершением курса.
-              </span>
+              <span className="small">{t.prfNameNote}</span>
             </Note>
 
             <div className="field">
               <label className="label" htmlFor="em">
-                Email <span className="label-optional">· необязательно</span>
+                {t.prfEmail} <span className="label-optional">· {t.optional}</span>
               </label>
               <input
                 id="em"
@@ -260,42 +260,40 @@ function ProfileForm({ user }: { user: User }) {
                 onChange={(e) => upd("email", e.target.value)}
                 placeholder="name@mail.kz"
               />
-              <span className="hint">
-                Пригодится, чтобы не потерять доступ и получать письма о проверке работ
-              </span>
+              <span className="hint">{t.prfEmailHint}</span>
             </div>
 
             {/* Школа, должность и предмет — обычные текстовые поля без справочников */}
             <div className="field">
               <label className="label" htmlFor="sc">
-                Школа <span className="label-optional">· необязательно</span>
+                {t.prfSchool} <span className="label-optional">· {t.optional}</span>
               </label>
               <input
                 id="sc"
                 className="input"
                 value={form.school}
                 onChange={(e) => upd("school", e.target.value)}
-                placeholder="КГУ «Средняя школа №27»"
+                placeholder={t.prfSchoolPh}
               />
             </div>
 
             <div className="field">
               <label className="label" htmlFor="ps">
-                Должность <span className="label-optional">· необязательно</span>
+                {t.prfPosition} <span className="label-optional">· {t.optional}</span>
               </label>
               <input
                 id="ps"
                 className="input"
                 value={form.position}
                 onChange={(e) => upd("position", e.target.value)}
-                placeholder="Учитель математики"
+                placeholder={t.prfPositionPh}
               />
             </div>
 
             <div className="p-two">
               <div className="field">
                 <label className="label" htmlFor="rg">
-                  Регион
+                  {t.prfRegion}
                 </label>
                 <select
                   id="rg"
@@ -303,7 +301,7 @@ function ProfileForm({ user }: { user: User }) {
                   value={form.region}
                   onChange={(e) => upd("region", e.target.value)}
                 >
-                  <option value="">Не выбрано</option>
+                  <option value="">{t.prfNotChosen}</option>
                   {/* Регион мог прийти из старых данных и не совпасть со справочником */}
                   {form.region && !regions.includes(form.region) && (
                     <option value={form.region}>{form.region}</option>
@@ -315,7 +313,7 @@ function ProfileForm({ user }: { user: User }) {
               </div>
               <div className="field">
                 <label className="label" htmlFor="ct">
-                  Город или село
+                  {t.prfCity}
                 </label>
                 <input
                   id="ct"
@@ -329,7 +327,7 @@ function ProfileForm({ user }: { user: User }) {
             <div className="p-two">
               <div className="field">
                 <label className="label" htmlFor="sj">
-                  Предмет <span className="label-optional">· необязательно</span>
+                  {t.prfSubject} <span className="label-optional">· {t.optional}</span>
                 </label>
                 <input
                   id="sj"
@@ -341,7 +339,7 @@ function ProfileForm({ user }: { user: User }) {
               </div>
               <div className="field">
                 <label className="label" htmlFor="ex">
-                  Стаж, лет
+                  {t.prfExperience}
                 </label>
                 <input
                   id="ex"
@@ -357,7 +355,7 @@ function ProfileForm({ user }: { user: User }) {
           <div className="stack g20">
             {/* Настройки */}
             <section className="card card-pad stack g14">
-              <h2 className="h3">Настройки</h2>
+              <h2 className="h3">{t.prfSettings}</h2>
               <div className="stack g8">
                 <span className="label">{t.language}</span>
                 <div className="segmented" style={{ alignSelf: "flex-start" }}>
@@ -368,16 +366,13 @@ function ProfileForm({ user }: { user: User }) {
                     Қазақша
                   </button>
                 </div>
-                <span className="hint">
-                  Меняет язык интерфейса. Курсы остаются на своём языке — курс может быть
-                  на RU, на KZ или на обоих.
-                </span>
+                <span className="hint">{t.prfLangHint}</span>
               </div>
             </section>
 
             {/* Аккаунт */}
             <section className="card card-pad stack g14">
-              <h2 className="h3">Аккаунт</h2>
+              <h2 className="h3">{t.prfAccount}</h2>
               <div className="row between g12">
                 <div className="row g10">
                   <span style={{ color: "var(--text-2)" }}>
@@ -385,7 +380,7 @@ function ProfileForm({ user }: { user: User }) {
                   </span>
                   <div className="stack">
                     <strong className="small">{phoneFmt(user.phone)}</strong>
-                    <span className="caption muted-3">вход по коду из WhatsApp</span>
+                    <span className="caption muted-3">{t.prfPhoneHint}</span>
                   </div>
                 </div>
               </div>
@@ -419,17 +414,17 @@ function ProfileForm({ user }: { user: User }) {
                     </span>
                     <div className="grow stack g2" style={{ minWidth: 0 }}>
                       <span className="small" style={{ fontWeight: 600 }}>
-                        {deviceLabel(s.user_agent)}
+                        {deviceLabel(s.user_agent, t)}
                       </span>
                       <span className="caption muted-3">
-                        {s.is_current ? "сейчас" : dayTime(s.last_seen_at, lang)}
+                        {s.is_current ? t.prfNow : dayTime(s.last_seen_at, lang)}
                       </span>
                     </div>
                     {s.is_current ? (
-                      <Badge kind="done">Это устройство</Badge>
+                      <Badge kind="done">{t.prfThisDevice}</Badge>
                     ) : (
                       <Button variant="ghost" size="sm" onClick={() => revokeSession(s)}>
-                        Выйти
+                        {t.prfExit}
                       </Button>
                     )}
                   </div>
@@ -441,7 +436,7 @@ function ProfileForm({ user }: { user: User }) {
                   disabled={sessions.loading || onlyCurrent}
                   onClick={revokeOthers}
                 >
-                  Выйти на других устройствах
+                  {t.prfLogoutOthers}
                 </Button>
               </div>
 
@@ -450,7 +445,7 @@ function ProfileForm({ user }: { user: User }) {
                 <>
                   <hr className="divider" />
                   <LinkButton href={routes.admin()} variant="ghost" block>
-                    Открыть админку
+                    {t.prfOpenAdmin}
                     <IconChevronRight size={16} />
                   </LinkButton>
                 </>
@@ -476,7 +471,7 @@ function ProfileForm({ user }: { user: User }) {
                 {t.save}
               </Button>
               <Button size="lg" variant="secondary" onClick={() => setForm(formFromUser(user))}>
-                Отменить
+                {t.prfDiscard}
               </Button>
             </div>
           </div>
@@ -487,7 +482,7 @@ function ProfileForm({ user }: { user: User }) {
         <div className="sticky-cta mobile-only">
           <div className="sticky-cta-inner row g8">
             <Button variant="secondary" onClick={() => setForm(formFromUser(user))}>
-              Отменить
+              {t.prfDiscard}
             </Button>
             <Button block size="lg" loading={saving} onClick={save}>
               {t.save}
@@ -499,7 +494,7 @@ function ProfileForm({ user }: { user: User }) {
       <Sheet
         open={logout}
         onClose={() => setLogout(false)}
-        title="Выйти из аккаунта?"
+        title={t.prfLogoutTitle}
         footer={
           <div className="stack g8">
             <Button
@@ -511,7 +506,7 @@ function ProfileForm({ user }: { user: User }) {
                 router.push(routes.home);
               }}
             >
-              Выйти
+              {t.prfExit}
             </Button>
             <Button variant="secondary" block onClick={() => setLogout(false)}>
               {t.cancel}
@@ -519,9 +514,7 @@ function ProfileForm({ user }: { user: User }) {
           </div>
         }
       >
-        <p className="body muted pretty">
-          Прогресс и сертификаты сохранятся. Чтобы вернуться, войдите по номеру телефона.
-        </p>
+        <p className="body muted pretty">{t.prfLogoutText}</p>
       </Sheet>
 
       <style>{`

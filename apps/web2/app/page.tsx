@@ -45,10 +45,10 @@
  * страница по-прежнему отвечает — но в «Частых вопросах», где об этом спросили,
  * а не в заголовке, где это звучало бы обязательством.
  *
- * Тексты — те же, что были: русский текст лендинга написан прямо в разметке
- * и на казахский не переводится вовсе. Это долг первой площадки; углублять
- * его новым сочинённым текстом не стали, поэтому блоки собраны из уже
- * существующих строк, а подписи и заголовки взяты из общего словаря.
+ * Тексты целиком идут через словарь `@lms/ui/i18n`: до этого русские строки
+ * стояли прямо в разметке и на казахском экране оставались русскими. Новых
+ * текстов площадка по-прежнему не сочиняет — переведены те же строки, что
+ * были, а подписи и заголовки берутся из общих ключей.
  *
  * Почта поддержки берётся из бренда площадки, а не написана строкой: чужой
  * адрес увёл бы людей второй площадки в чужую переписку.
@@ -72,73 +72,6 @@ import {
   IconDevice,
   IconGlobe,
 } from "@lms/ui/icons";
-
-/**
- * Свойства продукта на месте прежних счётчиков. Каждое верно в первый день,
- * когда учеников и сертификатов ещё ноль, и каждое собрано из текста, который
- * уже есть ниже на этой же странице — в шагах и в вопросах.
- */
-const features = [
-  {
-    icon: IconCertificate,
-    title: "Сертификат с номером и QR-кодом",
-    text: "Проверяется на этом сайте за пару секунд.",
-  },
-  {
-    icon: IconDevice,
-    title: "Весь путь — с телефона",
-    text: "От записи до сертификата. Ноутбук не нужен.",
-  },
-  {
-    icon: IconGlobe,
-    title: "Русский и казахский",
-    text: "Курс идёт на одном языке; языковая версия — отдельный курс в каталоге.",
-  },
-];
-
-/* Иконок у шагов нет: их роль здесь играет номер, и значок рядом с ним
-   спорил бы за то же место в строке. */
-const steps = [
-  {
-    title: "Открыть каталог",
-    text: "Регистрация не нужна: фильтры по предмету, языку и объёму часов работают сразу.",
-  },
-  {
-    title: "Пройти уроки",
-    text: "Видео на 10–15 минут, конспект под ним и файлы, которые можно скачать себе.",
-  },
-  {
-    title: "Сдать тест и работу",
-    text: "Тест — одна попытка, с разбором ответов. Практическую работу читает методист.",
-  },
-  {
-    title: "Забрать сертификат",
-    text: "PDF с номером и QR-кодом. Комиссия проверяет его здесь же, без регистрации.",
-  },
-];
-
-const faq = [
-  {
-    q: "Кто проверяет практические работы?",
-    a: "Методист площадки, не автомат. Ответ обычно приходит в течение рабочего дня. Если работу вернули, в комментарии сказано, что именно переделать.",
-  },
-  {
-    q: "Примут ли сертификат на аттестации?",
-    a: "На нём стоят объём в академических часах, номер и QR-код. Комиссия открывает страницу проверки и видит имя, курс и дату — регистрироваться ей не нужно.",
-  },
-  {
-    q: "Сколько это займёт времени?",
-    a: "Курс на 36 часов обычно укладывается в 2–3 недели по 20–30 минут в день. Жёстких сроков нет: прогресс сохраняется, можно вернуться и через месяц.",
-  },
-  {
-    q: "Хватит ли одного телефона?",
-    a: "Хватит. Уроки, тест, сдача работы и сам сертификат открываются с телефона — ноутбук не нужен ни на одном шаге.",
-  },
-  {
-    q: "Не приходит код в WhatsApp",
-    a: "Проверьте, что WhatsApp стоит именно на этом номере — код уходит туда. Подождите минуту и нажмите «Отправить код повторно». Если не помогло, напишите администратору — откроем вход вручную.",
-  },
-];
 
 /* Первый экран — единственное место, где блоки появляются по загрузке,
    а не по прокрутке: он и так перед глазами. Очередь на 90 мс задаёт
@@ -165,6 +98,35 @@ export default function LandingPage() {
   const startHref = authed ? "/my" : "/login";
   const startLabel = authed ? t.navHome : t.start;
 
+  /* Свойства, шаги и вопросы собираются внутри компонента: их подписи живут
+     в словаре и обязаны перечитываться при смене языка.
+
+     Свойства продукта стоят на месте прежних счётчиков. Каждое верно в первый
+     день, когда учеников и сертификатов ещё ноль, и каждое собрано из текста,
+     который уже есть ниже на этой же странице — в шагах и в вопросах. */
+  const features = [
+    { icon: IconCertificate, title: t.lndCertQr, text: t.p2FeatCertText },
+    { icon: IconDevice, title: t.p2FeatPhone, text: t.p2FeatPhoneText },
+    { icon: IconGlobe, title: t.p2FeatLang, text: t.p2FeatLangText },
+  ];
+
+  /* Иконок у шагов нет: их роль здесь играет номер, и значок рядом с ним
+     спорил бы за то же место в строке. */
+  const steps = [
+    { title: t.openCatalog, text: t.p2Step1Text },
+    { title: t.p2Step2, text: t.p2Step2Text },
+    { title: t.p2Step3, text: t.p2Step3Text },
+    { title: t.p2Step4, text: t.p2Step4Text },
+  ];
+
+  const faq = [
+    { q: t.p2FaqQ1, a: t.p2FaqA1 },
+    { q: t.p2FaqQ2, a: t.p2FaqA2 },
+    { q: t.p2FaqQ3, a: t.p2FaqA3 },
+    { q: t.p2FaqQ4, a: t.p2FaqA4 },
+    { q: t.p2FaqQ5, a: t.p2FaqA5 },
+  ];
+
   return (
     <PublicShell hasStickyCta>
       <MotionRoot>
@@ -178,17 +140,15 @@ export default function LandingPage() {
               animate="show"
             >
               <m.div className="stack g14" variants={heroItem}>
-                <span className="caption p2-eyebrow">Учёба между уроками</span>
+                <span className="caption p2-eyebrow">{t.p2Eyebrow}</span>
                 <h1
                   className="h1"
                   style={{ fontSize: "clamp(32px, 6vw, 54px)", lineHeight: 1.07, letterSpacing: "-0.03em" }}
                 >
-                  Повышение квалификации по двадцать минут в день
+                  {t.p2H1}
                 </h1>
                 <p className="body pretty p2-lede" style={{ maxWidth: 560 }}>
-                  Видеоурок на 10–15 минут, конспект под ним и практическая работа,
-                  которую читает методист. Всё открывается с телефона — в дороге,
-                  на перемене, вечером.
+                  {t.p2Lede}
                 </p>
               </m.div>
 
@@ -201,7 +161,7 @@ export default function LandingPage() {
                     {t.openCatalog}
                   </Link>
                 </div>
-                <p className="small p2-note">Вход по номеру телефона, пароль не нужен.</p>
+                <p className="small p2-note">{t.p2HeroNote}</p>
               </m.div>
             </m.div>
 
@@ -215,7 +175,7 @@ export default function LandingPage() {
             {features.map((f, i) => {
               const Icon = f.icon;
               return (
-                <Reveal as="li" key={f.title} className="p2-prop" delay={i * 0.08}>
+                <Reveal as="li" key={i} className="p2-prop" delay={i * 0.08}>
                   <span className="p2-prop-ico">
                     <Icon size={22} />
                   </span>
@@ -284,15 +244,12 @@ export default function LandingPage() {
           <Reveal>
             <div className="stack g10">
               <h2 className="h2">{t.secHowItWorks}</h2>
-              <p className="body muted pretty">
-                Четыре шага. Прогресс сохраняется на каждом, поэтому прерваться можно
-                где угодно.
-              </p>
+              <p className="body muted pretty">{t.p2HowLede}</p>
             </div>
           </Reveal>
           <ol className="p2-steps">
             {steps.map((s, i) => (
-              <Reveal as="li" key={s.title} className="p2-step" delay={i * 0.07}>
+              <Reveal as="li" key={i} className="p2-step" delay={i * 0.07}>
                 <span className="p2-step-num">{i + 1}</span>
                 <div className="stack g6">
                   <h3 className="h3">{s.title}</h3>
@@ -308,18 +265,15 @@ export default function LandingPage() {
           <Reveal>
             <div className="stack g12">
               <h2 className="h2">{t.secFaq}</h2>
-              <p className="body muted pretty">
-                Не нашли своего вопроса — напишите администратору, ответим
-                в рабочие дни.
-              </p>
+              <p className="body muted pretty">{t.p2FaqNote}</p>
               <div style={{ alignSelf: "flex-start" }}>
-                <ContactAdmin variant="link" label="Задать вопрос" />
+                <ContactAdmin variant="link" label={t.lndAskQuestion} />
               </div>
             </div>
           </Reveal>
           <div className="stack g10">
             {faq.map((f, i) => (
-              <div key={f.q} className="accordion">
+              <div key={i} className="accordion">
                 <button
                   className="acc-head"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
@@ -359,11 +313,8 @@ export default function LandingPage() {
         <section className="p2-close">
           <div className="page section p2-close-inner">
             <Reveal className="stack g8">
-              <h2 className="h2">Начните с одного урока</h2>
-              <p className="body muted pretty">
-                Вход по коду из WhatsApp. Прогресс сохраняется — прерваться можно
-                на любом уроке.
-              </p>
+              <h2 className="h2">{t.p2CtaTitle}</h2>
+              <p className="body muted pretty">{t.p2CtaText}</p>
             </Reveal>
             <Link href={startHref} className="btn btn-primary btn-lg" style={{ minWidth: 220 }}>
               {startLabel}

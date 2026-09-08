@@ -54,18 +54,6 @@ type Hours = "any" | "short" | "mid" | "long";
 type CourseLang = "any" | UiLang;
 type Enroll = "default" | "open" | "planned" | "closed";
 
-const HOURS_LABEL: Record<Exclude<Hours, "any">, string> = {
-  short: "До 24 часов",
-  mid: "24–48 часов",
-  long: "Больше 48 часов",
-};
-
-const ENROLL_LABEL: Record<Exclude<Enroll, "default">, string> = {
-  open: "Идёт набор",
-  planned: "Запланированные",
-  closed: "Набор закрыт",
-};
-
 /**
  * Группа фильтра с одним выбранным значением. Три группы в шторке устроены
  * одинаково, и описывать их данными дешевле, чем повторять разметку трижды.
@@ -105,6 +93,21 @@ export default function CatalogPage() {
   const { t, lang } = useLang();
   const { me } = useMe();
   const authed = Boolean(me);
+
+  /* Подписи фильтров живут внутри компонента, а не модульной константой:
+     константа берётся один раз на модуль и осталась бы русской после
+     переключения языка */
+  const HOURS_LABEL: Record<Exclude<Hours, "any">, string> = {
+    short: t.catHoursShort,
+    mid: t.catHoursMid,
+    long: t.catHoursLong,
+  };
+
+  const ENROLL_LABEL: Record<Exclude<Enroll, "default">, string> = {
+    open: t.setOpen,
+    planned: t.catEnrollPlanned,
+    closed: t.setClosed,
+  };
 
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
   const dictionaries = useDictionaries();
@@ -202,8 +205,8 @@ export default function CatalogPage() {
           чтобы строка читалась, а выдача под ней шла во всю ширину */}
       <div className="p2-cat-head stack g16">
         <div className="stack g6">
-          <h1 className="h1">Каталог курсов</h1>
-          <p className="body muted">Курсы на русском и казахском языках</p>
+          <h1 className="h1">{t.catTitle}</h1>
+          <p className="body muted">{t.catSubtitle}</p>
         </div>
 
         <div className="input-wrap">
@@ -212,18 +215,15 @@ export default function CatalogPage() {
           </span>
           <input
             className="input p2-cat-search"
-            placeholder="Поиск по курсам"
+            placeholder={t.catSearch}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Поиск по курсам"
+            aria-label={t.catSearch}
           />
         </div>
 
         {!authed && (
-          <Note kind="info">
-            Смотреть каталог можно без входа. Чтобы оставить заявку на курс, войдите
-            по номеру телефона — имя и телефон возьмём из профиля, заполнять ничего не нужно.
-          </Note>
+          <Note kind="info">{t.catGuestNote}</Note>
         )}
       </div>
 
@@ -232,7 +232,7 @@ export default function CatalogPage() {
           {/* Полка фильтров: категории на виду, остальное — в шторке */}
           <div className="p2-cat-bar">
             <div className="p2-cat-bar-in">
-              <div className="p2-cat-cats" role="group" aria-label="Категория">
+              <div className="p2-cat-cats" role="group" aria-label={t.catCategory}>
                 {categories.map((c) => (
                   <button
                     key={c.id}
@@ -273,7 +273,7 @@ export default function CatalogPage() {
                 )}
                 {courseLang !== "any" && (
                   <button className="chip" data-active onClick={() => setCourseLang("any")}>
-                    {courseLang === "ru" ? "Русский" : "Қазақша"}
+                    {courseLang === "ru" ? t.crtLangRuOpt : t.crtLangKzOpt}
                     <IconClose size={14} />
                   </button>
                 )}
@@ -344,8 +344,8 @@ export default function CatalogPage() {
               title={t.nothingFound}
               text={
                 query
-                  ? `По запросу «${query}»${activeFilters ? " с выбранными фильтрами" : ""} курсов нет. Попробуйте изменить запрос или убрать фильтры.`
-                  : "С выбранными фильтрами курсов нет. Попробуйте убрать часть условий."
+                  ? t.catNoMatchQuery(query, activeFilters > 0)
+                  : t.catNoMatchFilters
               }
               action={
                 <Button
@@ -390,10 +390,10 @@ export default function CatalogPage() {
       >
         <div className="stack g24">
           <ChipGroup<Enroll>
-            title="Статус набора"
+            title={t.catEnrollStatus}
             value={enroll}
             options={[
-              ["default", "Идущие и запланированные"],
+              ["default", t.catEnrollDefault],
               ["open", ENROLL_LABEL.open],
               ["planned", ENROLL_LABEL.planned],
               ["closed", ENROLL_LABEL.closed],
@@ -401,20 +401,20 @@ export default function CatalogPage() {
             onPick={setEnroll}
           />
           <ChipGroup<CourseLang>
-            title="Язык курса"
+            title={t.catCourseLang}
             value={courseLang}
             options={[
-              ["any", "Любой"],
-              ["ru", "Русский"],
-              ["kz", "Қазақша"],
+              ["any", t.catAny],
+              ["ru", t.crtLangRuOpt],
+              ["kz", t.crtLangKzOpt],
             ]}
             onPick={setCourseLang}
           />
           <ChipGroup<Hours>
-            title="Объём курса"
+            title={t.catHours}
             value={hours}
             options={[
-              ["any", "Любой"],
+              ["any", t.catAny],
               ["short", HOURS_LABEL.short],
               ["mid", HOURS_LABEL.mid],
               ["long", HOURS_LABEL.long],

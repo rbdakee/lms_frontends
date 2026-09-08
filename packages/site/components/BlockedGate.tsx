@@ -24,7 +24,7 @@ export function BlockedGate({ children }: { children: React.ReactNode }) {
         <Empty
           icon={<IconLock size={38} />}
           title={t.blockedTitle}
-          text={blocked_message ?? "Доступ заблокирован. Напишите нам, если это ошибка."}
+          text={blocked_message ?? t.blockedText}
         />
         <div style={{ padding: "0 24px 24px", maxWidth: 380, margin: "0 auto" }}>
           <ContactAdmin />

@@ -147,7 +147,7 @@ export default function MyPage() {
     <TeacherShell>
       <div className="page section stack g24" style={{ paddingTop: 20 }}>
         <header className="stack g16">
-          <h1 className="h1">{t.greeting(me.first_name || "учитель")}</h1>
+          <h1 className="h1">{t.greeting(me.first_name || t.myTeacherFallback)}</h1>
           <hr className="divider" />
         </header>
 
@@ -219,10 +219,8 @@ export default function MyPage() {
                   <IconCheckCircle size={22} />
                 </span>
                 <div className="stack g4">
-                  <strong>Все начатые курсы пройдены</strong>
-                  <span className="small muted">
-                    Заберите сертификаты или выберите следующий курс
-                  </span>
+                  <strong>{t.myAllDoneTitle}</strong>
+                  <span className="small muted">{t.myAllDoneText}</span>
                 </div>
               </div>
               <LinkButton href="/courses" variant="secondary">
@@ -235,8 +233,10 @@ export default function MyPage() {
           {myCourses.length > 0 && (
             <section className="stack g24">
               <h2 className="h2">{t.secMyCourses}</h2>
-              {inProgress.length > 0 && <CourseGroup title="В процессе" courses={inProgress} />}
-              {finished.length > 0 && <CourseGroup title="Пройденные" courses={finished} />}
+              {inProgress.length > 0 && (
+                <CourseGroup title={t.myTabProgress} courses={inProgress} />
+              )}
+              {finished.length > 0 && <CourseGroup title={t.myTabDone} courses={finished} />}
             </section>
           )}
         </Desk>
@@ -338,7 +338,9 @@ function ContinueBlock({ course }: { course: MyCourse }) {
             <h2 className="h2 pretty">{course.title}</h2>
           </Link>
           {course.next_lesson && (
-            <span className="small muted pretty">Следующий: {course.next_lesson.title}</span>
+            <span className="small muted pretty">
+              {t.crsNextItem(course.next_lesson.title)}
+            </span>
           )}
         </div>
 

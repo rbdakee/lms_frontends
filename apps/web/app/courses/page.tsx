@@ -32,22 +32,25 @@ type Hours = "any" | "short" | "mid" | "long";
 type CourseLang = "any" | UiLang;
 type Enroll = "default" | "open" | "planned" | "closed";
 
-const HOURS_LABEL: Record<Exclude<Hours, "any">, string> = {
-  short: "До 24 часов",
-  mid: "24–48 часов",
-  long: "Больше 48 часов",
-};
-
-const ENROLL_LABEL: Record<Exclude<Enroll, "default">, string> = {
-  open: "Идёт набор",
-  planned: "Запланированные",
-  closed: "Набор закрыт",
-};
-
 export default function CatalogPage() {
   const { t, lang } = useLang();
   const { me } = useMe();
   const authed = Boolean(me);
+
+  /* Подписи фильтров живут внутри компонента, а не модульной константой:
+     константа берётся один раз на модуль и осталась бы русской после
+     переключения языка */
+  const HOURS_LABEL: Record<Exclude<Hours, "any">, string> = {
+    short: t.catHoursShort,
+    mid: t.catHoursMid,
+    long: t.catHoursLong,
+  };
+
+  const ENROLL_LABEL: Record<Exclude<Enroll, "default">, string> = {
+    open: t.setOpen,
+    planned: t.catEnrollPlanned,
+    closed: t.setClosed,
+  };
 
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
   const dictionaries = useDictionaries();
@@ -139,7 +142,7 @@ export default function CatalogPage() {
   const filtersBody = (
     <div className="stack g24">
       <div className="stack g10">
-        <strong className="small">Категория</strong>
+        <strong className="small">{t.catCategory}</strong>
         <div className="stack g2">
           {categories.map((c) => (
             <label key={c.id} className="check">
@@ -158,11 +161,11 @@ export default function CatalogPage() {
       </div>
 
       <div className="stack g10">
-        <strong className="small">Статус набора</strong>
+        <strong className="small">{t.catEnrollStatus}</strong>
         <div className="row wrap g8">
           {(
             [
-              ["default", "Идущие и запланированные"],
+              ["default", t.catEnrollDefault],
               ["open", ENROLL_LABEL.open],
               ["planned", ENROLL_LABEL.planned],
               ["closed", ENROLL_LABEL.closed],
@@ -181,13 +184,13 @@ export default function CatalogPage() {
       </div>
 
       <div className="stack g10">
-        <strong className="small">Язык курса</strong>
+        <strong className="small">{t.catCourseLang}</strong>
         <div className="row wrap g8">
           {(
             [
-              ["any", "Любой"],
-              ["ru", "Русский"],
-              ["kz", "Қазақша"],
+              ["any", t.catAny],
+              ["ru", t.crtLangRuOpt],
+              ["kz", t.crtLangKzOpt],
             ] as [CourseLang, string][]
           ).map(([v, label]) => (
             <button
@@ -203,11 +206,11 @@ export default function CatalogPage() {
       </div>
 
       <div className="stack g10">
-        <strong className="small">Объём курса</strong>
+        <strong className="small">{t.catHours}</strong>
         <div className="row wrap g8">
           {(
             [
-              ["any", "Любой"],
+              ["any", t.catAny],
               ["short", HOURS_LABEL.short],
               ["mid", HOURS_LABEL.mid],
               ["long", HOURS_LABEL.long],
@@ -230,8 +233,8 @@ export default function CatalogPage() {
   const content = (
     <div className="page section" style={{ paddingTop: 16 }}>
       <div className="stack g8" style={{ marginBottom: 20 }}>
-        <h1 className="h1">Каталог курсов</h1>
-        <p className="body muted">Курсы на русском и казахском языках</p>
+        <h1 className="h1">{t.catTitle}</h1>
+        <p className="body muted">{t.catSubtitle}</p>
       </div>
 
       {/* Липкий поиск */}
@@ -243,10 +246,10 @@ export default function CatalogPage() {
             </span>
             <input
               className="input"
-              placeholder="Поиск по курсам"
+              placeholder={t.catSearch}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              aria-label="Поиск по курсам"
+              aria-label={t.catSearch}
             />
           </div>
           <button
@@ -328,7 +331,7 @@ export default function CatalogPage() {
               )}
               {courseLang !== "any" && (
                 <button className="chip" data-active onClick={() => setCourseLang("any")}>
-                  {courseLang === "ru" ? "Русский" : "Қазақша"}
+                  {courseLang === "ru" ? t.crtLangRuOpt : t.crtLangKzOpt}
                   <IconClose size={14} />
                 </button>
               )}
@@ -342,10 +345,7 @@ export default function CatalogPage() {
           )}
 
           {!authed && (
-            <Note kind="info">
-              Смотреть каталог можно без входа. Чтобы оставить заявку на курс, войдите
-              по номеру телефона — имя и телефон возьмём из профиля, заполнять ничего не нужно.
-            </Note>
+            <Note kind="info">{t.catGuestNote}</Note>
           )}
 
           {catalog.loading ? (
@@ -377,8 +377,8 @@ export default function CatalogPage() {
                 title={t.nothingFound}
                 text={
                   query
-                    ? `По запросу «${query}»${activeFilters ? " с выбранными фильтрами" : ""} курсов нет. Попробуйте изменить запрос или убрать фильтры.`
-                    : "С выбранными фильтрами курсов нет. Попробуйте убрать часть условий."
+                    ? t.catNoMatchQuery(query, activeFilters > 0)
+                    : t.catNoMatchFilters
                 }
                 action={
                   <Button

@@ -64,12 +64,13 @@ const SCENE_MS = 6000;
 const SCENES = 3;
 
 /* Материалы урока — типы, а не названия: выдуманное название курса
-   на витрине читается как обещание, которого никто не давал. */
+   на витрине читается как обещание, которого никто не давал. Подписи берутся
+   из словаря в самом кадре: здесь, на уровне модуля, языка ещё нет. */
 const ROWS = [
-  { icon: IconVideo, text: "Видеоурок", done: true },
-  { icon: IconText, text: "Конспект", done: true },
-  { icon: IconTask, text: "Практическая работа", done: false },
-];
+  { icon: IconVideo, key: "scRowVideo", done: true },
+  { icon: IconText, key: "scRowNotes", done: true },
+  { icon: IconTask, key: "scRowTask", done: false },
+] as const;
 
 /** Длина видео в кадре — 11:40; отсчёт начинается с 7:12. */
 const CLIP_FROM = 432;
@@ -84,6 +85,7 @@ function mmss(total: number) {
 /* ============ Кадр 1: урок ============ */
 
 function SceneLesson({ active, still }: { active: boolean; still: boolean }) {
+  const { t } = useLang();
   /* Время под полосой идёт вместе с ней: полоса ползёт, а число стоит —
      первое, что выдаёт нарисованный плеер. */
   const [sec, setSec] = useState(CLIP_FROM);
@@ -121,11 +123,11 @@ function SceneLesson({ active, still }: { active: boolean; still: boolean }) {
           const Icon = r.icon;
           const shown = active || still;
           return (
-            <li key={r.text} className="sc-row">
+            <li key={r.key} className="sc-row">
               <span className="sc-row-ico">
                 <Icon size={15} />
               </span>
-              <span className="sc-row-text">{r.text}</span>
+              <span className="sc-row-text">{t[r.key]}</span>
               <m.span
                 className="sc-mark"
                 data-done={r.done}
@@ -149,6 +151,7 @@ function SceneLesson({ active, still }: { active: boolean; still: boolean }) {
 /* ============ Кадр 2: результат теста ============ */
 
 function SceneQuiz({ active, still }: { active: boolean; still: boolean }) {
+  const { t } = useLang();
   const shown = active || still;
   return (
     <div className="sc-quiz">
@@ -166,14 +169,14 @@ function SceneQuiz({ active, still }: { active: boolean; still: boolean }) {
         </svg>
         <div className="sc-ring-mid">
           <strong>86%</strong>
-          <span>из 100</span>
+          <span>{t.scOutOf100}</span>
         </div>
       </div>
       <div className="sc-quiz-side">
         <span className="sc-pill sc-pill-ok">
-          <IconCheck size={13} /> Тест сдан
+          <IconCheck size={13} /> {t.quizPassed}
         </span>
-        <span className="sc-quiz-note">Проходной балл 70%</span>
+        <span className="sc-quiz-note">{t.scPassScore(70)}</span>
         <div className="sc-lines">
           <span className="sc-line sc-w80" />
           <span className="sc-line sc-w60" />
@@ -211,7 +214,7 @@ function SceneCert({ active, still }: { active: boolean; still: boolean }) {
           <br />
           {brand.line2}
         </span>
-        <span className="sc-paper-word">Сертификат</span>
+        <span className="sc-paper-word">{t.crtCardTitle}</span>
         {/* Плашки вместо ФИО и названия курса — макет, а не выдуманный человек */}
         <span className="sc-line sc-w70" />
         <span className="sc-line sc-w45" />

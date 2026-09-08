@@ -1,7 +1,10 @@
 "use client";
 
+import { useLang } from "@lms/ui/lang";
+
 /** Круг с процентом — результат теста. */
 export function ScoreRing({ pct, passed }: { pct: number; passed: boolean }) {
+  const { t } = useLang();
   const size = 132;
   const stroke = 12;
   const r = (size - stroke) / 2;
@@ -38,7 +41,7 @@ export function ScoreRing({ pct, passed }: { pct: number; passed: boolean }) {
           {pct}%
         </span>
         <span className="caption" style={{ color }}>
-          {passed ? "Сдано" : "Не сдано"}
+          {passed ? t.qzRingPassed : t.qzRingFailed}
         </span>
       </div>
     </div>

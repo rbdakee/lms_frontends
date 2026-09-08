@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, isApiError, useMe, type User } from "@lms/api";
+import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { useChrome, useRoutes } from "../host";
 import { ContactAdmin } from "@lms/course";
@@ -73,6 +74,7 @@ type CodeError =
 
 export function LoginScreen() {
   const router = useRouter();
+  const { t } = useLang();
   const toast = useToast();
   const { me, setMe } = useMe();
   const routes = useRoutes();
@@ -210,7 +212,7 @@ export function LoginScreen() {
       } else if (isApiError(e)) {
         setPhoneError(e.message);
       } else {
-        setPhoneError("Не удалось соединиться с сервером");
+        setPhoneError(t.lgNoServer);
       }
     } finally {
       setLoading(false);
@@ -247,7 +249,7 @@ export function LoginScreen() {
       } else {
         setError({
           kind: "other",
-          message: e instanceof Error ? e.message : "Что-то пошло не так",
+          message: e instanceof Error ? e.message : t.lgSomethingWrong,
         });
       }
       setCode(["", "", "", ""]);
@@ -302,7 +304,7 @@ export function LoginScreen() {
               setStep(1);
               setError(null);
             }}
-            aria-label="Изменить номер"
+            aria-label={t.lgChangePhone}
           >
             <IconArrowLeft />
           </button>
@@ -319,15 +321,13 @@ export function LoginScreen() {
             {step === 1 ? (
               <>
                 <div className="stack g8">
-                  <h1 className="h1">Вход</h1>
-                  <p className="body muted pretty">
-                    Введите номер телефона — отправим код в WhatsApp. Пароль не нужен.
-                  </p>
+                  <h1 className="h1">{t.lgTitle}</h1>
+                  <p className="body muted pretty">{t.lgLead}</p>
                 </div>
 
                 <div className="field">
                   <label className="label" htmlFor="phone">
-                    Номер телефона
+                    {t.lgPhone}
                   </label>
                   <input
                     id="phone"
@@ -353,10 +353,12 @@ export function LoginScreen() {
                   <span className="check-box">
                     <IconCheck size={14} />
                   </span>
+                  {/* Три куска, а не одна строка: ссылка стоит в середине фразы,
+                      а порядок слов в русском и казахском разный */}
                   <span className="check-label small">
-                    Согласен(-на) с{" "}
-                    <span style={{ color: "var(--primary)" }}>условиями использования</span> и
-                    обработкой персональных данных
+                    {t.lgConsentPre}{" "}
+                    <span style={{ color: "var(--primary)" }}>{t.lgConsentTerms}</span>{" "}
+                    {t.lgConsentPost}
                   </span>
                 </label>
 
@@ -367,28 +369,29 @@ export function LoginScreen() {
                   loading={loading}
                   disabled={!phoneValid || !agree}
                 >
-                  Получить код
+                  {t.lgGetCode}
                 </Button>
 
                 {/* Единственный контакт на этом экране: человек сюда ещё
                     не вошёл, и написать ему больше некому */}
                 <div className="row center">
-                  <ContactAdmin variant="link" label="Не приходит код?" />
+                  <ContactAdmin variant="link" label={t.lgNoCode} />
                 </div>
               </>
             ) : (
               <>
                 <div className="stack g8">
-                  <h1 className="h1">Введите код из WhatsApp</h1>
+                  <h1 className="h1">{t.lgCodeTitle}</h1>
                   <p className="body muted">
-                    Отправили на <strong style={{ color: "var(--text)" }}>{maskPhone(phone)}</strong>
+                    {t.lgSentTo}{" "}
+                    <strong style={{ color: "var(--text)" }}>{maskPhone(phone)}</strong>
                     {" · "}
                     <button
                       className="btn btn-ghost btn-sm"
                       style={{ padding: 0, minHeight: 0, display: "inline" }}
                       onClick={() => setStep(1)}
                     >
-                      Изменить номер
+                      {t.lgChangePhone}
                     </button>
                   </p>
                 </div>
@@ -416,31 +419,26 @@ export function LoginScreen() {
                       disabled={blocked}
                       onChange={(e) => onDigit(i, e.target.value)}
                       onKeyDown={(e) => onKey(i, e)}
-                      aria-label={`Цифра ${i + 1}`}
+                      aria-label={t.lgDigit(i + 1)}
                     />
                   ))}
                 </div>
 
                 {error?.kind === "wrong" && (
                   <div className="error-text row center">
-                    Неверный код. Осталось {error.attempts_left}{" "}
-                    {error.attempts_left === 1 ? "попытка" : "попытки"}
+                    {t.lgWrongCode(error.attempts_left)}
                   </div>
                 )}
 
                 {error?.kind === "expired" && (
-                  <Note kind="warning">
-                    Код устарел — он действует 5 минут. Запросите новый.
-                  </Note>
+                  <Note kind="warning">{t.lgCodeExpired}</Note>
                 )}
 
                 {blocked && (
                   <Note kind="danger">
-                    Ввод кода заблокирован. Попробуйте через{" "}
-                    <strong>
-                      {blockMinutes} {blockMinutes === 1 ? "минуту" : blockMinutes < 5 ? "минуты" : "минут"}
-                    </strong>{" "}
-                    или напишите нам — поможем войти.
+                    {t.lgBlockedPre}{" "}
+                    <strong>{t.lgBlockedMin(blockMinutes)}</strong>{" "}
+                    {t.lgBlockedPost}
                   </Note>
                 )}
 
@@ -449,7 +447,7 @@ export function LoginScreen() {
                 {!error && (
                   <div className="row center g6 caption muted-3">
                     <IconInfo size={15} />
-                    Скопируйте код из WhatsApp — он подставится сам
+                    {t.lgPasteHint}
                   </div>
                 )}
 
@@ -460,18 +458,19 @@ export function LoginScreen() {
                   disabled={code.join("").length < 4 || blocked}
                   onClick={() => void submitCode(code)}
                 >
-                  Войти
+                  {t.login}
                 </Button>
 
                 <div className="row center">
                   {seconds > 0 ? (
                     <span className="small muted-3">
-                      Отправить код повторно через{" "}
-                      {Math.floor(seconds / 60)}:{(seconds % 60).toString().padStart(2, "0")}
+                      {t.lgResendIn(
+                        `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, "0")}`,
+                      )}
                     </span>
                   ) : (
                     <button className="btn btn-ghost btn-sm" disabled={loading} onClick={sendCode}>
-                      Отправить новый код
+                      {t.lgResend}
                     </button>
                   )}
                 </div>
@@ -481,7 +480,7 @@ export function LoginScreen() {
 
           <div className="row center" style={{ marginTop: 20 }}>
             <Link href={routes.home} className="btn btn-ghost btn-sm">
-              На главную
+              {t.lgToHome}
             </Link>
           </div>
         </div>

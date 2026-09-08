@@ -22,29 +22,8 @@ import {
   IconShield,
 } from "@lms/ui/icons";
 
-const steps = [
-  {
-    icon: IconCatalog,
-    title: "Выбрали курс",
-    text: "Каталог открыт без регистрации. Фильтры по предмету, языку и длительности.",
-  },
-  {
-    icon: IconPlay,
-    title: "Прошли уроки",
-    text: "Видео, короткий конспект и файлы для скачивания. Урок — 10–15 минут.",
-  },
-  {
-    icon: IconQuiz,
-    title: "Сдали тест и задание",
-    text: "Итоговый тест — одна попытка, с разбором ответов. Задание проверяет методист.",
-  },
-  {
-    icon: IconCertificate,
-    title: "Получили сертификат",
-    text: "PDF с номером и QR-кодом. Проверяется на этом сайте за пару секунд.",
-  },
-];
-
+/* Отзывы остаются на языке автора: перевод чужой прямой речи — уже не отзыв.
+   Имена, школы и города тоже не переводятся. */
 const testimonials = [
   {
     text: "Проходила курс по формативному оцениванию вечерами, по одному уроку. Через три недели уже применяла приёмы на своих уроках математики.",
@@ -66,29 +45,6 @@ const testimonials = [
   },
 ];
 
-const faq = [
-  {
-    q: "Кто проверяет задания?",
-    a: "Практические задания смотрит методист платформы. Ответ приходит в рабочие дни — обычно в течение суток. Если задание вернули на доработку, в комментарии будет написано, что именно поправить.",
-  },
-  {
-    q: "Сертификат подойдёт для аттестации?",
-    a: "На сертификате указан объём в академических часах, уникальный номер и QR-код. Комиссия может проверить подлинность на странице «Проверить сертификат» — без регистрации, за пару секунд.",
-  },
-  {
-    q: "Сколько времени занимает курс?",
-    a: "Курс на 36 часов большинство проходит за 2–3 недели по 20–30 минут в день. Жёстких сроков нет: прогресс сохраняется, можно прерваться и вернуться через месяц.",
-  },
-  {
-    q: "Можно учиться только с телефона?",
-    a: "Да. Платформа сделана так, чтобы весь путь — от записи до сертификата — проходился с телефона. Ноутбук не нужен.",
-  },
-  {
-    q: "Что делать, если не приходит код в WhatsApp?",
-    a: "Проверьте, что WhatsApp установлен на этом номере — код приходит именно туда. Подождите минуту и нажмите «Отправить код повторно». Если код так и не пришёл — напишите администратору, поможем войти вручную.",
-  },
-];
-
 export default function LandingPage() {
   const { t } = useLang();
   const authed = Boolean(useMe().me);
@@ -97,6 +53,23 @@ export default function LandingPage() {
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
   const popular = (catalog.data?.items ?? []).slice(0, 6);
 
+  /* Шаги и вопросы собираются внутри компонента: их подписи живут в словаре
+     и обязаны перечитываться при смене языка */
+  const steps = [
+    { icon: IconCatalog, title: t.lndStep1, text: t.lndStep1Text },
+    { icon: IconPlay, title: t.lndStep2, text: t.lndStep2Text },
+    { icon: IconQuiz, title: t.lndStep3, text: t.lndStep3Text },
+    { icon: IconCertificate, title: t.lndStep4, text: t.lndStep4Text },
+  ];
+
+  const faq = [
+    { q: t.faqQ1, a: t.faqA1 },
+    { q: t.faqQ2, a: t.faqA2 },
+    { q: t.faqQ3, a: t.faqA3 },
+    { q: t.faqQ4, a: t.faqA4 },
+    { q: t.faqQ5, a: t.faqA5 },
+  ];
+
   return (
     <PublicShell hasStickyCta>
       {/* ===== Первый экран ===== */}
@@ -104,18 +77,16 @@ export default function LandingPage() {
         <div className="hero-grid">
           <div className="stack g20">
             <Badge kind="accepted" icon={<IconShield size={14} />}>
-              Курсы для педагогов и школьных психологов
+              {t.lndBadge}
             </Badge>
             <h1
               className="h1"
               style={{ fontSize: "clamp(28px, 5vw, 44px)", lineHeight: 1.14, letterSpacing: "-0.03em" }}
             >
-              Повышение квалификации педагогов и школьных психологов
+              {t.lndH1}
             </h1>
             <p className="body muted pretty" style={{ maxWidth: 560 }}>
-              Курсы на русском и казахском: короткие видеоуроки, конспекты и практические
-              задания. Учитесь с телефона между уроками, а в конце получаете сертификат
-              с номером — его может проверить любая комиссия.
+              {t.lndLede}
             </p>
             <div className="row wrap g10">
               <Link
@@ -125,13 +96,10 @@ export default function LandingPage() {
                 {authed ? t.navHome : t.start}
               </Link>
               <Link href="/courses" className="btn btn-secondary btn-lg hero-cta">
-                Смотреть каталог
+                {t.lndHeroCatalog}
               </Link>
             </div>
-            <p className="small muted-3">
-              Регистрация по номеру телефона — около минуты. Доступ к курсу
-              открывает администратор.
-            </p>
+            <p className="small muted-3">{t.lndHeroNote}</p>
           </div>
 
           <div className="hero-art">
@@ -150,8 +118,10 @@ export default function LandingPage() {
                     <IconGraduation size={22} />
                   </span>
                   <div className="stack">
-                    <strong style={{ fontSize: 15 }}>Цифровая грамотность педагога</strong>
-                    <span className="caption muted">18 уроков · 36 часов · RU · KZ</span>
+                    <strong style={{ fontSize: 15 }}>{t.lndDemoCourse}</strong>
+                    <span className="caption muted">
+                      {t.lessons(18)} · {t.hours(36)} · RU · KZ
+                    </span>
                   </div>
                 </div>
                 <div
@@ -159,9 +129,9 @@ export default function LandingPage() {
                   style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}
                 >
                   {[
-                    { label: "Google Класс: первый запуск", done: true },
-                    { label: "Создание теста за 10 минут", done: true },
-                    { label: "Практическое задание: свой тест", done: false },
+                    { label: t.lndDemoL1, done: true },
+                    { label: t.lndDemoL2, done: true },
+                    { label: t.lndDemoL3, done: false },
                   ].map((r) => (
                     <div key={r.label} className="row g10">
                       <span
@@ -176,7 +146,7 @@ export default function LandingPage() {
                 </div>
                 <div className="card" style={{ padding: 14 }}>
                   <div className="row between small" style={{ marginBottom: 8 }}>
-                    <span className="muted">Прогресс курса</span>
+                    <span className="muted">{t.lndDemoProgress}</span>
                     <strong style={{ color: "var(--primary)" }}>67%</strong>
                   </div>
                   <div className="progress progress-thick">
@@ -185,7 +155,7 @@ export default function LandingPage() {
                 </div>
                 <div className="note note-success" style={{ padding: "10px 12px" }}>
                   <IconCertificate size={18} />
-                  <span className="small">Сертификат KZ-2026-004821 · 36 часов</span>
+                  <span className="small">{t.lndDemoCert}</span>
                 </div>
               </div>
             </div>
@@ -197,9 +167,9 @@ export default function LandingPage() {
       <section className="page" style={{ paddingTop: 32, paddingBottom: 8 }}>
         <div className="card card-pad stats-grid">
           {[
-            { v: "120", l: "курсов в каталоге" },
-            { v: fmt(4300), l: "учителей уже учатся" },
-            { v: fmt(2800), l: "сертификатов выдано" },
+            { v: "120", l: t.lndStatCourses },
+            { v: fmt(4300), l: t.lndStatTeachers },
+            { v: fmt(2800), l: t.lndStatCerts },
           ].map((s) => (
             <div key={s.l} className="stack g4" style={{ alignItems: "center", textAlign: "center" }}>
               <div
@@ -223,8 +193,7 @@ export default function LandingPage() {
         <div className="stack g8" style={{ marginBottom: 24 }}>
           <h2 className="h2">{t.secHowItWorks}</h2>
           <p className="body muted pretty" style={{ maxWidth: 620 }}>
-            Четыре шага от каталога до сертификата. Прогресс сохраняется — можно прерваться
-            и вернуться.
+            {t.lndHowLede}
           </p>
         </div>
         <div className="grid-4">
@@ -268,7 +237,7 @@ export default function LandingPage() {
           <div className="row between wrap g12" style={{ marginBottom: 20 }}>
             <div className="stack g4">
               <h2 className="h2">{t.secPopular}</h2>
-              <p className="small muted">Чаще всего выбирают учителя в этом месяце</p>
+              <p className="small muted">{t.lndPopularNote}</p>
             </div>
             <Link href="/courses" className="btn btn-secondary">
               {t.viewAll}
@@ -318,11 +287,9 @@ export default function LandingPage() {
         <div className="row between wrap g12" style={{ marginBottom: 20 }}>
           <div className="stack g4">
             <h2 className="h2">{t.secFaq}</h2>
-            <p className="small muted">
-              Не нашли ответ — напишите администратору, отвечаем в рабочие дни.
-            </p>
+            <p className="small muted">{t.lndFaqNote}</p>
           </div>
-          <ContactAdmin variant="link" label="Задать вопрос" />
+          <ContactAdmin variant="link" label={t.lndAskQuestion} />
         </div>
         <div className="stack g10" style={{ maxWidth: 820 }}>
           {faq.map((f, i) => (
@@ -362,10 +329,10 @@ export default function LandingPage() {
           }}
         >
           <h2 className="h2" style={{ color: "var(--text-on-fill)", maxWidth: 520 }}>
-            Начните с одного урока — сегодня вечером
+            {t.lndCtaTitle}
           </h2>
           <p style={{ color: "var(--text-on-fill-soft)", maxWidth: 480 }} className="body pretty">
-            Регистрация по номеру телефона — без документов и анкет.
+            {t.lndCtaText}
           </p>
           <Link
             href={authed ? "/my" : "/login"}
@@ -386,7 +353,7 @@ export default function LandingPage() {
             {authed ? t.navHome : t.start}
           </Link>
           <Link href="/courses" className="btn btn-secondary btn-lg">
-            Каталог
+            {t.navCatalog}
           </Link>
         </div>
       </div>
