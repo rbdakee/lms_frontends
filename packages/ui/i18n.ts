@@ -915,6 +915,118 @@ const ru = {
   uiClose: "Закрыть",
   uiStarsLabel: (n: number) => `Оценка ${n} из 5`,
   uiBreadcrumbs: "Хлебные крошки",
+  /* ============ Ассистент в админке ============
+
+     Экраны ассистента живут только в админке: у учителя его нет и не появляется
+     (`ASSISTANT_BRIEF`, решение владельца 09.09.2026). Имя «Ассистент» —
+     ответ владельца 09.09.2026, а не рабочее слово: меняется здесь и в
+     `ASSISTANT_NAME` бэкенда.
+
+     Персданных в этих строках нет ни одной: человек подписан `Учитель #418`,
+     живое имя подставляет браузер отдельной ручкой. */
+
+  asName: "Ассистент",
+  asMemoryName: "Память ассистента",
+  asSubtitle: "Делает работу админа через закрытый список действий",
+
+  /* Список чатов */
+  asNewChat: "Новый чат",
+  asThreadsTitle: "Чаты",
+  asNoThreads: "Чатов пока нет",
+  asNoThreadsHint: "Начните новый — он появится здесь",
+  asUntitled: "Без названия",
+  asArchive: "В архив",
+  asUnarchive: "Вернуть из архива",
+  asArchived: "Архив",
+  asShowArchived: "Показать архив",
+  asHideArchived: "Скрыть архив",
+  asDeleteThread: "Удалить чат",
+  asDeleteThreadHint: "Чат удалится насовсем. Договорённости живут в памяти, она общая и отдельная.",
+  asThreadDeleted: "Чат удалён",
+
+  /* Лента */
+  asAsk: "Спросите ассистента",
+  asAskPlaceholder: "Что нужно сделать?",
+  asExamplesTitle: "С чего начать",
+  asExAccess: "Выдай доступ по заявке",
+  asExReport: "Своди отчёт по курсу",
+  asExLeads: "Разбери очередь заявок",
+  asExSubmissions: "Покажи работы на проверку",
+  asThinking: "Ассистент думает",
+  asStoppedAtCap: "Ход остановился на потолке в 10 вызовов — ассистент не закончил. Попросите продолжить.",
+  asSendHint: "Enter — отправить, Shift+Enter — новая строка",
+  asDraftNote: "Тексты ассистента — черновики, а не утверждённые ответы",
+
+  /* Карточка вызова инструмента */
+  asToolDetails: "Подробности вызова",
+  asToolArgs: "С чем вызван",
+  asToolResult: "Что вернулось",
+
+  /* Предложение опасного действия */
+  asProposalTitle: "Нужно ваше подтверждение",
+  asExecute: "Выполнить",
+  asProposalCancel: "Отмена",
+  asProposalWaiting: "Ждёт подтверждения",
+  asProposalExecuted: "Выполнено",
+  asProposalExpired: "Устарело",
+  asProposalCancelled: "Отменено",
+  asProposalExpiredHint: "Предложение живёт час — попросите ассистента предложить заново",
+  asProposalDone: "Готово",
+  asOpenScreen: "Открыть экран",
+
+  /* Допуски к персданным */
+  asGrantsTitle: "Допуски",
+  asGrantRead: "чтение",
+  asGrantWrite: "чтение и правка",
+  asGrantChip: (who: string, level: string) => `${who} · ${level}`,
+  asGrantRevoke: "Отозвать допуск",
+  asGrantUntil: (time: string) => `до ${time}`,
+  asGrantsHint: "Допуск открывает данные одного человека в этом чате. Он не подтверждает изменений — их подтверждает кнопка «Выполнить».",
+  asAskAssistant: "Спросить ассистента",
+  asAskAssistantHint: "Откроется чат с допуском на этого человека — фамилию набирать не нужно",
+
+  /* Карточка выбора человека */
+  asPickTitle: "Кого открыть?",
+  asPickHint: "Имена подставил браузер: ассистент их не видит",
+  asPickLevel: "Уровень допуска",
+  asPickNobody: "Никто не нашёлся",
+
+  /* Закреплённый курс */
+  asCourse: "Курс чата",
+  asCourseNone: "Без курса",
+  asCourseHint: "У чата с курсом подмешивается память этого курса",
+
+  /* Память */
+  asMemoryTitle: "Что ассистент помнит",
+  asMemoryHint: "Память общая на всех админов. Индекс уходит в модель каждый ход, тело записи — только когда ассистент сам его попросит.",
+  asMemoryGlobal: "Общая память",
+  asMemoryCourse: "Память курсов",
+  asMemoryEmpty: "Память пуста",
+  asMemoryEmptyHint: "Ассистент запишет сюда то, о чём вы с ним договоритесь",
+  asMemoryCount: (n: number) => `${n} из 100 записей`,
+  asMemoryEditViaChat: "Правится через чат",
+  asMemoryEditHint: "Записи заводит и удаляет сам ассистент — попросите его в чате. Отдельного редактора у памяти нет нарочно: у каждой записи есть автор.",
+  asMemoryRead: "Прочитать в чате",
+  asMemoryDrop: "Удалить через чат",
+  asMemoryNoPd: "Персональных данных в памяти нет: сервер их не записывает",
+
+  /* Черновик ответа */
+  asDraftReply: "Ответить с помощью ИИ",
+  asDraftAgain: "Сгенерировать заново",
+  asDrafting: "Пишу черновик",
+  asDraftReady: "Черновик в поле — прочитайте и отправьте сами",
+  asDraftOverwrite: "В поле ответа уже есть текст. Черновик от ИИ заменит его — набранное пропадёт.",
+  asDraftKzWarning: "Казахский текст обязательно вычитайте: у модели он слабее русского",
+  asBuiltFrom: (what: string) => what,
+
+  /* Расход */
+  asTokens: (n: number) => `${fmt(n)} токенов`,
+  asTokensTitle: "Расход",
+  asTokensHint: "Считается по каждому ходу — из этих чисел складывается счёт за месяц",
+
+  /* Ассистента нет */
+  asOffTitle: "Ассистент не настроен",
+  asOffHint: "Ключ модели задаётся в настройках площадки, а не на этом экране. Пока его нет, страница не работает, а остальная админка работает как работала.",
 };
 
 type Dict = typeof ru;
@@ -1754,6 +1866,99 @@ const kz: Dict = {
   uiClose: "Жабу",
   uiStarsLabel: (n: number) => `Бағасы: 5-тен ${n}`,
   uiBreadcrumbs: "Шарлау жолы",
+  /* ============ Әкімшілік панеліндегі ассистент ============ */
+
+  asName: "Ассистент",
+  asMemoryName: "Ассистент жады",
+  asSubtitle: "Әкімшінің жұмысын жабық әрекеттер тізімі арқылы істейді",
+
+  asNewChat: "Жаңа чат",
+  asThreadsTitle: "Чаттар",
+  asNoThreads: "Әзірге чат жоқ",
+  asNoThreadsHint: "Жаңасын бастаңыз — ол осында пайда болады",
+  asUntitled: "Атауы жоқ",
+  asArchive: "Мұрағатқа",
+  asUnarchive: "Мұрағаттан қайтару",
+  asArchived: "Мұрағат",
+  asShowArchived: "Мұрағатты көрсету",
+  asHideArchived: "Мұрағатты жасыру",
+  asDeleteThread: "Чатты жою",
+  asDeleteThreadHint: "Чат біржола жойылады. Келісілген нәрселер жадта сақталады, ол ортақ және бөлек.",
+  asThreadDeleted: "Чат жойылды",
+
+  asAsk: "Ассистенттен сұраңыз",
+  asAskPlaceholder: "Не істеу керек?",
+  asExamplesTitle: "Неден бастауға болады",
+  asExAccess: "Өтінім бойынша кіруді аш",
+  asExReport: "Курс бойынша есеп жина",
+  asExLeads: "Өтінімдер кезегін қарап шық",
+  asExSubmissions: "Тексеруге түскен жұмыстарды көрсет",
+  asThinking: "Ассистент ойлануда",
+  asStoppedAtCap: "Қадам 10 шақыру шегіне тірелді — ассистент аяқтаған жоқ. Жалғастыруын сұраңыз.",
+  asSendHint: "Enter — жіберу, Shift+Enter — жаңа жол",
+  asDraftNote: "Ассистенттің мәтіндері — бекітілген жауап емес, жоба",
+
+  asToolDetails: "Шақыру егжей-тегжейі",
+  asToolArgs: "Немен шақырылды",
+  asToolResult: "Не қайтты",
+
+  asProposalTitle: "Сіздің растауыңыз қажет",
+  asExecute: "Орындау",
+  asProposalCancel: "Болдырмау",
+  asProposalWaiting: "Растауды күтуде",
+  asProposalExecuted: "Орындалды",
+  asProposalExpired: "Ескірді",
+  asProposalCancelled: "Болдырылмады",
+  asProposalExpiredHint: "Ұсыныс бір сағат жарамды — ассистенттен қайта ұсынуын сұраңыз",
+  asProposalDone: "Дайын",
+  asOpenScreen: "Экранды ашу",
+
+  asGrantsTitle: "Рұқсаттар",
+  asGrantRead: "оқу",
+  asGrantWrite: "оқу және өзгерту",
+  asGrantChip: (who: string, level: string) => `${who} · ${level}`,
+  asGrantRevoke: "Рұқсатты қайтарып алу",
+  asGrantUntil: (time: string) => `${time} дейін`,
+  asGrantsHint: "Рұқсат осы чатта бір адамның деректерін ашады. Ол өзгерістерді растамайды — оларды «Орындау» түймесі растайды.",
+  asAskAssistant: "Ассистенттен сұрау",
+  asAskAssistantHint: "Осы адамға рұқсаты бар чат ашылады — тегін теру қажет емес",
+
+  asPickTitle: "Кімді ашу керек?",
+  asPickHint: "Аттарды браузер қойды: ассистент оларды көрмейді",
+  asPickLevel: "Рұқсат деңгейі",
+  asPickNobody: "Ешкім табылмады",
+
+  asCourse: "Чат курсы",
+  asCourseNone: "Курссыз",
+  asCourseHint: "Курсы бар чатқа сол курстың жады қосылады",
+
+  asMemoryTitle: "Ассистент нені есте сақтайды",
+  asMemoryHint: "Жад барлық әкімшіге ортақ. Индекс модельге әр қадам сайын жіберіледі, жазбаның мәтіні — ассистент өзі сұрағанда ғана.",
+  asMemoryGlobal: "Ортақ жад",
+  asMemoryCourse: "Курстар жады",
+  asMemoryEmpty: "Жад бос",
+  asMemoryEmptyHint: "Ассистент сізбен келіскен нәрсені осында жазады",
+  asMemoryCount: (n: number) => `100 жазбаның ${n}-і`,
+  asMemoryEditViaChat: "Чат арқылы өзгертіледі",
+  asMemoryEditHint: "Жазбаларды ассистенттің өзі қосады және жояды — чатта сұраңыз. Жадтың бөлек редакторы әдейі жоқ: әр жазбаның авторы бар.",
+  asMemoryRead: "Чатта оқу",
+  asMemoryDrop: "Чат арқылы жою",
+  asMemoryNoPd: "Жадта дербес деректер жоқ: сервер оларды жазбайды",
+
+  asDraftReply: "ЖИ көмегімен жауап беру",
+  asDraftAgain: "Қайта жасау",
+  asDrafting: "Жоба жазылуда",
+  asDraftReady: "Жоба өрісте — оқып шығып, өзіңіз жіберіңіз",
+  asDraftOverwrite: "Жауап өрісінде мәтін бар. ЖИ жобасы оны алмастырады — терілген мәтін жоғалады.",
+  asDraftKzWarning: "Қазақша мәтінді міндетті түрде тексеріңіз: модельде ол орысшадан әлсіз",
+  asBuiltFrom: (what: string) => what,
+
+  asTokens: (n: number) => `${fmt(n)} токен`,
+  asTokensTitle: "Шығын",
+  asTokensHint: "Әр қадам бойынша есептеледі — айлық шот осы сандардан жиналады",
+
+  asOffTitle: "Ассистент бапталмаған",
+  asOffHint: "Модель кілті осы экранда емес, алаң баптауларында беріледі. Ол жоқ кезде бұл бет жұмыс істемейді, ал қалған әкімшілік панель бұрынғыдай жұмыс істейді.",
 };
 
 export const dict: Record<UiLang, Dict> = { ru, kz };

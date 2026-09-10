@@ -1394,6 +1394,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/reviews/{review_id}/draft_reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft Reply To Review
+         * @description Кнопка «Ответить с помощью ИИ»: текст встаёт в поле ответа.
+         *
+         *     Ничего не меняет — отправляет админ той же кнопкой «Ответить», что была
+         *     там и раньше (ASSISTANT_BRIEF, раздел 11). Повторный вызов затирает
+         *     прошлый черновик: две версии рядом никому не нужны.
+         */
+        post: operations["draft_reply_to_review_admin_reviews__review_id__draft_reply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/categories": {
         parameters: {
             query?: never;
@@ -1442,6 +1466,152 @@ export interface paths {
         put?: never;
         /** Add Admin */
         post: operations["add_admin_admin_admins_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/assistant/threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Threads */
+        get: operations["threads_admin_assistant_threads_get"];
+        put?: never;
+        /** Create Thread */
+        post: operations["create_thread_admin_assistant_threads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/assistant/threads/{thread_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Thread */
+        delete: operations["delete_thread_admin_assistant_threads__thread_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Thread */
+        patch: operations["patch_thread_admin_assistant_threads__thread_id__patch"];
+        trace?: never;
+    };
+    "/admin/assistant/threads/{thread_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Messages */
+        get: operations["messages_admin_assistant_threads__thread_id__messages_get"];
+        put?: never;
+        /**
+         * Say
+         * @description Сообщение админа и ответ ассистента — стримом.
+         *
+         *     Проверки входа идут **до** стрима и остаются обычными отказами: как только
+         *     тело потекло, статус уже отдан, и `429` с числом секунд сообщить нечем.
+         */
+        post: operations["say_admin_assistant_threads__thread_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/assistant/threads/{thread_id}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Grants */
+        get: operations["grants_admin_assistant_threads__thread_id__grants_get"];
+        put?: never;
+        /** Grant */
+        post: operations["grant_admin_assistant_threads__thread_id__grants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/assistant/threads/{thread_id}/grants/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Grant */
+        delete: operations["revoke_grant_admin_assistant_threads__thread_id__grants__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/assistant/proposals/{proposal_id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute */
+        post: operations["execute_admin_assistant_proposals__proposal_id__execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/assistant/proposals/{proposal_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel */
+        post: operations["cancel_admin_assistant_proposals__proposal_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/assistant/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Memory */
+        get: operations["memory_admin_assistant_memory_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1546,6 +1716,30 @@ export interface paths {
         post?: never;
         /** Delete Thread Message */
         delete: operations["delete_thread_message_admin_thread_messages__message_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/thread_messages/{message_id}/draft_reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft Reply To Question
+         * @description Кнопка «Ответить с помощью ИИ» у вопроса под уроком.
+         *
+         *     Адресуется корень ветки — тот же путь, что у DELETE выше. Ничего
+         *     не меняет: текст встаёт в поле ответа, отправляет его админ обычной
+         *     кнопкой (ASSISTANT_BRIEF, раздел 11).
+         */
+        post: operations["draft_reply_to_question_admin_thread_messages__message_id__draft_reply_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2437,6 +2631,18 @@ export interface components {
             per_page: number;
         };
         /**
+         * AdminSettingsAssistantOut
+         * @description Есть ли в этой установке ассистент. Только на чтение: ключ провайдера
+         *     живёт в настройках сервиса, а не в базе — админка его не правит.
+         *
+         *     Пусто — страницы «Ассистент» нет и кнопки «Ответить с помощью ИИ» тоже
+         *     (ASSISTANT_BRIEF, разделы 9 и 11).
+         */
+        AdminSettingsAssistantOut: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /**
          * AdminSettingsOut
          * @description Настройки одним ответом: справочник площадок и привязка бота.
          *
@@ -2447,6 +2653,7 @@ export interface components {
             /** Platforms */
             platforms: components["schemas"]["AdminSettingsPlatformOut"][];
             telegram: components["schemas"]["AdminSettingsTelegramOut"];
+            assistant: components["schemas"]["AdminSettingsAssistantOut"];
         };
         /** AdminSettingsPatchIn */
         AdminSettingsPatchIn: {
@@ -3000,6 +3207,245 @@ export interface components {
             question_id: number;
             /** Option Ids */
             option_ids: number[];
+        };
+        /**
+         * AssistantDraftReplyOut
+         * @description Черновик ответа учителю (ASSISTANT_BRIEF, раздел 11).
+         *
+         *     `built_from` — строка «из чего собрано»: чего в курсе не было, видно
+         *     админу. Это не вопрос ему и не требование что-то заполнить.
+         */
+        AssistantDraftReplyOut: {
+            /** Text */
+            text: string;
+            /** Built From */
+            built_from: string;
+        };
+        /** AssistantExecuteOut */
+        AssistantExecuteOut: {
+            proposal: components["schemas"]["AssistantProposalOut"];
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+        };
+        /** AssistantGrantIn */
+        AssistantGrantIn: {
+            /** User Id */
+            user_id: number;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "read" | "write";
+        };
+        /**
+         * AssistantGrantOut
+         * @description Допуск. Имени человека здесь нет и не будет: чип в шапке чата
+         *     подписывает браузер обычной ручкой `/admin/teachers`.
+         */
+        AssistantGrantOut: {
+            /** Subject User Id */
+            subject_user_id: number;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "read" | "write";
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** AssistantGrantsOut */
+        AssistantGrantsOut: {
+            /** Items */
+            items: components["schemas"]["AssistantGrantOut"][];
+        };
+        /** AssistantMemoryItemOut */
+        AssistantMemoryItemOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "global" | "course";
+            /** Course Id */
+            course_id: number | null;
+            /** Author Id */
+            author_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * AssistantMemoryOut
+         * @description Экран памяти: индекс целиком. Тела записей здесь нет — их читает
+         *     сам ассистент по одной, и на экране они открываются отдельно.
+         */
+        AssistantMemoryOut: {
+            /** Items */
+            items: components["schemas"]["AssistantMemoryItemOut"][];
+        };
+        /** AssistantMessageOut */
+        AssistantMessageOut: {
+            /** Id */
+            id: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant" | "tool";
+            /** Content */
+            content: string;
+            /** Tool Name */
+            tool_name: string | null;
+            /** Tool Args */
+            tool_args: {
+                [key: string]: unknown;
+            } | null;
+            /** Tool Result */
+            tool_result: {
+                [key: string]: unknown;
+            } | null;
+            proposal: components["schemas"]["AssistantProposalOut"] | null;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AssistantMessagesOut */
+        AssistantMessagesOut: {
+            /** Items */
+            items: components["schemas"]["AssistantMessageOut"][];
+        };
+        /**
+         * AssistantProposalOut
+         * @description Предложение опасного действия: то, что админ читает перед кнопкой.
+         *
+         *     Аргументы наружу не уходят вовсе — их место в строке базы. Кнопка
+         *     посылает только `id`, иначе подтверждение подтверждало бы не то,
+         *     что было показано (ASSISTANT_BRIEF, раздел 6).
+         */
+        AssistantProposalOut: {
+            /** Id */
+            id: number;
+            /** Tool Name */
+            tool_name: string;
+            /** What Happens */
+            what_happens: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "executed" | "expired" | "cancelled";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Executed At */
+            executed_at: string | null;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** AssistantSayIn */
+        AssistantSayIn: {
+            /** Text */
+            text: string;
+        };
+        /** AssistantThreadCreateIn */
+        AssistantThreadCreateIn: {
+            /** Course Id */
+            course_id?: number | null;
+        };
+        /** AssistantThreadOut */
+        AssistantThreadOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Course Id */
+            course_id: number | null;
+            /** Archived */
+            archived: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** AssistantThreadPatchIn */
+        AssistantThreadPatchIn: {
+            /** Title */
+            title?: string | null;
+            /** Course Id */
+            course_id?: number | null;
+            /** Archived */
+            archived?: boolean | null;
+        };
+        /** AssistantThreadsOut */
+        AssistantThreadsOut: {
+            /** Items */
+            items: components["schemas"]["AssistantThreadOut"][];
+        };
+        /**
+         * AssistantTurnOut
+         * @description Событие `done` стрима: ход закончен, вот лента целиком.
+         *
+         *     Лента целиком, а не приращением: за один ход в неё добавляется от одной
+         *     до одиннадцати строк, и склеивать их на фронте дороже, чем перерисовать.
+         *     Форма пережила включение стрима — поменялся способ доставки, а не ответ.
+         *
+         *     Расход отдельными полями, хотя он же лежит в последнем сообщении ленты:
+         *     экран показывает цену хода, не пересобирая ленту (ASSISTANT_BRIEF, раздел 9).
+         */
+        AssistantTurnOut: {
+            thread: components["schemas"]["AssistantThreadOut"];
+            /** Items */
+            items: components["schemas"]["AssistantMessageOut"][];
+            /** Stopped At Cap */
+            stopped_at_cap: boolean;
+            /**
+             * Tokens In
+             * @default 0
+             */
+            tokens_in: number;
+            /**
+             * Tokens Out
+             * @default 0
+             */
+            tokens_out: number;
         };
         /**
          * BlockerOut
@@ -7830,6 +8276,37 @@ export interface operations {
             };
         };
     };
+    draft_reply_to_review_admin_reviews__review_id__draft_reply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantDraftReplyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_categories_admin_categories_get: {
         parameters: {
             query?: never;
@@ -8000,6 +8477,379 @@ export interface operations {
             };
         };
     };
+    threads_admin_assistant_threads_get: {
+        parameters: {
+            query?: {
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThreadsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_thread_admin_assistant_threads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantThreadCreateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThreadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_thread_admin_assistant_threads__thread_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_thread_admin_assistant_threads__thread_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantThreadPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThreadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    messages_admin_assistant_threads__thread_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMessagesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    say_admin_assistant_threads__thread_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantSayIn"];
+            };
+        };
+        responses: {
+            /** @description Ход событиями `text/event-stream`: `delta`, `tool`, `done`, `error`. Событие `done` несёт эту форму — ленту целиком и расход хода. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["AssistantTurnOut"];
+                    "application/json": components["schemas"]["AssistantTurnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grants_admin_assistant_threads__thread_id__grants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantGrantsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_admin_assistant_threads__thread_id__grants_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantGrantIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantGrantOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_grant_admin_assistant_threads__thread_id__grants__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: number;
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_admin_assistant_proposals__proposal_id__execute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantExecuteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_admin_assistant_proposals__proposal_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantExecuteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memory_admin_assistant_memory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMemoryOut"];
+                };
+            };
+        };
+    };
     admin_settings_admin_settings_get: {
         parameters: {
             query?: never;
@@ -8162,6 +9012,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_reply_to_question_admin_thread_messages__message_id__draft_reply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantDraftReplyOut"];
+                };
             };
             /** @description Validation Error */
             422: {

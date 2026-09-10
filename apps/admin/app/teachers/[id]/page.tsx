@@ -42,6 +42,7 @@ import { PhoneInput } from "@lms/ui/PhoneInput";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
+import { useAssistantEnabled } from "@/components/admin/assistantApi";
 import { IIN_PLACEHOLDER } from "@/components/admin/certificatesApi";
 import { GrantAccessSheet } from "@/components/admin/GrantAccess";
 import { PlatformChip, usePlatformName } from "@/components/admin/platforms";
@@ -65,6 +66,7 @@ import {
   IconLock,
   IconPhone,
   IconQuiz,
+  IconSparkle,
 } from "@lms/ui/icons";
 
 type Tab = "courses" | "tests" | "works" | "certs";
@@ -156,6 +158,8 @@ export default function TeacherCardPage() {
   const platformName = usePlatformName();
   const card = useLoad(() => api<AdminTeacherCard>(`/admin/teachers/${id}`), [id]);
   const dictionaries = useDictionaries();
+  /* Ключа модели нет — кнопки нет вовсе, а не отказ по нажатию */
+  const assistantOn = useAssistantEnabled();
 
   const [tab, setTab] = useState<Tab>("courses");
   const [retakeFor, setRetakeFor] = useState<AdminTeacherQuiz | null>(null);
@@ -457,6 +461,36 @@ export default function TeacherCardPage() {
             >
               {teacher.is_blocked ? "Разблокировать" : "Заблокировать"}
             </Button>
+
+            {/* Уровень допуска виден до нажатия: он и есть выбор админа —
+                посмотреть данные или ещё и менять их. Само изменение чат
+                всё равно спросит кнопкой «Выполнить» (ASSISTANT_BRIEF,
+                раздел 5). В адрес уходит один числовой id */}
+            {assistantOn && (
+              <>
+                <hr className="divider" />
+                <span className="caption muted">{t.asAskAssistant}</span>
+                <div className="row wrap g8">
+                  <LinkButton
+                    href={`/assistant?ask=${teacher.id}&level=read`}
+                    variant="secondary"
+                    size="sm"
+                    icon={<IconSparkle size={15} />}
+                  >
+                    {t.asGrantRead}
+                  </LinkButton>
+                  <LinkButton
+                    href={`/assistant?ask=${teacher.id}&level=write`}
+                    variant="secondary"
+                    size="sm"
+                    icon={<IconSparkle size={15} />}
+                  >
+                    {t.asGrantWrite}
+                  </LinkButton>
+                </div>
+                <span className="caption muted-3 pretty">{t.asAskAssistantHint}</span>
+              </>
+            )}
           </div>
         </aside>
 

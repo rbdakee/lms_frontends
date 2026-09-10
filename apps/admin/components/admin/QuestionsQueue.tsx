@@ -20,6 +20,10 @@
  * Удалить (`DELETE /admin/thread_messages/{id}`) можно любое сообщение — и вопрос,
  * и ответ. Корневой вопрос уносит из выдачи и ответы под ним: тред без вопроса
  * нечитаем, поэтому список после такого удаления перечитывается целиком.
+ *
+ * «Ответить с помощью ИИ» кладёт черновик в то же поле и больше не делает
+ * ничего: ответ живому учителю публикует админ прежней кнопкой «Ответить»
+ * (`ASSISTANT_BRIEF`, разделы 6 и 11). Ключа модели нет — кнопки нет вовсе.
  */
 
 import { useEffect, useState } from "react";
@@ -42,12 +46,29 @@ import {
   PlatformFilter,
   usePlatformFilter,
 } from "@/components/admin/platforms";
+import {
+  assistantErrorText,
+  draftQuestionReply,
+  useAssistantEnabled,
+} from "@/components/admin/assistantApi";
 import { Avatar, Badge, Button, Empty, Sheet } from "@lms/ui";
-import { IconCheckCircle, IconFilter, IconSearch, IconTrash } from "@lms/ui/icons";
+import {
+  IconCheckCircle,
+  IconFilter,
+  IconSearch,
+  IconSparkle,
+  IconTrash,
+} from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 /** Тот же лимит текста, что и у учителя (CONTRACT: 422 при 2000+ символов). */
 const TEXT_MAX = 2000;
+
+/* Казахский у модели заметно слабее русского, и текст, который прочитает
+   учитель, положено вычитывать (ASSISTANT_BRIEF, раздел 3). Языка курса
+   в очереди вопросов нет, да он и не помог бы: спросить по-казахски можно
+   и в русском курсе — смотрим на сам черновик, этих букв в русском не бывает */
+const KZ_LETTERS = /[әғқңөұүһі]/i;
 
 export function QuestionsQueue({
   courseId,
@@ -447,6 +468,35 @@ function QuestionCard({
   /* Что подтверждаем: корневой вопрос или конкретный ответ */
   const [removing, setRemoving] = useState<"question" | number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  /* Ключа модели нет — кнопки нет вовсе, а не «есть и отвечает 503» */
+  const assistant = useAssistantEnabled();
+  const [drafting, setDrafting] = useState(false);
+  /* Что именно положил в поле ассистент: по нему отличаем нетронутый черновик
+     от набранного руками — второе перед затиранием подтверждают */
+  const [aiText, setAiText] = useState<string | null>(null);
+  const [builtFrom, setBuiltFrom] = useState("");
+
+  /** Ассистент отдаёт текст — он встаёт в поле. Отправляет его человек
+      кнопкой «Ответить», как и раньше (ASSISTANT_BRIEF, раздел 11). */
+  const askDraft = async () => {
+    if (drafting) return;
+    /* Набранное руками молча не затираем: повторная генерация стоит одного
+       нажатия, а восстановить потерянный текст нечем */
+    if (draft.trim() && draft !== aiText && !confirm(t.asDraftOverwrite)) return;
+    setDrafting(true);
+    try {
+      /* Адресуется корень ветки — тот же id, что у удаления вопроса */
+      const d = await draftQuestionReply(question.id);
+      setDraft(d.text);
+      setAiText(d.text);
+      setBuiltFrom(d.built_from);
+      toast(t.asDraftReady, "success");
+    } catch (e) {
+      toast(assistantErrorText(e), "error");
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   const send = async () => {
     const text = draft.trim();
@@ -458,6 +508,8 @@ function QuestionCard({
         json: { text, parent_id: question.id },
       });
       setDraft("");
+      setAiText(null);
+      setBuiltFrom("");
       /* Отвеченный вопрос не выдёргиваем из-под руки: он остаётся на месте
          со своим ответом, а из очереди «без ответа» уйдёт при следующей загрузке */
       onReplied(question.id, created);
@@ -549,11 +601,22 @@ function QuestionCard({
           placeholder={t.qaAnswerPlaceholder}
           maxLength={TEXT_MAX}
           value={draft}
+          disabled={drafting}
           onChange={(e) => setDraft(e.target.value)}
         />
+        {builtFrom !== "" && KZ_LETTERS.test(draft) && (
+          <span className="caption pretty" style={{ color: "var(--warning-text)" }}>
+            {t.asDraftKzWarning}
+          </span>
+        )}
+        {/* Не вопрос админу и не требование что-то заполнить: просто видно,
+            на чём стоит текст */}
+        {builtFrom !== "" && (
+          <span className="caption muted-3 pretty">{t.asBuiltFrom(builtFrom)}</span>
+        )}
         <div className="row between wrap g10">
           <span className="caption muted-3">{t.qaWhoAnswers}</span>
-          <div className="row g8">
+          <div className="row wrap g8">
             <Button
               variant="danger-soft"
               size="sm"
@@ -562,7 +625,23 @@ function QuestionCard({
             >
               Удалить вопрос
             </Button>
-            <Button size="sm" loading={sending} disabled={!draft.trim()} onClick={send}>
+            {assistant && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<IconSparkle size={15} />}
+                loading={drafting}
+                onClick={askDraft}
+              >
+                {drafting ? t.asDrafting : aiText === null ? t.asDraftReply : t.asDraftAgain}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              loading={sending}
+              disabled={!draft.trim() || drafting}
+              onClick={send}
+            >
               {t.reply}
             </Button>
           </div>

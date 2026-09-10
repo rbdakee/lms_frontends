@@ -46,6 +46,7 @@ import { dayTime } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { fieldErrors } from "@/lib/fieldErrors";
+import { useAssistantEnabled } from "@/components/admin/assistantApi";
 import {
   CertificateStatusBadge,
   certTeacherName,
@@ -54,7 +55,7 @@ import {
 import { PlatformChip } from "@/components/admin/platforms";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Breadcrumbs, Button, Empty, LinkButton, Note, Sheet } from "@lms/ui";
-import { IconArrowLeft, IconCertificate } from "@lms/ui/icons";
+import { IconArrowLeft, IconCertificate, IconSparkle } from "@lms/ui/icons";
 
 /** Что видно в полях формы. Числа и даты живут строками — их печатают. */
 interface Form {
@@ -181,6 +182,8 @@ export default function CertificateCardPage() {
   const toast = useToast();
 
   const card = useLoad(() => api<AdminCertificateCard>(`/admin/certificates/${id}`), [id]);
+  /* Ключа модели нет — кнопки нет вовсе, а не отказ по нажатию */
+  const assistantOn = useAssistantEnabled();
 
   const [form, setForm] = useState<Form | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -371,6 +374,23 @@ export default function CertificateCardPage() {
               <PlatformChip platform={c.platform} />
             </FactRow>
           </dl>
+
+          {/* Допуск «чтение»: здесь сверяют документ, а данные человека правят
+              на его карточке (ASSISTANT_BRIEF, раздел 5). Уходит один
+              числовой id — ни ФИО, ни ИИН в адрес не попадают */}
+          {assistantOn && (
+            <div className="row wrap g10">
+              <LinkButton
+                href={`/assistant?ask=${c.teacher.id}&level=read`}
+                variant="secondary"
+                size="sm"
+                icon={<IconSparkle size={15} />}
+              >
+                {t.asAskAssistant}
+              </LinkButton>
+              <span className="caption muted-3 pretty">{t.asAskAssistantHint}</span>
+            </div>
+          )}
         </section>
 
         {request && <Note kind="info">{t.crtRequestNote}</Note>}
