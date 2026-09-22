@@ -58,6 +58,7 @@ import {
   onNotificationsChanged,
 } from "@lms/site";
 import { useRoutes } from "@lms/site/host";
+import { LESSON_AI_NAME, useLessonAiInMenu } from "@lms/lesson_ai";
 import { Avatar, Sheet, Skeleton } from "@lms/ui";
 import {
   IconBell,
@@ -71,6 +72,7 @@ import {
   IconPhone,
   IconSettings,
   IconShield,
+  IconSparkle,
   IconUser,
   IconWhatsapp,
 } from "@lms/ui/icons";
@@ -133,12 +135,16 @@ type NavItem = {
  */
 function useNavItems(authed: boolean): NavItem[] {
   const { t } = useLang();
+  const lessonAi = useLessonAiInMenu();
   const journal: NavItem = { href: JOURNAL_URL, label: t.navJournalSciPed, icon: IconBook, external: true };
   return authed
     ? [
         { href: "/my", label: t.navHome, icon: IconHome, match: ["/my", "/learn"] },
         { href: "/courses", label: t.navCatalog, icon: IconCatalog },
         { href: "/certificates", label: t.navCerts, icon: IconCertificate },
+        /* «Жоспар» — отдельный продукт, не раздел курсов; выключенный
+           на сервере прячется (`useLessonAiInMenu`) */
+        ...(lessonAi ? [{ href: "/lesson_ai", label: LESSON_AI_NAME, icon: IconSparkle }] : []),
         journal,
       ]
     : [
@@ -602,10 +608,12 @@ function Header({ title }: { title?: string }) {
 export function TabBar() {
   const { t } = useLang();
   const pathname = usePathname();
+  const lessonAi = useLessonAiInMenu();
   const tabs = [
     { href: "/my", label: t.navHome, icon: IconHome },
     { href: "/courses", label: t.navCatalog, icon: IconCatalog },
     { href: "/certificates", label: t.navCerts, icon: IconCertificate },
+    ...(lessonAi ? [{ href: "/lesson_ai", label: LESSON_AI_NAME, icon: IconSparkle }] : []),
     { href: "/profile", label: t.navProfile, icon: IconUser },
   ];
   return (

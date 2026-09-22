@@ -1,0 +1,21 @@
+{
+  "name": "@lms/lesson_ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "«Жоспар» глазами учителя: чат сбора заказа, ожидание генерации, комплект с правкой по блокам, свои уроки. Отдельный от курсов продукт, общий у обеих площадок — копий быть не должно.",
+  "exports": {
+    ".": "./index.ts",
+    "./screens": "./screens/index.ts",
+    "./host": "./host.tsx"
+  },
+  "dependencies": {
+    "@lms/api": "*",
+    "@lms/course": "*",
+    "@lms/ui": "*"
+  },
+  "peerDependencies": {
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}

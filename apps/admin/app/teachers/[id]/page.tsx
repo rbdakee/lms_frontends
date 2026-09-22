@@ -45,6 +45,7 @@ import { fieldErrors } from "@/lib/fieldErrors";
 import { useAssistantEnabled } from "@/components/admin/assistantApi";
 import { IIN_PLACEHOLDER } from "@/components/admin/certificatesApi";
 import { GrantAccessSheet } from "@/components/admin/GrantAccess";
+import { LessonAiAccessBlock } from "@/components/admin/LessonAiAccess";
 import { PlatformChip, usePlatformName } from "@/components/admin/platforms";
 import { SubmissionStatusBadge } from "@/components/admin/submissionsApi";
 import { AdminShell } from "@/components/layout/AdminShell";
@@ -492,6 +493,9 @@ export default function TeacherCardPage() {
               </>
             )}
           </div>
+
+          {/* «Жоспар» — отдельный продукт, доступ к нему свой (L7) */}
+          <LessonAiAccessBlock teacherId={teacher.id} />
         </aside>
 
         {/* ===== Вкладки ===== */}

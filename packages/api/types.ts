@@ -356,3 +356,50 @@ export type AssistantDraftReply = S["AssistantDraftReplyOut"];
 
 /** Признак «ассистент настроен» из `GET /admin/settings`. Только на чтение. */
 export type AssistantSettings = S["AdminSettingsAssistantOut"];
+
+/* ============ «Жоспар», помощник учителя (сессии L3–L7) ============
+
+   Второй, отдельный продукт (`TEACHER_AI_BRIEF`): учитель готовится к уроку
+   в своей школе. Имена — по схемам без хвоста `Out`; префикс `Lesson` у них
+   от схемы бэкенда, к урокам курса (`Lesson` выше) они отношения не имеют. */
+
+export type LessonAccessStatus = S["LessonAccessStatusOut"];
+
+export type LessonKit = S["LessonKitOut"];
+export type LessonKitIn = S["LessonKitIn"];
+export type LessonKitStatus = LessonKit["status"];
+/** Язык обучения — язык документов. С языком интерфейса не связан. */
+export type LessonLang = LessonKit["lang"];
+export type EngagementLevel = LessonKit["engagement_level"];
+export type DifficultyLevel = LessonKit["difficulty_level"];
+export type LessonObjective = S["LessonObjectiveOut"];
+
+export type LessonMaterial = S["LessonMaterialOut"];
+export type LessonMaterialKind = LessonMaterial["kind"];
+export type LessonMaterialStatus = LessonMaterial["status"];
+export type LessonMaterialError = S["LessonMaterialErrorOut"];
+
+export type LessonBlocks = S["LessonBlocksOut"];
+export type LessonBlock = S["LessonBlockOut"];
+export type LessonBlockVersions = S["LessonBlockVersionsOut"];
+export type LessonBlockVersion = S["LessonBlockVersionOut"];
+export type LessonBlockVersionSource = LessonBlockVersion["source"];
+
+export type LessonChat = S["LessonChatOut"];
+export type LessonChatOrder = S["LessonChatOrderOut"];
+export type LessonChatMessage = S["LessonChatMessageOut"];
+/** Цель обучения строкой справочника — одна форма у карточек чата, заказа и списка. */
+export type LessonChatObjective = S["LessonChatObjectiveOut"];
+export type LessonChatOrderPatch = S["LessonChatOrderPatchIn"];
+export type LessonChatConfirmIn = S["LessonChatConfirmIn"];
+export type LessonChatConfirm = S["LessonChatConfirmOut"];
+export type LessonChatTurn = S["LessonChatTurnOut"];
+export type LessonObjectives = S["LessonObjectivesOut"];
+
+/* Выдача доступа в админке (`/admin/lesson_ai/access`) */
+export type LessonAccess = S["LessonAccessOut"];
+export type LessonAccessState = LessonAccess["status"];
+export type LessonAccessCard = S["LessonAccessCardOut"];
+export type LessonAccessItem = S["LessonAccessItemOut"];
+export type LessonAccessPage = S["LessonAccessPageOut"];
+export type LessonAccessGrantIn = S["LessonAccessGrantIn"];

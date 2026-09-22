@@ -22,6 +22,7 @@ import { web } from "@/lib/urls";
 import { Avatar, Empty, Sheet } from "@lms/ui";
 import {
   IconBook,
+  IconKey,
   IconCertificate,
   IconChart,
   IconChevronRight,
@@ -83,6 +84,17 @@ const NAV: NavGroup[] = [
   {
     group: "Контент",
     items: [{ href: "/courses", label: "Курсы", icon: IconLayers }],
+  },
+  /* «Жоспар» — второй, отдельный продукт: помощник учителя в подготовке
+     к своему уроку (`TEACHER_AI_BRIEF`, решение владельца 19.09.2026).
+     К нашим курсам он отношения не имеет, поэтому и группа своя, а не пункт
+     в «Контенте». */
+  {
+    group: "Жоспар",
+    items: [
+      /* Выдача доступа к помощнику — отдельно от доступа к курсам (L7) */
+      { href: "/lesson_ai/access", label: "Доступ к помощнику", icon: IconKey },
+    ],
   },
   {
     group: "Требует внимания",

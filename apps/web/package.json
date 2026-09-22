@@ -13,6 +13,7 @@
   "dependencies": {
     "@lms/api": "*",
     "@lms/course": "*",
+    "@lms/lesson_ai": "*",
     "@lms/site": "*",
     "@lms/ui": "*",
     "next": "15.1.11",

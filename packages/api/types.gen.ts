@@ -1618,6 +1618,438 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/curriculum/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Programs */
+        get: operations["programs_admin_curriculum_programs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/curriculum/programs/{program_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Program */
+        get: operations["program_admin_curriculum_programs__program_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/curriculum/programs/{program_id}/objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Objectives */
+        get: operations["objectives_admin_curriculum_programs__program_id__objectives_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/curriculum/objectives/{objective_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit Objective */
+        patch: operations["edit_objective_admin_curriculum_objectives__objective_id__patch"];
+        trace?: never;
+    };
+    "/admin/curriculum/programs/{program_id}/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Issues */
+        get: operations["issues_admin_curriculum_programs__program_id__issues_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/curriculum/issues/{issue_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Issue */
+        post: operations["resolve_issue_admin_curriculum_issues__issue_id__resolve_post"];
+        /** Unresolve Issue */
+        delete: operations["unresolve_issue_admin_curriculum_issues__issue_id__resolve_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/curriculum/programs/{program_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish */
+        post: operations["publish_admin_curriculum_programs__program_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/curriculum/programs/{program_id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unpublish */
+        post: operations["unpublish_admin_curriculum_programs__program_id__unpublish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/lesson_ai/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Access List */
+        get: operations["access_list_admin_lesson_ai_access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/lesson_ai/access/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Access Card */
+        get: operations["access_card_admin_lesson_ai_access__user_id__get"];
+        /** Grant */
+        put: operations["grant_admin_lesson_ai_access__user_id__put"];
+        post?: never;
+        /** Revoke */
+        delete: operations["revoke_admin_lesson_ai_access__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Access */
+        get: operations["access_lesson_ai_access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/kits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Kit */
+        post: operations["create_kit_lesson_ai_kits_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/kits/{kit_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Kit */
+        get: operations["kit_lesson_ai_kits__kit_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/materials/{material_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Material File */
+        get: operations["material_file_lesson_ai_materials__material_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/materials/{material_id}/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Material Blocks */
+        get: operations["material_blocks_lesson_ai_materials__material_id__blocks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/materials/{material_id}/blocks/{block}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Regenerate Block */
+        post: operations["regenerate_block_lesson_ai_materials__material_id__blocks__block__regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/materials/{material_id}/blocks/{block}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit Block */
+        put: operations["edit_block_lesson_ai_materials__material_id__blocks__block__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/materials/{material_id}/blocks/{block}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Block Versions */
+        get: operations["block_versions_lesson_ai_materials__material_id__blocks__block__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/materials/{material_id}/blocks/{block}/versions/{version_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Block */
+        post: operations["restore_block_lesson_ai_materials__material_id__blocks__block__versions__version_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/chats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Chat */
+        post: operations["create_chat_lesson_ai_chats_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/chats/{chat_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chat */
+        get: operations["chat_lesson_ai_chats__chat_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/chats/{chat_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say
+         * @description Реплика учителя и ответ помощника — стримом. Проверки входа идут
+         *     **до** стрима и остаются обычными отказами: `404`, `409`, `422`, `429`.
+         */
+        post: operations["say_lesson_ai_chats__chat_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/chats/{chat_id}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Order */
+        patch: operations["patch_order_lesson_ai_chats__chat_id__order_patch"];
+        trace?: never;
+    };
+    "/lesson_ai/chats/{chat_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm */
+        post: operations["confirm_lesson_ai_chats__chat_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Objectives */
+        get: operations["objectives_lesson_ai_objectives_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/settings": {
         parameters: {
             query?: never;
@@ -3684,6 +4116,244 @@ export interface components {
              */
             copy_program: boolean;
         };
+        /**
+         * CurriculumIssueOut
+         * @description Подозрение автопроверки импорта.
+         *
+         *     `kind` — машинный код проверки: по нему фронт группирует список
+         *     и подбирает подсказку. `objective_code` пуст у подозрений, которые
+         *     относятся к программе целиком (`count_mismatch`, `empty_section`).
+         *     `resolved_by` — ФИО админа, чтобы через месяц было видно, кто принял
+         *     решение.
+         */
+        CurriculumIssueOut: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /** Objective Code */
+            objective_code: string | null;
+            /** Message */
+            message: string;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Resolved By */
+            resolved_by: string | null;
+        };
+        /** CurriculumIssuesPageOut */
+        CurriculumIssuesPageOut: {
+            /** Items */
+            items: components["schemas"]["CurriculumIssueOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /**
+         * CurriculumObjectiveOut
+         * @description Цель обучения.
+         *
+         *     `quarters` — четверти, в которых цель изучается; пустой список значит,
+         *     что в долгосрочном плане приказа её нет (так бывает).
+         *     `marker` — пометка из приказа (`**` — «реализуется частично»), пустая
+         *     строка, если её нет. `edited_at` — когда текст правили руками;
+         *     `null` — текст как в приказе.
+         */
+        CurriculumObjectiveOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Grade */
+            grade: number;
+            /** Index */
+            index: number;
+            /** Marker */
+            marker: string;
+            /** Text */
+            text: string;
+            /** Quarters */
+            quarters: number[];
+            /** Has Image */
+            has_image: boolean;
+            /** Edited At */
+            edited_at: string | null;
+            /** Subsection Code */
+            subsection_code: string;
+            /** Subsection Title */
+            subsection_title: string;
+        };
+        /**
+         * CurriculumObjectivePatchIn
+         * @description Правка формулировки. Кода, класса и подраздела здесь нет и не будет:
+         *     они заданы приказом, и по коду цели завуч сверяет план урока.
+         */
+        CurriculumObjectivePatchIn: {
+            /** Text */
+            text: string;
+        };
+        /** CurriculumObjectivesPageOut */
+        CurriculumObjectivesPageOut: {
+            /** Items */
+            items: components["schemas"]["CurriculumObjectiveOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /** CurriculumProgramCardOut */
+        CurriculumProgramCardOut: {
+            /** Id */
+            id: number;
+            /** Subject Code */
+            subject_code: string;
+            /** Subject Title */
+            subject_title: string;
+            /**
+             * Lang
+             * @enum {string}
+             */
+            lang: "ru" | "kz";
+            /** Grade From */
+            grade_from: number;
+            /** Grade To */
+            grade_to: number;
+            /** Order Number */
+            order_number: string;
+            /**
+             * Order Date
+             * Format: date
+             */
+            order_date: string;
+            /** Order Date Text */
+            order_date_text: string;
+            /** Source Url */
+            source_url: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "loaded" | "published";
+            /**
+             * Imported At
+             * Format: date-time
+             */
+            imported_at: string;
+            /** Published At */
+            published_at: string | null;
+            /** Objectives Count */
+            objectives_count: number;
+            /** Issues Open */
+            issues_open: number;
+            /** Errors Open */
+            errors_open: number;
+            /** Sections */
+            sections: components["schemas"]["CurriculumSectionOut"][];
+        };
+        /**
+         * CurriculumProgramOut
+         * @description Программа в форме элемента списка. Ею же отвечают публикация
+         *     и снятие публикации: экран перерисовывает строку ответом.
+         *
+         *     `issues_open` — сколько подозрений ещё не разобрано, `errors_open` —
+         *     из них ошибок. Пока `errors_open` больше нуля, публикация закрыта.
+         */
+        CurriculumProgramOut: {
+            /** Id */
+            id: number;
+            /** Subject Code */
+            subject_code: string;
+            /** Subject Title */
+            subject_title: string;
+            /**
+             * Lang
+             * @enum {string}
+             */
+            lang: "ru" | "kz";
+            /** Grade From */
+            grade_from: number;
+            /** Grade To */
+            grade_to: number;
+            /** Order Number */
+            order_number: string;
+            /**
+             * Order Date
+             * Format: date
+             */
+            order_date: string;
+            /** Order Date Text */
+            order_date_text: string;
+            /** Source Url */
+            source_url: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "loaded" | "published";
+            /**
+             * Imported At
+             * Format: date-time
+             */
+            imported_at: string;
+            /** Published At */
+            published_at: string | null;
+            /** Objectives Count */
+            objectives_count: number;
+            /** Issues Open */
+            issues_open: number;
+            /** Errors Open */
+            errors_open: number;
+        };
+        /** CurriculumProgramsPageOut */
+        CurriculumProgramsPageOut: {
+            /** Items */
+            items: components["schemas"]["CurriculumProgramOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /**
+         * CurriculumSectionOut
+         * @description Раздел приказа. Уровня всего два — раздел и его подразделы,
+         *     третьего у программы не бывает.
+         */
+        CurriculumSectionOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Subsections */
+            subsections: components["schemas"]["CurriculumSubsectionOut"][];
+        };
+        /** CurriculumSubsectionOut */
+        CurriculumSubsectionOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Objectives Count */
+            objectives_count: number;
+        };
         /** DictionariesOut */
         DictionariesOut: {
             /** Regions */
@@ -3812,10 +4482,410 @@ export interface components {
             /** Subject */
             subject: string;
         };
+        /**
+         * LessonAccessCardOut
+         * @description Доступ одного учителя; `access: null` — не выдавался ни разу.
+         */
+        LessonAccessCardOut: {
+            /** User Id */
+            user_id: number;
+            access: components["schemas"]["LessonAccessOut"] | null;
+        };
+        /**
+         * LessonAccessGrantIn
+         * @description Выдать, продлить или выдать заново после снятия.
+         *
+         *     `expires_on` — по этот день включительно, по казахстанскому времени;
+         *     `null` — без срока. `paid` — отметка «оплата получена», `note` — комментарий
+         *     к ней; без оплаты комментарий не сохраняется, как у доступа к курсу.
+         */
+        LessonAccessGrantIn: {
+            /** Expires On */
+            expires_on?: string | null;
+            /**
+             * Paid
+             * @default false
+             */
+            paid: boolean;
+            /** Note */
+            note?: string | null;
+        };
+        /** LessonAccessItemOut */
+        LessonAccessItemOut: {
+            teacher: components["schemas"]["LessonAccessTeacherOut"];
+            access: components["schemas"]["LessonAccessOut"];
+            usage: components["schemas"]["LessonAccessUsageOut"];
+        };
+        /**
+         * LessonAccessOut
+         * @description Доступ учителя глазами админа. `status`: `active` — действует,
+         *     `expired` — срок прошёл, `revoked` — снят админом.
+         */
+        LessonAccessOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "expired" | "revoked";
+            /** Expires On */
+            expires_on: string | null;
+            /** Paid */
+            paid: boolean;
+            /** Paid Note */
+            paid_note: string | null;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            granted_by: components["schemas"]["LessonAccessPersonOut"] | null;
+            /** Revoked At */
+            revoked_at: string | null;
+        };
+        /** LessonAccessPageOut */
+        LessonAccessPageOut: {
+            /** Items */
+            items: components["schemas"]["LessonAccessItemOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /** LessonAccessPersonOut */
+        LessonAccessPersonOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /**
+         * LessonAccessStatusOut
+         * @description `GET /lesson_ai/access` — есть ли у учителя доступ. Срок — только
+         *     у действующего; `null` у действующего значит «бессрочно».
+         */
+        LessonAccessStatusOut: {
+            /** Has Access */
+            has_access: boolean;
+            /** Expires On */
+            expires_on: string | null;
+        };
+        /**
+         * LessonAccessTeacherOut
+         * @description Человек в строке списка доступов — те же поля и имена, что в списке
+         *     учителей админки: экран рисует их тем же компонентом.
+         */
+        LessonAccessTeacherOut: {
+            /** Id */
+            id: number;
+            /** Last Name */
+            last_name: string;
+            /** First Name */
+            first_name: string;
+            /** Middle Name */
+            middle_name: string;
+            /** Phone */
+            phone: string;
+            /** School */
+            school: string;
+            /** Region */
+            region: string;
+            /** City */
+            city: string;
+            /** Subject */
+            subject: string;
+            /** Is Blocked */
+            is_blocked: boolean;
+        };
+        /**
+         * LessonAccessUsageOut
+         * @description Расход учителя за всё время. `cost_usd: null` — стоимость неизвестна:
+         *     модели нет в прайсе или расхода ещё не было; токены при этом честные.
+         */
+        LessonAccessUsageOut: {
+            /** Kits */
+            kits: number;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+        };
+        /**
+         * LessonBlockEditIn
+         * @description Ручная правка: блок целиком, той же формы, что в `content` материала.
+         *     Проверяется той же схемой, что ответ модели.
+         */
+        LessonBlockEditIn: {
+            /** Content */
+            content: unknown;
+        };
+        /**
+         * LessonBlockOut
+         * @description Блок материала — поле верхнего уровня его содержимого.
+         *
+         *     `editable: false` — блок сервера (раздел программы, цель обучения
+         *     с кодом): ни перегенерации, ни правки, ни отката у него нет.
+         *     `content` — той же формы, что ключ `kind` в `material.content`.
+         */
+        LessonBlockOut: {
+            /** Kind */
+            kind: string;
+            /** Order Index */
+            order_index: number;
+            /** Editable */
+            editable: boolean;
+            /** Content */
+            content: unknown;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * LessonBlockRegenerateIn
+         * @description Просьба учителя своими словами — «сделай подвижнее». Пусто — просто
+         *     переписать блок заново.
+         */
+        LessonBlockRegenerateIn: {
+            /**
+             * Instruction
+             * @default
+             */
+            instruction: string;
+        };
+        /** LessonBlockVersionOut */
+        LessonBlockVersionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "generated" | "regenerated" | "edited" | "restored";
+            /** Instruction */
+            instruction: string | null;
+            /** Content */
+            content: unknown;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Current */
+            current: boolean;
+        };
+        /**
+         * LessonBlockVersionsOut
+         * @description История блока, свежие сверху; первая строка — текущее состояние.
+         */
+        LessonBlockVersionsOut: {
+            /** Block */
+            block: string;
+            /** Items */
+            items: components["schemas"]["LessonBlockVersionOut"][];
+        };
+        /** LessonBlocksOut */
+        LessonBlocksOut: {
+            /** Material Id */
+            material_id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "lesson_plan" | "presentation" | "tasks" | "homework" | "assessment" | "game" | "answer_key";
+            /** Items */
+            items: components["schemas"]["LessonBlockOut"][];
+        };
         /** LessonBodyIn */
         LessonBodyIn: {
             /** Html */
             html: string;
+        };
+        /**
+         * LessonChatConfirmIn
+         * @description Кнопка «Готовить» — карточка заказа целиком.
+         *
+         *     Оба уровня **обязательны** (раздел 4.3 брифа): у них есть середина,
+         *     но экран обязан показать вопрос и прислать ответ, пусть и нетронутый.
+         *     `class_size` и `notes` не прислали — берутся из разговора.
+         */
+        LessonChatConfirmIn: {
+            /** Kinds */
+            kinds: ("lesson_plan" | "presentation" | "tasks" | "homework" | "assessment" | "game" | "answer_key")[];
+            /**
+             * Engagement Level
+             * @enum {string}
+             */
+            engagement_level: "calm" | "active" | "full_game";
+            /**
+             * Difficulty Level
+             * @enum {string}
+             */
+            difficulty_level: "basic" | "standard" | "advanced";
+            /** Class Size */
+            class_size?: number | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** LessonChatConfirmOut */
+        LessonChatConfirmOut: {
+            chat: components["schemas"]["LessonChatOut"];
+            kit: components["schemas"]["LessonKitOut"];
+        };
+        /**
+         * LessonChatMessageOut
+         * @description Строка ленты. `role: "tool"` — поиск по программе: в `tool_result.items`
+         *     найденные цели формы `LessonChatObjectiveOut`, отказ — в `tool_result.error`.
+         */
+        LessonChatMessageOut: {
+            /** Id */
+            id: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant" | "tool";
+            /** Content */
+            content: string;
+            /** Tool Name */
+            tool_name: string | null;
+            /** Tool Args */
+            tool_args: {
+                [key: string]: unknown;
+            } | null;
+            /** Tool Result */
+            tool_result: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * LessonChatObjectiveOut
+         * @description Цель обучения строкой справочника — дословно, с кодом, разделом
+         *     и подразделом. В этой форме её отдают инструменты чата (карточки
+         *     в `tool_result`), карточка заказа и список «выбрать самому».
+         */
+        LessonChatObjectiveOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
+            /** Marker */
+            marker: string;
+            /** Grade */
+            grade: number;
+            /**
+             * Lang
+             * @enum {string}
+             */
+            lang: "ru" | "kz";
+            /** Subject Code */
+            subject_code: string;
+            /** Section */
+            section: string;
+            /** Subsection */
+            subsection: string;
+        };
+        /**
+         * LessonChatOrderOut
+         * @description Заказ, каким его записал сервер. Предмет и класс — из цели.
+         *
+         *     `missing` — кого из пятерых ещё нет; пусто и `ready: true` — карточку
+         *     с галочками и кнопкой «Готовить» можно показывать. Уровни и виды —
+         *     с учётом сказанного в разговоре, иначе середина и список по умолчанию.
+         */
+        LessonChatOrderOut: {
+            /** Subject Code */
+            subject_code: string | null;
+            /** Grade */
+            grade: number | null;
+            /** Lang */
+            lang: ("ru" | "kz") | null;
+            objective: components["schemas"]["LessonChatObjectiveOut"] | null;
+            /** Topic */
+            topic: string | null;
+            /**
+             * Engagement Level
+             * @enum {string}
+             */
+            engagement_level: "calm" | "active" | "full_game";
+            /**
+             * Difficulty Level
+             * @enum {string}
+             */
+            difficulty_level: "basic" | "standard" | "advanced";
+            /** Kinds */
+            kinds: ("lesson_plan" | "presentation" | "tasks" | "homework" | "assessment" | "game" | "answer_key")[];
+            /** Class Size */
+            class_size: number | null;
+            /** Notes */
+            notes: string;
+            /** Missing */
+            missing: ("subject" | "grade" | "lang" | "objective" | "topic")[];
+            /** Ready */
+            ready: boolean;
+        };
+        /**
+         * LessonChatOrderPatchIn
+         * @description Кнопки под сообщениями: «Да, она», «Русский» / «Қазақша», правка темы.
+         *     Прислано `null` — поле стёрто; не прислано — не тронуто.
+         */
+        LessonChatOrderPatchIn: {
+            /** Objective Id */
+            objective_id?: number | null;
+            /** Lang */
+            lang?: ("ru" | "kz") | null;
+            /** Topic */
+            topic?: string | null;
+        };
+        /** LessonChatOut */
+        LessonChatOut: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "collecting" | "confirmed";
+            /** Kit Id */
+            kit_id: number | null;
+            order: components["schemas"]["LessonChatOrderOut"];
+            /** Items */
+            items: components["schemas"]["LessonChatMessageOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** LessonChatSayIn */
+        LessonChatSayIn: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * LessonChatTurnOut
+         * @description Событие `done` хода: чат целиком — лента и заказ.
+         */
+        LessonChatTurnOut: {
+            chat: components["schemas"]["LessonChatOut"];
+            /** Stopped At Cap */
+            stopped_at_cap: boolean;
         };
         /** LessonCompleteOut */
         LessonCompleteOut: {
@@ -3846,6 +4916,156 @@ export interface components {
             size_bytes: number;
             /** Mime */
             mime: string;
+        };
+        /**
+         * LessonKitIn
+         * @description Заказ комплекта. Язык и класс не принимаются: их знает цель обучения.
+         *
+         *     `kinds` — что подготовить, любые из семи видов. `answer_key` не генерируется,
+         *     а собирается из ответов к `tasks`, `homework` и `assessment` — без них
+         *     он не принимается.
+         *
+         *     Два уровня (раздел 4.3 брифа): насколько игровым идёт урок и какой у класса
+         *     уровень. Не прислал — середина, `active` и `standard`.
+         */
+        LessonKitIn: {
+            /** Objective Id */
+            objective_id: number;
+            /** Topic */
+            topic: string;
+            /** Kinds */
+            kinds: ("lesson_plan" | "presentation" | "tasks" | "homework" | "assessment" | "game" | "answer_key")[];
+            /** Class Size */
+            class_size?: number | null;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Engagement Level
+             * @default active
+             * @enum {string}
+             */
+            engagement_level: "calm" | "active" | "full_game";
+            /**
+             * Difficulty Level
+             * @default standard
+             * @enum {string}
+             */
+            difficulty_level: "basic" | "standard" | "advanced";
+        };
+        /**
+         * LessonKitOut
+         * @description Комплект целиком. Им отвечают и создание, и опрос: экран ожидания
+         *     перерисовывается одним и тем же ответом.
+         */
+        LessonKitOut: {
+            /** Id */
+            id: number;
+            objective: components["schemas"]["LessonObjectiveOut"];
+            /** Subject Code */
+            subject_code: string;
+            /** Grade */
+            grade: number;
+            /**
+             * Lang
+             * @enum {string}
+             */
+            lang: "ru" | "kz";
+            /** Topic */
+            topic: string;
+            /** Class Size */
+            class_size: number | null;
+            /** Notes */
+            notes: string;
+            /**
+             * Engagement Level
+             * @enum {string}
+             */
+            engagement_level: "calm" | "active" | "full_game";
+            /**
+             * Difficulty Level
+             * @enum {string}
+             */
+            difficulty_level: "basic" | "standard" | "advanced";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "generating" | "ready" | "partial" | "failed";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Materials */
+            materials: components["schemas"]["LessonMaterialOut"][];
+        };
+        /** LessonMaterialErrorOut */
+        LessonMaterialErrorOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "ai_failed" | "model_output_invalid" | "interrupted" | "program_not_published" | "no_sources" | "internal_error";
+            /** Message */
+            message: string;
+        };
+        /**
+         * LessonMaterialOut
+         * @description Материал комплекта. `content` пуст, пока материал не готов; форма
+         *     у каждого вида своя — все семь в `CONTRACT.md`.
+         *
+         *     `error` заполнен только у упавшего материала (`status: "failed"`).
+         */
+        LessonMaterialOut: {
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "lesson_plan" | "presentation" | "tasks" | "homework" | "assessment" | "game" | "answer_key";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "generating" | "ready" | "failed";
+            error: components["schemas"]["LessonMaterialErrorOut"] | null;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * LessonObjectiveOut
+         * @description Цель обучения из справочника — дословно, как в приказе.
+         */
+        LessonObjectiveOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
+            /** Marker */
+            marker: string;
+        };
+        /** LessonObjectivesOut */
+        LessonObjectivesOut: {
+            /** Items */
+            items: components["schemas"]["LessonChatObjectiveOut"][];
         };
         /** LessonOut */
         LessonOut: {
@@ -8846,6 +10066,909 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssistantMemoryOut"];
+                };
+            };
+        };
+    };
+    programs_admin_curriculum_programs_get: {
+        parameters: {
+            query?: {
+                subject_code?: string | null;
+                lang?: ("ru" | "kz") | null;
+                status?: ("loaded" | "published") | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumProgramsPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    program_admin_curriculum_programs__program_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumProgramCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    objectives_admin_curriculum_programs__program_id__objectives_get: {
+        parameters: {
+            query?: {
+                grade?: number | null;
+                subsection?: string | null;
+                q?: string | null;
+                has_image?: boolean | null;
+                edited?: boolean | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                program_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumObjectivesPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_objective_admin_curriculum_objectives__objective_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objective_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CurriculumObjectivePatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumObjectiveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issues_admin_curriculum_programs__program_id__issues_get: {
+        parameters: {
+            query?: {
+                severity?: ("error" | "warning") | null;
+                resolved?: boolean | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                program_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumIssuesPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_issue_admin_curriculum_issues__issue_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumIssueOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unresolve_issue_admin_curriculum_issues__issue_id__resolve_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumIssueOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_admin_curriculum_programs__program_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumProgramOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpublish_admin_curriculum_programs__program_id__unpublish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurriculumProgramOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    access_list_admin_lesson_ai_access_get: {
+        parameters: {
+            query?: {
+                status?: ("active" | "expired" | "revoked") | null;
+                q?: string | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonAccessPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    access_card_admin_lesson_ai_access__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonAccessCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_admin_lesson_ai_access__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonAccessGrantIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonAccessCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_admin_lesson_ai_access__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    access_lesson_ai_access_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonAccessStatusOut"];
+                };
+            };
+        };
+    };
+    create_kit_lesson_ai_kits_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonKitIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonKitOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    kit_lesson_ai_kits__kit_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonKitOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    material_file_lesson_ai_materials__material_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                material_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Документ Word, у презентации — PowerPoint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    material_blocks_lesson_ai_materials__material_id__blocks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                material_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonBlocksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_block_lesson_ai_materials__material_id__blocks__block__regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                material_id: number;
+                block: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonBlockRegenerateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonBlockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_block_lesson_ai_materials__material_id__blocks__block__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                material_id: number;
+                block: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonBlockEditIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonBlockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    block_versions_lesson_ai_materials__material_id__blocks__block__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                material_id: number;
+                block: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonBlockVersionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_block_lesson_ai_materials__material_id__blocks__block__versions__version_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                material_id: number;
+                block: string;
+                version_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonBlockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_chat_lesson_ai_chats_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatOut"];
+                };
+            };
+        };
+    };
+    chat_lesson_ai_chats__chat_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    say_lesson_ai_chats__chat_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonChatSayIn"];
+            };
+        };
+        responses: {
+            /** @description Ход событиями `text/event-stream`: `delta`, `tool`, `done`, `error`. Событие `done` несёт эту форму — чат целиком. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["LessonChatTurnOut"];
+                    "application/json": components["schemas"]["LessonChatTurnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_order_lesson_ai_chats__chat_id__order_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonChatOrderPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_lesson_ai_chats__chat_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonChatConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatConfirmOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    objectives_lesson_ai_objectives_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                grade?: number | null;
+                lang?: ("ru" | "kz") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonObjectivesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
