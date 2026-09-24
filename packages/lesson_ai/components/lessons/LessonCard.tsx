@@ -9,14 +9,16 @@
  */
 
 import Link from "next/link";
+import { useState } from "react";
 import type { LessonKitStatus, LessonMaterialStatus } from "@lms/api";
-import { Badge, LinkButton, Skeleton, type BadgeKind } from "@lms/ui";
+import { Badge, Button, LinkButton, Skeleton, type BadgeKind } from "@lms/ui";
 import { dayMonth } from "@lms/ui/i18n";
-import { IconCheck, IconCopy, IconGlobe } from "@lms/ui/icons";
+import { IconCheck, IconCopy, IconEye, IconGlobe } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import type { LessonKitListItem } from "../../api";
 import { useRoutes } from "../../host";
 import { KIND_ORDER, contentLang, kindTitle } from "../../labels";
+import { PreviewSheet } from "../PreviewSheet";
 
 const KIT_BADGE: Record<LessonKitStatus, BadgeKind> = {
   generating: "progress",
@@ -41,6 +43,7 @@ export function LessonCard({ item }: { item: LessonKitListItem }) {
     (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind),
   );
   const ready = materials.filter((m) => m.status === "ready").length;
+  const [previewing, setPreviewing] = useState(false);
 
   return (
     <article className="card card-link" style={{ overflow: "hidden" }}>
@@ -94,15 +97,30 @@ export function LessonCard({ item }: { item: LessonKitListItem }) {
         style={{ padding: "10px 16px", borderTop: "1px solid var(--line-soft)" }}
       >
         <span className="caption muted-3">{t.laLessonsCreated(dayMonth(item.created_at, lang))}</span>
-        <LinkButton
-          href={routes.newFrom(item.id)}
-          variant="secondary"
-          size="sm"
-          icon={<IconCopy size={16} />}
-        >
-          {t.laLessonsCopy}
-        </LinkButton>
+        <div className="row wrap g8">
+          {/* Прочитать готовое можно, не заходя в комплект: шторка листает
+              все готовые материалы урока */}
+          {ready > 0 && (
+            <Button variant="secondary" size="sm" icon={<IconEye size={16} />} onClick={() => setPreviewing(true)}>
+              {t.laPreview}
+            </Button>
+          )}
+          <LinkButton
+            href={routes.newFrom(item.id)}
+            variant="secondary"
+            size="sm"
+            icon={<IconCopy size={16} />}
+          >
+            {t.laLessonsCopy}
+          </LinkButton>
+        </div>
       </div>
+      <PreviewSheet
+        open={previewing}
+        onClose={() => setPreviewing(false)}
+        kit={item}
+        materials={item.materials}
+      />
     </article>
   );
 }

@@ -187,6 +187,36 @@ export async function downloadMaterial(materialId: number, fallbackName: string)
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+/**
+ * Материал страницей HTML — тот же файл, что скачивается, развёрнутый
+ * сервером для просмотра на сайте. Страница самодостаточная: стили
+ * в ней, скриптов нет — экран кладёт её во фрейм как есть.
+ *
+ * Запросом, а не `src` фрейма, по той же причине, что и скачивание: отказ
+ * приходит экрану, а не рисуется во фрейме страницей с JSON.
+ */
+export async function previewMaterial(materialId: number): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/lesson_ai/materials/${materialId}/preview`, {
+      credentials: "include",
+    });
+  } catch {
+    throw new ApiError(0, { code: NETWORK_ERROR, message: "Не удалось соединиться с сервером" });
+  }
+  if (!res.ok) {
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      /* тело пустое или не JSON — ниже подставится заглушка */
+    }
+    const err = (body as { error?: { code: string; message: string } } | null)?.error;
+    throw new ApiError(res.status, err ?? { code: "internal_error", message: "Что-то пошло не так" });
+  }
+  return res.text();
+}
+
 /** `attachment; filename="x.docx"; filename*=UTF-8''%D2%9A…` → имя по-человечески. */
 function fileNameFrom(header: string | null): string | null {
   if (!header) return null;

@@ -16,7 +16,7 @@
 import { useState } from "react";
 import type { LessonKit, LessonKitStatus, LessonMaterial, LessonMaterialKind } from "@lms/api";
 import { Badge, Button, Empty, LinkButton, Note, Skeleton, type BadgeKind } from "@lms/ui";
-import { IconArrowLeft, IconCopy, IconGlobe } from "@lms/ui/icons";
+import { IconArrowLeft, IconCopy, IconEye, IconGlobe } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { AccessUntil } from "../access";
 import { useChrome, useRoutes } from "../host";
@@ -25,6 +25,7 @@ import { MaterialBlocks } from "../components/kit/MaterialBlocks";
 import { MaterialHeader, MaterialStatusIcon } from "../components/kit/MaterialHeader";
 import { MaterialPending } from "../components/kit/MaterialPending";
 import { DownloadButton } from "../components/DownloadButton";
+import { PreviewSheet } from "../components/PreviewSheet";
 import { useKit } from "../components/kit/useKit";
 
 const KIT_BADGE: Record<LessonKitStatus, BadgeKind> = {
@@ -201,6 +202,7 @@ function KitMaterials({ kit, onChanged }: { kit: LessonKit; onChanged: () => voi
     (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind),
   );
   const [selected, setSelected] = useState<LessonMaterialKind | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const current = materials.find((m) => m.kind === selected) ?? materials[0];
 
   if (!current) return null;
@@ -232,7 +234,18 @@ function KitMaterials({ kit, onChanged }: { kit: LessonKit; onChanged: () => voi
       <div className="stack g14" role="tabpanel">
         <MaterialHeader
           material={current}
-          actions={current.status === "ready" ? <DownloadButton kit={kit} material={current} /> : undefined}
+          actions={
+            current.status === "ready" ? (
+              <>
+                {/* Посмотреть — первым: чаще всего учителю нужно прочитать,
+                    а не нести файл в Word */}
+                <Button variant="secondary" icon={<IconEye size={17} />} onClick={() => setPreviewing(true)}>
+                  {t.laPreview}
+                </Button>
+                <DownloadButton kit={kit} material={current} />
+              </>
+            ) : undefined
+          }
         />
         {current.status === "ready" ? (
           <MaterialBlocks key={current.id} material={current} kit={kit} onChanged={onChanged} />
@@ -240,6 +253,13 @@ function KitMaterials({ kit, onChanged }: { kit: LessonKit; onChanged: () => voi
           <MaterialPending material={current} kitId={kit.id} planPending={planPending(kit, current)} />
         )}
       </div>
+      <PreviewSheet
+        open={previewing}
+        onClose={() => setPreviewing(false)}
+        kit={kit}
+        materials={kit.materials}
+        initialId={current.id}
+      />
     </section>
   );
 }

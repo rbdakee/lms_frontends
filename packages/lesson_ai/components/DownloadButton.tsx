@@ -24,8 +24,10 @@ export function DownloadButton({
   material,
   size = "md",
 }: {
-  kit: LessonKit;
-  material: LessonMaterial;
+  /* Только нужные поля: кнопка стоит и в шторке просмотра «Моих уроков»,
+     где у комплекта урезанная форма списка */
+  kit: Pick<LessonKit, "lang" | "topic">;
+  material: Pick<LessonMaterial, "id" | "kind" | "status">;
   size?: "sm" | "md";
 }) {
   const { t } = useLang();
