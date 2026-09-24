@@ -237,7 +237,7 @@ function KitMaterials({ kit, onChanged }: { kit: LessonKit; onChanged: () => voi
         {current.status === "ready" ? (
           <MaterialBlocks key={current.id} material={current} kit={kit} onChanged={onChanged} />
         ) : (
-          <MaterialPending material={current} planPending={planPending(kit, current)} />
+          <MaterialPending material={current} kitId={kit.id} planPending={planPending(kit, current)} />
         )}
       </div>
     </section>

@@ -72,9 +72,10 @@ export function getKit(id: number | string): Promise<LessonKit> {
    Свежие сверху; `q` ищет по теме и по коду и тексту цели.
 
    Пока ручки нет, FastAPI отвечает на GET по этому пути `405` (у пути есть
-   только POST) — `listKits` возвращает `null`, и экран честно говорит, что
-   списка пока нет. Появится ручка — перегенерировать типы, заменить
-   `LessonKitListItem` на тип из схемы и убрать ветку `405`. */
+   только POST) — `listKits` возвращает `null`, и экран показывает комплекты,
+   открытые на этом устройстве (`recent.ts`). Появится ручка — перегенерировать
+   типы, заменить `LessonKitListItem` на тип из схемы, убрать ветку `405`
+   и удалить `recent.ts`. */
 
 export type LessonKitListItem = Omit<LessonKit, "materials" | "notes" | "class_size"> & {
   materials: Pick<LessonMaterial, "id" | "kind" | "status">[];

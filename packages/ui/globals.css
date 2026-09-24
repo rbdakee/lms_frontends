@@ -1379,7 +1379,10 @@ select.input {
   backdrop-filter: saturate(180%) blur(12px);
   border-top: 1px solid var(--border);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Столбцов столько, сколько пунктов: с «Жоспаром» их пять, без него четыре,
+     и пятый не должен уезжать второй строкой под край экрана */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 @media (min-width: 1024px) {
   .tabbar {

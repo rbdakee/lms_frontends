@@ -9,19 +9,24 @@
  */
 
 import type { LessonMaterial } from "@lms/api";
-import { Empty, Note } from "@lms/ui";
-import { IconClock } from "@lms/ui/icons";
+import { Empty, LinkButton, Note } from "@lms/ui";
+import { IconClock, IconCopy } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
+import { useRoutes } from "../../host";
 
 export function MaterialPending({
   material,
+  kitId,
   planPending = false,
 }: {
   material: LessonMaterial;
+  /** Комплект — для копии урока: собрать заново один материал сервер пока не умеет */
+  kitId: number;
   /** Ждёт плана урока — строится по нему, поэтому стоит в очереди дольше */
   planPending?: boolean;
 }) {
   const { t } = useLang();
+  const routes = useRoutes();
 
   if (material.status === "failed") {
     const reason = material.error
@@ -31,13 +36,19 @@ export function MaterialPending({
       <div className="stack g10">
         <Note kind="danger">
           <div className="stack g4">
-            <strong>{t.laMaterialStatus.failed}</strong>
+            <strong>{t.laMaterialFailedTitle}</strong>
             {reason && <span>{reason}</span>}
           </div>
         </Note>
         <p className="small muted pretty" style={{ margin: 0 }}>
           {t.laMaterialFailedHint}
         </p>
+        {/* Выход рядом с объяснением: иначе учитель ищет кнопку копии в шапке комплекта */}
+        <div>
+          <LinkButton href={routes.newFrom(kitId)} variant="secondary" icon={<IconCopy size={16} />}>
+            {t.laMaterialFailedCopy}
+          </LinkButton>
+        </div>
       </div>
     );
   }

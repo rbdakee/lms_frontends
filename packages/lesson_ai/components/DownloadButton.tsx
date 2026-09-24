@@ -10,7 +10,7 @@
  */
 
 import { useState } from "react";
-import { isApiError, type LessonKit, type LessonMaterial } from "@lms/api";
+import { NETWORK_ERROR, isApiError, type LessonKit, type LessonMaterial } from "@lms/api";
 import { Button } from "@lms/ui";
 import { IconDownload } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
@@ -39,7 +39,12 @@ export function DownloadButton({
       await downloadMaterial(material.id, materialFileName(material.kind, kit.lang, kit.topic));
     } catch (e) {
       if (handle(e)) return;
-      toast(isApiError(e) && e.code !== "internal_error" ? e.message : t.laDownloadError, "error");
+      /* Текст сервера — только у понятных отказов (`409` «материал ещё не готов»).
+         Сбой сборки файла, `500` и обрыв сети — одной человеческой строкой */
+      if (isApiError(e) && e.code === NETWORK_ERROR) toast(t.loadErrorText, "error");
+      else if (isApiError(e) && e.status >= 400 && e.status < 500 && e.code !== "internal_error")
+        toast(e.message, "error");
+      else toast(t.laDownloadError, "error");
     } finally {
       setBusy(false);
     }
@@ -54,7 +59,9 @@ export function DownloadButton({
       icon={<IconDownload size={17} />}
       onClick={download}
     >
-      {t.laDownload}
+      {/* Формат на кнопке: презентация уходит .pptx, остальное .docx — учитель
+          заранее знает, чем открывать */}
+      {t.laDownload} .{material.kind === "presentation" ? "pptx" : "docx"}
     </Button>
   );
 }

@@ -55,7 +55,7 @@ import { ConfirmForm, type ConfirmPreset } from "../components/chat/ConfirmForm"
 import { BotBubble, Composer, Thinking, UserBubble } from "../components/chat/Feed";
 import { ObjectiveCards } from "../components/chat/ObjectiveCards";
 import { ObjectiveSheet } from "../components/chat/ObjectiveSheet";
-import { LangPicker, OrderCard } from "../components/chat/OrderCard";
+import { LangPicker, OrderCard, TopicField } from "../components/chat/OrderCard";
 import { fieldMessage, minutesFrom, useWide } from "../components/chat/util";
 
 /*
@@ -335,10 +335,13 @@ function Chat({ chatId, fromKitId }: { chatId?: string; fromKitId?: string }) {
   /* ---------- Прокрутка к свежему ---------- */
 
   const itemsCount = chat?.items.length ?? 0;
+  /* Кнопки цели, языка и темы модель не зовут — лента не растёт, а внизу
+     появляется следующий вопрос или форма «Готовить». К ним тоже прокручиваем */
+  const missingKey = chat?.order.missing.join() ?? "";
   useEffect(() => {
     if (phase !== "ready" || (itemsCount === 0 && !pending)) return;
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
-  }, [phase, itemsCount, pending, draft, live.length]);
+  }, [phase, itemsCount, pending, draft, live.length, missingKey]);
 
   /* ---------- Кадр ---------- */
 
@@ -346,6 +349,9 @@ function Chat({ chatId, fromKitId }: { chatId?: string; fromKitId?: string }) {
     <div className="row between g12 wrap" style={{ marginBottom: 16 }}>
       <div className="stack g4" style={{ minWidth: 0 }}>
         <h1 className="h2">{LESSON_AI_NAME}</h1>
+        {/* Первый заход: без этой строки учитель видит имя и чат и не знает,
+            что на выходе будут готовые файлы к уроку */}
+        <span className="small muted pretty">{t.laTagline}</span>
         <AccessUntil />
       </div>
       <div className="row g8 wrap">
@@ -455,7 +461,7 @@ function Chat({ chatId, fromKitId }: { chatId?: string; fromKitId?: string }) {
         </span>
       </BotBubble>
 
-      {chat?.items.map((m) =>
+      {readingOrder(chat?.items ?? []).map((m) =>
         m.role === "user" ? (
           <UserBubble key={m.id}>{m.content}</UserBubble>
         ) : m.role === "assistant" ? (
@@ -466,8 +472,9 @@ function Chat({ chatId, fromKitId }: { chatId?: string; fromKitId?: string }) {
       )}
 
       {pending && <UserBubble>{pending}</UserBubble>}
-      {live.map((found, i) => cards(found, `live-${i}`))}
+      {/* Тот же порядок, что в ленте: сначала «подойдут такие цели», потом карточки */}
       {draft && <BotBubble>{draft}</BotBubble>}
+      {live.map((found, i) => cards(found, `live-${i}`))}
       {sending && !draft && (
         /* До первого события сервер разбирает реплику; без цели в заказе
            модель первым делом ищет её в программе */
@@ -480,6 +487,26 @@ function Chat({ chatId, fromKitId }: { chatId?: string; fromKitId?: string }) {
           <LangPicker lang={order.lang} question disabled={locked} onPick={(lang) => void patchOrToast({ lang })} />
         </BotBubble>
       )}
+
+      {/* Вопрос темы — так же под лентой: кнопки цели и языка модель не зовут,
+          и без этого вопроса после них чат молчит, а учитель не знает, что дальше */}
+      {chat &&
+        !sending &&
+        !confirmed &&
+        order.objective &&
+        order.lang &&
+        order.missing.includes("topic") &&
+        !order.missing.includes("lang") && (
+          <BotBubble>
+            <TopicField
+              id="la-topic-q"
+              order={order}
+              question
+              disabled={locked}
+              onSave={(topic) => patchOrToast({ topic })}
+            />
+          </BotBubble>
+        )}
     </div>
   );
 
@@ -527,9 +554,13 @@ function Chat({ chatId, fromKitId }: { chatId?: string; fromKitId?: string }) {
               alignItems: "start",
             }}
           >
+            {/* Галочки и «Готовить» — под лентой, а не в боковой колонке: помощник
+                пишет «ниже список материалов», и в колонке с прокруткой кнопка
+                уезжала за край экрана */}
             <div className="stack g12" style={{ minWidth: 0 }}>
               {noticeNote}
               {feed}
+              {confirmForm}
               {bottomEnd}
             </div>
             <aside
@@ -542,7 +573,6 @@ function Chat({ chatId, fromKitId }: { chatId?: string; fromKitId?: string }) {
               }}
             >
               {orderCard}
-              {confirmForm}
             </aside>
           </div>
         ) : (
@@ -578,6 +608,26 @@ function presetOf(kit: LessonKit): ConfirmPreset {
     class_size: kit.class_size,
     notes: kit.notes,
   };
+}
+
+/**
+ * Порядок чтения ленты. На сервере поиск идёт раньше ответа, который его
+ * представляет («Подойдут такие цели…»), и карточки вставали над текстом.
+ * Подряд идущие строки поиска ставим после следующего за ними ответа.
+ */
+function readingOrder(items: LessonChat["items"]): LessonChat["items"] {
+  const out: LessonChat["items"] = [];
+  let tools: LessonChat["items"] = [];
+  for (const m of items) {
+    if (m.role === "tool") {
+      tools.push(m);
+      continue;
+    }
+    if (m.role === "assistant") out.push(m, ...tools);
+    else out.push(...tools, m);
+    tools = [];
+  }
+  return [...out, ...tools];
 }
 
 /** Последняя цель, показанная карточкой, — откуда взять класс, пока заказ пуст. */

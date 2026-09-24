@@ -162,9 +162,11 @@ export function LessonAiGate({ children }: { children: ReactNode }) {
     return (
       <Shell>
         <div className="page section">
+          {/* Текст сервера сюда не идёт: он по-русски и для разработчика,
+              а учителю важно одно — повторить */}
           <Empty
             title={t.loadError}
-            text={access.error.message}
+            text={t.loadErrorText}
             action={
               <Button variant="secondary" onClick={access.reload}>
                 {t.retry}
@@ -206,6 +208,9 @@ function NoAccess({ lost }: { lost: boolean }) {
         {lost && <Note kind="warning">{t.laAccessLost}</Note>}
         <p className="muted pretty">{t.laTagline}.</p>
         <p className="pretty">{t.laNoAccessText}</p>
+        {/* Сервер не говорит, выдавался ли доступ раньше, — поэтому строка для тех,
+            у кого он кончился, стоит всегда; при снятии посреди работы её заменяет плашка */}
+        {!lost && <p className="small muted pretty">{t.laNoAccessRenew}</p>}
         <ContactAdmin />
         <span className="caption muted-3">{t.laNoAccessCourses}</span>
       </div>

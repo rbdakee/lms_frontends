@@ -64,7 +64,10 @@ export function BlockContent({
   if (isObj(value)) {
     return (
       <dl className="stack g8" style={{ margin: 0 }}>
-        {orderedKeys(value).map((k) => {
+        {/* Пустое поле внутри объекта не показываем: «Пометка — пусто» учителю
+            ничего не говорит, а в документ оно и так не печатается. Пустой блок
+            целиком по-прежнему пишет «пусто» — там это ответ на вопрос */}
+        {orderedKeys(value).filter((k) => !isEmpty(value[k])).map((k) => {
           /* Ответ ученику не печатается, он уходит в ключи — но учителю
              полезен рядом с задачей, поэтому виден, только тише */
           const quiet = k === "answer" && ANSWER_KEY_SOURCES.includes(kind);
@@ -85,4 +88,8 @@ export function BlockContent({
   }
 
   return <span className="small">{String(value)}</span>;
+}
+
+function isEmpty(v: unknown): boolean {
+  return v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
 }

@@ -22,9 +22,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, NETWORK_ERROR, type LessonKit } from "@lms/api";
+import { ApiError, NETWORK_ERROR, useMe, type LessonKit } from "@lms/api";
 import { useLessonAiAccess } from "../../access";
 import { getKit } from "../../api";
+import { rememberKit } from "../../recent";
 
 const FAST_MS = 3_000;
 const SLOW_MS = 8_000;
@@ -47,6 +48,7 @@ export interface KitState {
 
 export function useKit(kitId: string): KitState {
   const { handle } = useLessonAiAccess();
+  const userId = useMe().me?.id ?? null;
   const [kit, setKitState] = useState<LessonKit | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [pollFailing, setPollFailing] = useState(false);
@@ -82,6 +84,12 @@ export function useKit(kitId: string): KitState {
   useEffect(() => {
     load(false);
   }, [load]);
+
+  /* Открытый комплект — в «Мои уроки» этого устройства, пока нет списка с сервера */
+  const loadedId = kit?.id ?? null;
+  useEffect(() => {
+    if (userId !== null && loadedId !== null) rememberKit(userId, loadedId);
+  }, [userId, loadedId]);
 
   const reload = useCallback(() => {
     load(false);

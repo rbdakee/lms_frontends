@@ -81,7 +81,10 @@ export default function LessonAiAccessPage() {
   return (
     <AdminShell title={t.laAdmTitle} subtitle={list.error ? undefined : t.laAdmCount(total)}>
       <div className="stack g16">
-        <span className="small muted pretty">{t.laAdmHint}</span>
+        {/* Где выдавать — прямо здесь: со списка кнопки выдачи нет, она в карточке учителя */}
+        <span className="small muted pretty">
+          {t.laAdmHint} {t.laAdmEmptyText}
+        </span>
 
         <div className="row wrap g10">
           <div className="input-wrap" style={{ flex: 1, minWidth: 220, maxWidth: 380 }}>
@@ -120,7 +123,7 @@ export default function LessonAiAccessPage() {
           <div className="card">
             <Empty
               title={t.loadError}
-              text={list.error.message}
+              text={t.loadErrorText}
               action={
                 <Button variant="secondary" onClick={list.reload}>
                   {t.retry}
@@ -133,7 +136,7 @@ export default function LessonAiAccessPage() {
             <Empty
               icon={<IconSparkle size={34} />}
               title={hasFilters ? t.laAdmNoMatchTitle : t.laAdmEmptyTitle}
-              text={hasFilters ? t.laAdmNoMatchText : t.laAdmEmptyText}
+              text={q ? t.laAdmNoMatchText : hasFilters ? t.laAdmNoMatchStateText : t.laAdmEmptyText}
               action={
                 hasFilters ? (
                   <Button
@@ -236,7 +239,7 @@ export default function LessonAiAccessPage() {
                   <div className="row wrap g8 caption muted">
                     <span>{accessUntil(t, lang, item.access)}</span>
                     <span className="dot-sep">·</span>
-                    <span>{item.access.paid ? t.laAdmPaid : t.laAdmNotPaid}</span>
+                    <span>{item.access.paid ? t.laAdmPaidFull : t.laAdmNotPaidFull}</span>
                     <span className="dot-sep">·</span>
                     <span>{usage(item)}</span>
                   </div>

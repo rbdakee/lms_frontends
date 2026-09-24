@@ -5,21 +5,23 @@
  * (`TEACHER_AI_BRIEF`, раздел 4.3, последний абзац).
  *
  * Ручки списка на сервере пока нет — `listKits` тогда отдаёт `null`, и экран
- * говорит «список скоро появится», а не «ошибка»: комплекты целы, просто
- * перечислить их сервер ещё не умеет (подробнее — в `api.ts`).
+ * показывает комплекты, открытые на этом устройстве (`recent.ts`), с честной
+ * строкой, что общий список появится позже. Не «ошибка» и не тупик: экран
+ * комплекта говорит «страницу можно закрыть», и найти урок потом надо где-то.
  *
  * Копию экран не делает: «Копия» ведёт в новый разговор по прошлому
  * комплекту, заказ там собирает экран чата.
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useLoad } from "@lms/api";
-import { Button, Empty, LinkButton } from "@lms/ui";
+import { isApiError, useLoad, useMe, type LessonKit } from "@lms/api";
+import { Button, Empty, LinkButton, Note } from "@lms/ui";
 import { IconClose, IconPlus, IconSearch, IconSparkle } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import { AccessUntil, useLessonAiAccess } from "../access";
-import { listKits, type LessonKitListItem, type LessonKitsPage } from "../api";
+import { getKit, listKits, type LessonKitListItem, type LessonKitsPage } from "../api";
+import { forgetKit, recentKitIds } from "../recent";
 import { useChrome, useRoutes } from "../host";
 import { LESSON_AI_NAME } from "../name";
 import { LessonCard, LessonCardSkeleton } from "../components/lessons/LessonCard";
@@ -31,6 +33,29 @@ const SEARCH_DELAY_MS = 300;
 /* `null` внутри — «ручки нет»; обёртка, чтобы не путать его с «ещё грузится» */
 interface Result {
   page: LessonKitsPage | null;
+  /** Комплекты с этого устройства — только когда ручки нет */
+  local?: LessonKitListItem[];
+}
+
+/** Комплекты по номерам с этого устройства; чужой или удалённый (`404`) забываем. */
+async function loadLocal(userId: number | null): Promise<LessonKitListItem[]> {
+  if (userId === null) return [];
+  const kits = await Promise.all(
+    recentKitIds(userId).map(async (id) => {
+      try {
+        return await getKit(id);
+      } catch (e) {
+        if (isApiError(e) && e.status === 404) {
+          forgetKit(userId, id);
+          return null;
+        }
+        throw e;
+      }
+    }),
+  );
+  return kits
+    .filter((k): k is LessonKit => k !== null)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
 export function LessonsScreen() {
@@ -39,6 +64,7 @@ export function LessonsScreen() {
   const { Shell } = useChrome();
   const { handle } = useLessonAiAccess();
   const toast = useToast();
+  const userId = useMe().me?.id ?? null;
 
   const [input, setInput] = useState("");
   const [q, setQ] = useState("");
@@ -60,14 +86,13 @@ export function LessonsScreen() {
   /* Устаревший ответ свежий не перетрёт: `useLoad` отбрасывает всё, кроме последнего */
   const list = useLoad<Result>(
     () =>
-      listKits({ q: q || undefined, page: 1, per_page: PER_PAGE }).then(
-        (page) => ({ page }),
-        (e) => {
+      listKits({ q: q || undefined, page: 1, per_page: PER_PAGE })
+        .then(async (page): Promise<Result> => (page ? { page } : { page: null, local: await loadLocal(userId) }))
+        .catch((e) => {
           handle(e);
           throw e;
-        },
-      ),
-    [q],
+        }),
+    [q, userId],
   );
 
   const clearSearch = () => {
@@ -114,17 +139,29 @@ export function LessonsScreen() {
     );
   }
 
-  /* Ручки нет — поиск рисовать не для чего, искать не в чем */
+  /* Ручки нет — поиск рисовать не для чего: на устройстве уроков немного */
   if (data && data.page === null) {
+    const local = data.local ?? [];
     return frame(
-      <div className="card">
-        <Empty
-          icon={<IconSparkle size={38} />}
-          title={t.laLessonsUnavailableTitle}
-          text={t.laLessonsUnavailableText}
-          action={newLesson}
-        />
-      </div>,
+      local.length === 0 ? (
+        <div className="card">
+          <Empty
+            icon={<IconSparkle size={38} />}
+            title={t.laLessonsUnavailableTitle}
+            text={t.laLessonsUnavailableText}
+            action={newLesson}
+          />
+        </div>
+      ) : (
+        <div className="stack g12">
+          <Note kind="muted">
+            <span className="small">{t.laLessonsLocalNote}</span>
+          </Note>
+          {local.map((item) => (
+            <LessonCard key={item.id} item={item} />
+          ))}
+        </div>
+      ),
     );
   }
 

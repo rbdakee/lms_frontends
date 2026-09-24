@@ -124,12 +124,15 @@ export function LessonAiAccessBlock({ teacherId }: { teacherId: number }) {
         <span className="small muted">{t.laAdmNever}</span>
       ) : (
         <dl className="stack g6" style={{ margin: 0 }}>
-          <div className="row between g10">
-            <dt className="caption muted">{t.laAdmColUntil}</dt>
-            <dd className="small" style={{ margin: 0, fontWeight: 600 }}>
-              {accessUntil(t, lang, access)}
-            </dd>
-          </div>
+          {/* У снятого доступа прежний срок читается как «действует по…» — не показываем */}
+          {access.status !== "revoked" && (
+            <div className="row between g10">
+              <dt className="caption muted">{t.laAdmColUntil}</dt>
+              <dd className="small" style={{ margin: 0, fontWeight: 600 }}>
+                {accessUntil(t, lang, access)}
+              </dd>
+            </div>
+          )}
           <div className="row between g10" style={{ alignItems: "flex-start" }}>
             <dt className="caption muted">{t.laAdmColPaid}</dt>
             <dd className="small" style={{ margin: 0, textAlign: "right" }}>
@@ -270,7 +273,7 @@ export function GrantLessonAiSheet({
 
         <div className="field">
           <label className="label">
-            {t.laAdmExpires} <span className="label-optional">· {t.laAdmNoEnd}</span>
+            {t.laAdmExpires} <span className="label-optional">· {t.optional}</span>
           </label>
           <input
             type="date"
@@ -295,10 +298,13 @@ export function GrantLessonAiSheet({
 
         <div className="field">
           <label className="label">{t.laAdmPaidNote}</label>
+          {/* Без отметки оплаты сервер комментарий не пишет — поле закрыто,
+              чтобы админ не набирал текст, который пропадёт */}
           <textarea
             className={`input ${errors.note ? "input-error" : ""}`}
             style={{ minHeight: 80 }}
             maxLength={500}
+            disabled={!paid}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t.laAdmPaidNotePh}

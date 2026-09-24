@@ -62,7 +62,7 @@ export function OrderCard({
 
       <LangPicker lang={order.lang} disabled={disabled} onPick={(lang) => void onPatch({ lang })} />
 
-      <TopicField order={order} disabled={disabled} onSave={(topic) => onPatch({ topic })} />
+      <TopicField id="la-topic" order={order} disabled={disabled} onSave={(topic) => onPatch({ topic })} />
 
       {!order.ready && order.missing.length > 0 && (
         <div className="stack g4">
@@ -159,13 +159,20 @@ export function LangPicker({
   );
 }
 
-function TopicField({
+/** Тема в плане — и в карточке, и вопросом в ленте. */
+export function TopicField({
+  id,
   order,
   disabled,
+  question,
   onSave,
 }: {
+  /** Поле бывает на экране дважды — в карточке и в ленте, `id` у каждого свой */
+  id: string;
   order: LessonChatOrder;
   disabled: boolean;
+  /** Подпись-вопрос вместо сухой «Тема в плане» — для ленты */
+  question?: boolean;
   onSave: (topic: string | null) => Promise<void>;
 }) {
   const { t } = useLang();
@@ -194,11 +201,11 @@ function TopicField({
         if (changed) void save();
       }}
     >
-      <label className="label" htmlFor="la-topic">
-        {t.laOrderTopic}
+      <label className={question ? "small" : "label"} htmlFor={id}>
+        {question ? t.laChatTopicQ : t.laOrderTopic}
       </label>
       <input
-        id="la-topic"
+        id={id}
         className="input"
         value={value}
         maxLength={TOPIC_MAX}
