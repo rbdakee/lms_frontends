@@ -242,6 +242,49 @@ export function getChat(id: number | string): Promise<LessonChat> {
   return api<LessonChat>(`/lesson_ai/chats/${id}`);
 }
 
+/* История чатов — полоса над лентой.
+
+     GET /lesson_ai/chats?page=&per_page=
+     → { items, total, page, per_page }, свежие по активности сверху
+
+   Форма элемента — `LessonChatListItemOut` из схемы бэкенда, но описана здесь
+   руками: `packages/api/types.ts` сейчас не перегенерируем, в нём лежат чужие
+   незакоммиченные правки. После их коммита перегенерировать типы и заменить
+   `LessonChatListItem` на схемный.
+
+   Фронт может уехать в бой раньше ручки: тогда FastAPI отвечает на GET `405`
+   (у пути есть только POST) — `listChats` возвращает `null`, и экран просто
+   не показывает историю. */
+
+export interface LessonChatListItem {
+  id: number;
+  status: "collecting" | "confirmed";
+  kit_id: number | null;
+  topic: string | null;
+  subject_code: string | null;
+  grade: number | null;
+  /** Первая реплика учителя — подпись, пока темы нет */
+  first_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LessonChatsPage {
+  items: LessonChatListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export async function listChats(params: { page?: number; per_page?: number }): Promise<LessonChatsPage | null> {
+  try {
+    return await api<LessonChatsPage>(`/lesson_ai/chats${qs(params)}`);
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 405 || e.status === 404)) return null;
+    throw e;
+  }
+}
+
 /** Кнопки под сообщениями: «Да, она», язык обучения, тема. `null` — стереть поле. */
 export function patchOrder(id: number, body: LessonChatOrderPatch): Promise<LessonChat> {
   return api<LessonChat>(`/lesson_ai/chats/${id}/order`, { method: "PATCH", json: body });

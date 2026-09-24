@@ -1517,6 +1517,13 @@ const kz: Dict = {
   setClosed: "Қабылдау жабық",
   setPlanned: (date: string) => `Басталуы ${date}`,
   priceOnRequest: "Бағасы сұраныс бойынша",
+
+  /* Рабочее место: вкладки на телефоне и полоса истории чатов */
+  laTabChat: "Чат",
+  laChatsHistory: "История чатов",
+  laChatUntitled: "Новый разговор",
+  laChatsMore: "Ещё",
+  laChatKitOrdered: "Комплект заказан",
   onlyKz: "Курс қазақ тілінде",
   onlyRu: "Курс орыс тілінде",
   lockedLesson: "Әкімші растағаннан кейін ашылады",
@@ -2906,3 +2913,9 @@ export function phoneFmt(phone: string): string {
   if (d.length !== 11) return phone;
   return `+7 (${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7, 9)}-${d.slice(9, 11)}`;
 }
+
+  laTabChat: "Чат",
+  laChatsHistory: "Сөйлесулер тарихы",
+  laChatUntitled: "Жаңа сөйлесу",
+  laChatsMore: "Тағы",
+  laChatKitOrdered: "Жиынтыққа тапсырыс берілді",
