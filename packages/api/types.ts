@@ -263,6 +263,8 @@ export type ReviewReplyIn = S["ReviewReplyIn"];
 export type AdminSettings = S["AdminSettingsOut"];
 export type AdminSettingsPatch = S["AdminSettingsPatchIn"];
 export type PublicSettings = S["PublicSettingsOut"];
+/* Цифры лендинга — `GET /stats`, тоже без входа и тоже по площадке запроса */
+export type PublicStats = S["PublicStatsOut"];
 export type SettingsContacts = S["SettingsContactsOut"];
 /* Привязка бота: `chat_id` наружу не отдаётся вовсе, статус виден
    по `connected` и `chat_title`. Меняется своими ручками, не через PATCH. */

@@ -192,6 +192,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Stats */
+        get: operations["public_stats_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/branding/{slot}": {
         parameters: {
             query?: never;
@@ -3872,6 +3889,19 @@ export interface components {
             /** Tutorial Video Url */
             tutorial_video_url: string | null;
         };
+        /**
+         * PublicStatsOut
+         * @description Цифры лендинга площадки запроса. Без входа: их видит любой посетитель,
+         *     поэтому здесь только счётчики — ни имён, ни курсов, ни разбивок.
+         */
+        PublicStatsOut: {
+            /** Courses */
+            courses: number;
+            /** Teachers */
+            teachers: number;
+            /** Certificates */
+            certificates: number;
+        };
         /** QuestionCourseOut */
         QuestionCourseOut: {
             /** Id */
@@ -5098,6 +5128,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicSettingsOut"];
+                };
+            };
+        };
+    };
+    public_stats_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicStatsOut"];
                 };
             };
         };

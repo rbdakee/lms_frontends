@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { api, useLoad, useMe, usePublicSettings, type CatalogOut } from "@lms/api";
+import { api, useLoad, useMe, usePublicSettings, type CatalogOut, type PublicStats } from "@lms/api";
 import { fmt, rating as fmtRating } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { Footer, PublicShell } from "@/components/layout/Shell";
@@ -52,6 +52,7 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   /* Витрина каталога — те же живые данные, что и на «/courses» */
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
+  const stats = useLoad(() => api<PublicStats>("/stats"), []);
   const popular = (catalog.data?.items ?? []).slice(0, 6);
   /* Ролик ставит админ в настройках; нет ссылки — нет и блока */
   const tutorial = usePublicSettings().data?.tutorial_video_url;
@@ -167,29 +168,34 @@ export default function LandingPage() {
       </section>
 
       {/* ===== Цифры ===== */}
-      <section className="page" style={{ paddingTop: 32, paddingBottom: 8 }}>
-        <div className="card card-pad stats-grid">
-          {[
-            { v: "120", l: t.lndStatCourses },
-            { v: fmt(4300), l: t.lndStatTeachers },
-            { v: fmt(2800), l: t.lndStatCerts },
-          ].map((s) => (
-            <div key={s.l} className="stack g4" style={{ alignItems: "center", textAlign: "center" }}>
-              <div
-                style={{
-                  fontSize: "clamp(26px, 5vw, 36px)",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  color: "var(--primary)",
-                }}
-              >
-                {s.v}
+      {/* Считает сервер на каждый запрос. Пока ответа нет — и если его не будет —
+          блока нет вовсе: подставить вместо настоящих чисел нечего, а выдуманные
+          на витрине уже стояли */}
+      {stats.data && (
+        <section className="page" style={{ paddingTop: 32, paddingBottom: 8 }}>
+          <div className="card card-pad stats-grid">
+            {[
+              { v: fmt(stats.data.courses), l: t.lndStatCourses(stats.data.courses) },
+              { v: fmt(stats.data.teachers), l: t.lndStatTeachers(stats.data.teachers) },
+              { v: fmt(stats.data.certificates), l: t.lndStatCerts(stats.data.certificates) },
+            ].map((s) => (
+              <div key={s.l} className="stack g4" style={{ alignItems: "center", textAlign: "center" }}>
+                <div
+                  style={{
+                    fontSize: "clamp(26px, 5vw, 36px)",
+                    fontWeight: 800,
+                    letterSpacing: "-0.03em",
+                    color: "var(--primary)",
+                  }}
+                >
+                  {s.v}
+                </div>
+                <div className="small muted">{s.l}</div>
               </div>
-              <div className="small muted">{s.l}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ===== Как это работает ===== */}
       <section id="how" className="page section">
