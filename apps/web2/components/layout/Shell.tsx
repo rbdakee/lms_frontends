@@ -133,7 +133,7 @@ type NavItem = {
  */
 function useNavItems(authed: boolean): NavItem[] {
   const { t } = useLang();
-  const journal: NavItem = { href: JOURNAL_URL, label: t.navJournal, icon: IconBook, external: true };
+  const journal: NavItem = { href: JOURNAL_URL, label: t.navJournalSciPed, icon: IconBook, external: true };
   return authed
     ? [
         { href: "/my", label: t.navHome, icon: IconHome, match: ["/my", "/learn"] },

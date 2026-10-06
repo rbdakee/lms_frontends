@@ -23,6 +23,7 @@ const ru = {
   navVerify: "Проверить сертификат",
   navFaq: "Вопросы",
   navJournal: "Республиканский журнал",
+  navJournalSciPed: "Журнал научно-педагогический",
   navCourses: "Курсы",
   navNotifications: "Уведомления",
 
@@ -921,6 +922,7 @@ const kz: Dict = {
   navVerify: "Сертификатты тексеру",
   navFaq: "Сұрақтар",
   navJournal: "Республикалық журнал",
+  navJournalSciPed: "Ғылыми-педагогикалық журнал",
   navCourses: "Курстар",
   navNotifications: "Хабарламалар",
 
