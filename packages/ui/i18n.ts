@@ -22,7 +22,7 @@ const ru = {
   navProfile: "Профиль",
   navVerify: "Проверить сертификат",
   navFaq: "Вопросы",
-  navJournal: "Журнал",
+  navJournal: "Республиканский журнал",
   navCourses: "Курсы",
   navNotifications: "Уведомления",
 
@@ -920,7 +920,7 @@ const kz: Dict = {
   navProfile: "Профиль",
   navVerify: "Сертификатты тексеру",
   navFaq: "Сұрақтар",
-  navJournal: "Журнал",
+  navJournal: "Республикалық журнал",
   navCourses: "Курстар",
   navNotifications: "Хабарламалар",
 
