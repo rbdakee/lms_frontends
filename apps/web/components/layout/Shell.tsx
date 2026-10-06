@@ -18,7 +18,7 @@ import {
 import { useLang } from "@lms/ui/lang";
 import { dayTime, phoneFmt } from "@lms/ui/i18n";
 import { admin } from "@/lib/urls";
-import { BRAND } from "@/lib/brand";
+import { BRAND, JOURNAL_URL } from "@/lib/brand";
 import {
   markRead,
   notificationHref,
@@ -29,6 +29,7 @@ import { useRoutes } from "@lms/site/host";
 import { Avatar, Badge, Skeleton } from "@lms/ui";
 import {
   IconBell,
+  IconBook,
   IconCatalog,
   IconCertificate,
   IconChevronDown,
@@ -262,6 +263,8 @@ type NavItem = {
   icon: (p: SVGProps<SVGSVGElement> & { size?: number }) => ReactNode;
   /** Префиксы маршрутов, при которых пункт считается активным */
   match?: string[];
+  /** Чужой сайт: открывается в новой вкладке и активным не бывает */
+  external?: boolean;
 };
 
 /**
@@ -275,6 +278,14 @@ function NavLinks({ items, label }: { items: NavItem[]; label: string }) {
     <nav className="desktop-only navbar" aria-label={label}>
       {items.map((l) => {
         const Icon = l.icon;
+        if (l.external) {
+          return (
+            <a key={l.href} href={l.href} className="navlink" target="_blank" rel="noreferrer">
+              <Icon size={18} strokeWidth={1.75} />
+              {l.label}
+            </a>
+          );
+        }
         const active = (l.match ?? [l.href]).some(
           (m) => pathname === m || (m !== "/" && pathname.startsWith(m + "/")),
         );
@@ -300,6 +311,7 @@ export function PublicHeader() {
     { href: "/courses", label: t.navCatalog, icon: IconCatalog },
     { href: "/verify", label: t.navVerify, icon: IconShield },
     { href: "/#faq", label: t.navFaq, icon: IconInfo },
+    { href: JOURNAL_URL, label: t.navJournal, icon: IconBook, external: true },
   ];
 
   return (
@@ -371,16 +383,34 @@ export function PublicHeader() {
             <div className="sheet-body stack g4">
               {links.map((l) => {
                 const Icon = l.icon;
-                return (
+                const content = (
+                  <>
+                    <Icon size={20} className="muted" />
+                    {l.label}
+                  </>
+                );
+                const style = { minHeight: 52, fontSize: 16, fontWeight: 600 };
+                return l.external ? (
+                  <a
+                    key={l.href}
+                    href={l.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setMenu(false)}
+                    className="row g12"
+                    style={style}
+                  >
+                    {content}
+                  </a>
+                ) : (
                   <Link
                     key={l.href}
                     href={l.href}
                     onClick={() => setMenu(false)}
                     className="row g12"
-                    style={{ minHeight: 52, fontSize: 16, fontWeight: 600 }}
+                    style={style}
                   >
-                    <Icon size={20} className="muted" />
-                    {l.label}
+                    {content}
                   </Link>
                 );
               })}
@@ -425,6 +455,7 @@ export function TeacherHeader({ title }: { title?: string }) {
     { href: "/my", label: t.navHome, icon: IconHome, match: ["/my", "/learn"] },
     { href: "/courses", label: t.navCatalog, icon: IconCatalog },
     { href: "/certificates", label: t.navCerts, icon: IconCertificate },
+    { href: JOURNAL_URL, label: t.navJournal, icon: IconBook, external: true },
   ];
 
   return (

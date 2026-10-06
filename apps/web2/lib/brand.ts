@@ -30,3 +30,9 @@ export const BRAND: CourseBrand = {
   },
   logoSrc: logo.src,
 };
+
+/**
+ * Журнал института — отдельный сайт, не раздел платформы: в шапке он открывается
+ * в новой вкладке. Адрес у каждой площадки свой, поэтому живёт рядом с брендом.
+ */
+export const JOURNAL_URL = "https://snoc.kz/magazine/edition/";

@@ -27,3 +27,9 @@ export const BRAND: CourseBrand = {
   },
   logoSrc: logo.src,
 };
+
+/**
+ * Журнал академии — отдельный сайт, не раздел платформы: в шапке он открывается
+ * в новой вкладке. Адрес у каждой площадки свой, поэтому живёт рядом с брендом.
+ */
+export const JOURNAL_URL = "https://eduinnovation.kz/";

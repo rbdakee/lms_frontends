@@ -49,7 +49,7 @@ import {
 } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { dayTime, phoneFmt } from "@lms/ui/i18n";
-import { BRAND } from "@/lib/brand";
+import { BRAND, JOURNAL_URL } from "@/lib/brand";
 import { admin } from "@/lib/urls";
 import {
   markRead,
@@ -61,6 +61,7 @@ import { useRoutes } from "@lms/site/host";
 import { Avatar, Sheet, Skeleton } from "@lms/ui";
 import {
   IconBell,
+  IconBook,
   IconCatalog,
   IconCertificate,
   IconHome,
@@ -121,6 +122,8 @@ type NavItem = {
   icon: (p: SVGProps<SVGSVGElement> & { size?: number }) => ReactNode;
   /** Префиксы маршрутов, при которых пункт считается активным */
   match?: string[];
+  /** Чужой сайт: открывается в новой вкладке и активным не бывает */
+  external?: boolean;
 };
 
 /**
@@ -130,16 +133,19 @@ type NavItem = {
  */
 function useNavItems(authed: boolean): NavItem[] {
   const { t } = useLang();
+  const journal: NavItem = { href: JOURNAL_URL, label: t.navJournal, icon: IconBook, external: true };
   return authed
     ? [
         { href: "/my", label: t.navHome, icon: IconHome, match: ["/my", "/learn"] },
         { href: "/courses", label: t.navCatalog, icon: IconCatalog },
         { href: "/certificates", label: t.navCerts, icon: IconCertificate },
+        journal,
       ]
     : [
         { href: "/courses", label: t.navCatalog, icon: IconCatalog },
         { href: "/verify", label: t.navVerify, icon: IconShield },
         { href: "/#faq", label: t.navFaq, icon: IconInfo },
+        journal,
       ];
 }
 
@@ -389,6 +395,21 @@ function NavMenu({
 
         {items.map((l) => {
           const Icon = l.icon;
+          if (l.external) {
+            return (
+              <a
+                key={l.href}
+                href={l.href}
+                target="_blank"
+                rel="noreferrer"
+                onClick={onClose}
+                className="p2-menu-item"
+              >
+                <Icon size={20} className="p2-menu-ico" />
+                {l.label}
+              </a>
+            );
+          }
           return (
             <Link
               key={l.href}
