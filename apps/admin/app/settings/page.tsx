@@ -3,7 +3,7 @@
 /**
  * Настройки платформы «/settings» — раздел 5.25 брифа.
  *
- * Три вкладки приходят одним `GET /admin/settings`, но общей кнопки
+ * Четыре вкладки приходят одним `GET /admin/settings`, но общей кнопки
  * «Сохранить» у них нет и быть не может: категории и привязка бота живут
  * своими ручками, а картинки сертификата отсюда вообще не меняются.
  *
@@ -11,7 +11,8 @@
  * организация, контакты, логотип и три картинки сертификата стали константами
  * и файлами в коде бэкенда, свой набор на площадку. Вкладка «Бренд и контакты»
  * снесена вместе с загрузкой файлов, а `PATCH /admin/settings` принимает
- * теперь только `telegram` — любое поле бренда в теле роняет запрос в 422.
+ * теперь только `telegram` и ссылки на обучающий ролик — любое поле бренда
+ * в теле роняет запрос в 422.
  *
  * Чего здесь нет и не будет: редактирования текстов лендинга, текстов
  * уведомлений и конструктора шаблона сертификата. Это мини-CMS ради одного
@@ -29,9 +30,10 @@ import { AdminShell } from "@/components/layout/AdminShell";
 import { SettingsCategories } from "@/components/admin/SettingsCategories";
 import { SettingsCertificatePreview } from "@/components/admin/SettingsCertificatePreview";
 import { SettingsTelegram } from "@/components/admin/SettingsTelegram";
+import { SettingsTutorial } from "@/components/admin/SettingsTutorial";
 import { Button, Empty } from "@lms/ui";
 
-type Tab = "categories" | "telegram" | "cert";
+type Tab = "categories" | "telegram" | "tutorial" | "cert";
 
 export default function AdminSettingsPage() {
   const { t } = useLang();
@@ -79,7 +81,7 @@ export default function AdminSettingsPage() {
   return (
     <AdminShell
       title="Настройки платформы"
-      subtitle="Категории курсов, Telegram-бот и картинки сертификата"
+      subtitle="Категории курсов, Telegram-бот, обучающее видео и картинки сертификата"
     >
       <div className="stack g20">
         <div className="tabs">
@@ -87,6 +89,7 @@ export default function AdminSettingsPage() {
             [
               ["categories", "Категории"],
               ["telegram", "Telegram-бот"],
+              ["tutorial", "Обучающее видео"],
               ["cert", "Сертификат"],
             ] as [Tab, string][]
           ).map(([v, label]) => (
@@ -102,6 +105,11 @@ export default function AdminSettingsPage() {
         {/* ===== Telegram-бот и примеры сообщений ===== */}
         {tab === "telegram" && (
           <SettingsTelegram telegram={data.telegram} onSaved={settings.setData} />
+        )}
+
+        {/* ===== Ролик «Как учиться на платформе» на главной ===== */}
+        {tab === "tutorial" && (
+          <SettingsTutorial platforms={data.platforms} onSaved={settings.setData} />
         )}
 
         {/* ===== Картинки сертификата: только показ ===== */}

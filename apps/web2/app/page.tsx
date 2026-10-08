@@ -58,12 +58,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { AnimatePresence, useReducedMotion, type Variants } from "motion/react";
 import * as m from "motion/react-m";
-import { api, useLoad, useMe, type CatalogOut } from "@lms/api";
+import { api, useLoad, useMe, usePublicSettings, type CatalogOut } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { Footer, PublicShell } from "@/components/layout/Shell";
 import { EASE, MotionRoot, Reveal } from "@/components/landing/Motion";
 import { Showcase } from "@/components/landing/Showcase";
 import { ContactAdmin, CourseCard } from "@lms/course";
+import { TutorialVideo } from "@lms/site";
 import { Button, CourseCardSkeleton, Empty } from "@lms/ui";
 import {
   IconArrowRight,
@@ -95,6 +96,8 @@ export default function LandingPage() {
      а не «популярные»: популярность на пустой площадке не из чего посчитать. */
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
   const fresh = (catalog.data?.items ?? []).slice(0, 6);
+  /* Ролик ставит админ в настройках; нет ссылки — нет и блока */
+  const tutorial = usePublicSettings().data?.tutorial_video_url;
   const startHref = authed ? "/my" : "/login";
   const startLabel = authed ? t.navHome : t.start;
 
@@ -259,6 +262,21 @@ export default function LandingPage() {
             ))}
           </ol>
         </section>
+
+        {/* ===== Обучающее видео ===== */}
+        {tutorial && (
+          <section id="tutorial" className="page section" style={{ paddingTop: 0 }}>
+            <Reveal>
+              <div className="stack g10" style={{ marginBottom: 24 }}>
+                <h2 className="h2">{t.lndTutorialTitle}</h2>
+                <p className="body muted pretty">{t.lndTutorialLede}</p>
+              </div>
+              <div style={{ maxWidth: 880 }}>
+                <TutorialVideo url={tutorial} title={t.lndTutorialTitle} />
+              </div>
+            </Reveal>
+          </section>
+        )}
 
         {/* ===== Частые вопросы ===== */}
         <section id="faq" className="page section p2-split" style={{ paddingTop: 0 }}>

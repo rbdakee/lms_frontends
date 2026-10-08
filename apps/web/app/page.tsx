@@ -4,11 +4,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { api, useLoad, useMe, type CatalogOut } from "@lms/api";
+import { api, useLoad, useMe, usePublicSettings, type CatalogOut } from "@lms/api";
 import { fmt, rating as fmtRating } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { Footer, PublicShell } from "@/components/layout/Shell";
 import { ContactAdmin, CourseCard } from "@lms/course";
+import { TutorialVideo } from "@lms/site";
 import { Badge, CourseCardSkeleton, Cover, Stars } from "@lms/ui";
 import {
   IconArrowRight,
@@ -52,6 +53,8 @@ export default function LandingPage() {
   /* Витрина каталога — те же живые данные, что и на «/courses» */
   const catalog = useLoad(() => api<CatalogOut>("/courses"), []);
   const popular = (catalog.data?.items ?? []).slice(0, 6);
+  /* Ролик ставит админ в настройках; нет ссылки — нет и блока */
+  const tutorial = usePublicSettings().data?.tutorial_video_url;
 
   /* Шаги и вопросы собираются внутри компонента: их подписи живут в словаре
      и обязаны перечитываться при смене языка */
@@ -230,6 +233,21 @@ export default function LandingPage() {
           })}
         </div>
       </section>
+
+      {/* ===== Обучающее видео ===== */}
+      {tutorial && (
+        <section id="tutorial" className="page section" style={{ paddingTop: 8 }}>
+          <div className="stack g8" style={{ marginBottom: 24 }}>
+            <h2 className="h2">{t.lndTutorialTitle}</h2>
+            <p className="body muted pretty" style={{ maxWidth: 620 }}>
+              {t.lndTutorialLede}
+            </p>
+          </div>
+          <div style={{ maxWidth: 880 }}>
+            <TutorialVideo url={tutorial} title={t.lndTutorialTitle} />
+          </div>
+        </section>
+      )}
 
       {/* ===== Популярные курсы ===== */}
       {(catalog.loading || popular.length > 0) && (

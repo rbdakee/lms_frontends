@@ -2434,6 +2434,15 @@ export interface components {
         /** AdminSettingsPatchIn */
         AdminSettingsPatchIn: {
             telegram?: components["schemas"]["AdminSettingsTelegramIn"] | null;
+            /** Platforms */
+            platforms?: components["schemas"]["AdminSettingsPlatformIn"][] | null;
+        };
+        /** AdminSettingsPlatformIn */
+        AdminSettingsPlatformIn: {
+            /** Platform */
+            platform: string;
+            /** Tutorial Video Url */
+            tutorial_video_url?: string | null;
         };
         /**
          * AdminSettingsPlatformOut
@@ -2450,6 +2459,8 @@ export interface components {
             platform_name: string;
             /** Org Name */
             org_name: string;
+            /** Tutorial Video Url */
+            tutorial_video_url: string | null;
         };
         /** AdminSettingsTelegramIn */
         AdminSettingsTelegramIn: {
@@ -3858,6 +3869,8 @@ export interface components {
             /** Logo Url */
             logo_url: string | null;
             contacts: components["schemas"]["SettingsContactsOut"];
+            /** Tutorial Video Url */
+            tutorial_video_url: string | null;
         };
         /** QuestionCourseOut */
         QuestionCourseOut: {
