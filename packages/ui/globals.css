@@ -1236,6 +1236,13 @@ select.input {
   font-size: 13.5px;
   line-height: 1.2;
   letter-spacing: -0.01em;
+  /* Строки бренда набраны вручную: сами не переносим и не сжимаем,
+     иначе название наезжает на разделитель навигации */
+  white-space: nowrap;
+}
+.appbar-logo {
+  align-items: center;
+  flex-shrink: 0;
 }
 /* На телефоне рядом с эмблемой остаётся только эмблема: место в шапке
    съедают кнопка кабинета и бургер. Название читает скринридер
@@ -1272,6 +1279,31 @@ select.input {
 .navlink svg {
   flex-shrink: 0;
 }
+/* Шапка не должна ломаться на средних ширинах. Сначала ужимаются отступы,
+   затем уходят подписи (остаются иконки с title). Колокольчик и профиль не
+   сжимаются, а длинное имя в кнопке профиля усекается многоточием
+   (`.user-btn-name`). Ниже 1024 включается мобильный режим. */
+@media (min-width: 1024px) and (max-width: 1599px) {
+  .navbar {
+    margin-left: 8px;
+    padding-left: 8px;
+    gap: 0;
+    min-width: 0;
+  }
+  .navlink {
+    padding: 0 9px;
+    gap: 6px;
+    font-size: 14px;
+  }
+}
+@media (min-width: 1024px) and (max-width: 1559px) {
+  .navlink-label {
+    display: none;
+  }
+  .navlink {
+    padding: 0 12px;
+  }
+}
 .navlink:hover {
   background: var(--surface-muted);
   color: var(--text);
@@ -1289,6 +1321,7 @@ select.input {
   gap: 8px;
   height: 44px;
   padding: 0 6px;
+  flex-shrink: 0;
   border: 1px solid transparent;
   border-radius: 999px;
   background: none;
