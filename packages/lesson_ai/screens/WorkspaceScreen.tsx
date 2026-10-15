@@ -220,9 +220,21 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
   }, [chatKey]);
 
   const onMaterial = useCallback((ev: LessonChatEvent) => {
+    if (ev.type === "objectives_changed") {
+      /* Цели сменились: подсвечивать нечего, комплект перечитывается целиком */
+      setFlash({ material_id: null, block: null, nonce: ++flashCount.current });
+      return;
+    }
     if (ev.material_id == null || !ev.block) return;
     setFlash({ material_id: ev.material_id, block: ev.block, nonce: ++flashCount.current });
   }, []);
+
+  /* «Изменить цели» в панели материалов: шторка выбора целей — у чата, ему уходит номер просьбы */
+  const [goalsRequest, setGoalsRequest] = useState(0);
+  const editGoals = () => {
+    if (!wide) setMaterialsOpen(false);
+    setGoalsRequest((n) => n + 1);
+  };
 
   /* ---------- Ширина панели материалов ---------- */
 
@@ -352,6 +364,7 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
               fromKitId={active.fromKitId}
               onChat={onChatFor(chatKey)}
               onMaterial={onMaterial}
+              editGoalsRequest={goalsRequest}
               onNew={startNew}
             />
           </div>
@@ -387,7 +400,7 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
               }}
             >
               {closeBar(t.laKitMaterials, t.laWsMaterialsHide, () => setMaterialsOpen(false))}
-              <MaterialsPanel kit={session.kit} flash={flash} />
+              <MaterialsPanel kit={session.kit} flash={flash} onEditGoals={editGoals} />
             </aside>
           </>
         )}

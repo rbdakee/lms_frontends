@@ -33,6 +33,7 @@ export function BlockCard({
   contentLang,
   onReplace,
   onStale,
+  onEditGoals,
 }: {
   material: LessonMaterial;
   block: LessonBlock;
@@ -42,6 +43,8 @@ export function BlockCard({
   onReplace: (b: LessonBlock) => void;
   /** Блок поменяли в другом окне — список надо перечитать */
   onStale: () => void;
+  /** Только у блока целей обучения в рабочем месте: открыть шторку выбора целей */
+  onEditGoals?: () => void;
 }) {
   const { t } = useLang();
   const toast = useToast();
@@ -119,9 +122,16 @@ export function BlockCard({
           {title}
         </h3>
         {!block.editable ? (
-          <Badge kind="locked" icon={<IconLock size={12} />}>
-            {t.laBlockLocked}
-          </Badge>
+          <div className="row wrap g6" style={{ alignItems: "center" }}>
+            <Badge kind="locked" icon={<IconLock size={12} />}>
+              {t.laBlockLocked}
+            </Badge>
+            {onEditGoals && (
+              <Button variant="ghost" size="sm" icon={<IconEdit size={16} />} onClick={onEditGoals}>
+                {t.laGoalsEdit}
+              </Button>
+            )}
+          </div>
         ) : (
           mode === "view" && (
             <div className="row wrap g4">

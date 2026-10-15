@@ -1418,6 +1418,8 @@ const ru = {
   laEvKitReady: "Комплект готов — материалы справа",
   laEvKitPartial: (kinds: string) => `Комплект собран не целиком — не получилось: ${kinds}`,
   laEvKitFailed: "Комплект не собрался",
+  laEvObjectives: (codes: string) => `Цели урока изменены: ${codes}`,
+  laGoalsEdit: "Изменить цели",
   laEvRewritten: (kind: string, block: string) => `${kind}: блок «${block}» переписан`,
   laEvSlide: {
     item_added: (n: number) => `Презентация: добавлен слайд ${n}`,
@@ -2878,6 +2880,8 @@ const kz: Dict = {
   laEvKitReady: "Жиынтық дайын — материалдар оң жақта",
   laEvKitPartial: (kinds: string) => `Жиынтық толық жиналмады — шықпағаны: ${kinds}`,
   laEvKitFailed: "Жиынтық жиналмады",
+  laEvObjectives: (codes: string) => `Сабақ мақсаттары өзгерді: ${codes}`,
+  laGoalsEdit: "Мақсаттарды өзгерту",
   laEvRewritten: (kind: string, block: string) => `${kind}: «${block}» блогы қайта жазылды`,
   laEvSlide: {
     item_added: (n: number) => `Презентация: ${n}-слайд қосылды`,
