@@ -29,6 +29,7 @@ import { useLang } from "@lms/ui/lang";
 import { findObjectives, listSubjects } from "../../api";
 import { useLessonAiAccess } from "../../access";
 import { DoneBar, ManyNote, ObjectiveChoice } from "./ObjectiveCards";
+import { SubjectIcon } from "./SubjectIcon";
 import { fieldMessage } from "./util";
 
 /* Начальная школа: 1–4 классы; выбранный предмет сужает их до своего диапазона */
@@ -202,6 +203,7 @@ export function ObjectiveSheet({
                   aria-pressed={subjectCode === s.code}
                   onClick={() => pickSubject(s)}
                 >
+                  <SubjectIcon url={s.icon_url} />
                   {uiLang === "kz" ? s.title_kz : s.title_ru}
                 </button>
               ))}
