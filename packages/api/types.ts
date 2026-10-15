@@ -380,3 +380,13 @@ export type LessonAccessCard = S["LessonAccessCardOut"];
 export type LessonAccessItem = S["LessonAccessItemOut"];
 export type LessonAccessPage = S["LessonAccessPageOut"];
 export type LessonAccessGrantIn = S["LessonAccessGrantIn"];
+
+/* ============ MCP: работа админа из внешнего ИИ (`MCP_BRIEF`) ============ */
+
+export type McpAuthorizeInfo = S["McpAuthorizeInfoOut"];
+export type McpAuthorizeIn = S["McpAuthorizeIn"];
+export type McpAuthorizeOut = S["McpAuthorizeOut"];
+export type McpConnection = S["McpConnectionOut"];
+export type McpConnections = S["McpConnectionsOut"];
+export type McpTokenIn = S["McpTokenIn"];
+export type McpTokenCreated = S["McpTokenOut"];
