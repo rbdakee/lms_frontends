@@ -95,6 +95,7 @@ const NO_ORDER: LessonChatOrder = {
 type Phase = "loading" | "ready" | "chat_not_found" | "kit_not_found" | "error";
 
 interface SheetFor {
+  subject_code: string | null;
   grade: number | null;
   lang: LessonLang | null;
 }
@@ -505,6 +506,7 @@ export function ChatPanel({
   /* Класс и язык для «Показать другие»: из заказа, иначе из показанной карточки */
   const openSheet = (from?: LessonChatObjective) =>
     setSheet({
+      subject_code: order.subject_code ?? from?.subject_code ?? order.objective?.subject_code ?? null,
       grade: order.grade ?? from?.grade ?? order.objective?.grade ?? lastShown(chat)?.grade ?? null,
       lang: order.lang ?? from?.lang ?? order.objective?.lang ?? lastShown(chat)?.lang ?? null,
     });
@@ -641,6 +643,7 @@ export function ChatPanel({
 
       <ObjectiveSheet
         open={sheet !== null}
+        subjectCode={sheet?.subject_code ?? null}
         grade={sheet?.grade ?? null}
         lang={sheet?.lang ?? null}
         chosenId={chosenId}

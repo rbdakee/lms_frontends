@@ -34,6 +34,7 @@ import {
   type LessonKitsPage,
   type LessonLang,
   type LessonObjectives,
+  type LessonSubjects,
 } from "@lms/api";
 
 /* ============ Коды отказов, на которые ветвятся экраны ============ */
@@ -254,8 +255,14 @@ export function findObjectives(params: {
   q?: string;
   grade?: number | null;
   lang?: LessonLang | null;
+  subject_code?: string | null;
 }): Promise<LessonObjectives> {
   return api<LessonObjectives>(`/lesson_ai/objectives${qs(params)}`);
+}
+
+/** Предметы с опубликованными программами — чипы фильтра; пустой список значит «программы ещё готовятся». */
+export function listSubjects(): Promise<LessonSubjects> {
+  return api<LessonSubjects>("/lesson_ai/subjects");
 }
 
 /** Событие `tool`: поиск по программе в момент поиска. */

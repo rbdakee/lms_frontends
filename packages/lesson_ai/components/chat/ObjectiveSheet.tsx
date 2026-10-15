@@ -13,16 +13,21 @@
  */
 
 import { useEffect, useState } from "react";
-import { isApiError, type LessonChatObjective, type LessonLang } from "@lms/api";
+import {
+  isApiError,
+  type LessonChatObjective,
+  type LessonLang,
+  type LessonSubject,
+} from "@lms/api";
 import { Button, Empty, Note, Sheet, Skeleton } from "@lms/ui";
 import { IconSearch } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
-import { findObjectives } from "../../api";
+import { findObjectives, listSubjects } from "../../api";
 import { useLessonAiAccess } from "../../access";
 import { ObjectiveText } from "./ObjectiveCards";
 import { fieldMessage } from "./util";
 
-/* «Жоспар» начинается с математики 1–4 классов (бриф, раздел 2) */
+/* Начальная школа: 1–4 классы; выбранный предмет сужает их до своего диапазона */
 const GRADES = [1, 2, 3, 4];
 const LANGS: LessonLang[] = ["ru", "kz"];
 /* Поиск на каждую букву ни к чему — ждём, пока учитель допечатает */
@@ -30,6 +35,7 @@ const DEBOUNCE_MS = 300;
 
 export function ObjectiveSheet({
   open,
+  subjectCode: initialSubject,
   grade: initialGrade,
   lang: initialLang,
   chosenId,
@@ -37,6 +43,7 @@ export function ObjectiveSheet({
   onPick,
 }: {
   open: boolean;
+  subjectCode: string | null;
   grade: number | null;
   lang: LessonLang | null;
   chosenId: number | null;
@@ -44,9 +51,13 @@ export function ObjectiveSheet({
   /** Вернул текст — выбор не прошёл, шторка остаётся открытой с ним. */
   onPick: (o: LessonChatObjective) => Promise<string | null>;
 }) {
-  const { t } = useLang();
+  const { t, lang: uiLang } = useLang();
   const { handle } = useLessonAiAccess();
   const [q, setQ] = useState("");
+  const [subject, setSubject] = useState<string | null>(initialSubject);
+  /* null — ещё грузим; провал загрузки даёт [] с флагом, чтобы не врать «программы готовятся» */
+  const [subjects, setSubjects] = useState<LessonSubject[] | null>(null);
+  const [subjectsFailed, setSubjectsFailed] = useState(false);
   const [grade, setGrade] = useState<number | null>(initialGrade);
   const [lang, setLang] = useState<LessonLang | null>(initialLang);
   const [items, setItems] = useState<LessonChatObjective[] | null>(null);
@@ -60,10 +71,44 @@ export function ObjectiveSheet({
   useEffect(() => {
     if (!open) return;
     setQ("");
+    setSubject(initialSubject);
     setGrade(initialGrade);
     setLang(initialLang);
     setPickError(null);
-  }, [open, initialGrade, initialLang]);
+  }, [open, initialSubject, initialGrade, initialLang]);
+
+  /* Предметы — справочник, а не поиск: берём при открытии, а не на каждый ввод */
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setSubjectsFailed(false);
+    listSubjects().then(
+      (res) => {
+        if (alive) setSubjects(res.items);
+      },
+      (e) => {
+        if (!alive || handle(e)) return;
+        setSubjectsFailed(true);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [open, handle]);
+
+  /* Предмета, которого нет среди опубликованных, в фильтре не оставляем: сервер отказал бы */
+  const subjectCode = subjects?.some((s) => s.code === subject) ? subject : null;
+  const current = subjects?.find((s) => s.code === subjectCode) ?? null;
+  const grades = current
+    ? GRADES.filter((g) => g >= current.grade_from && g <= current.grade_to)
+    : GRADES;
+  const noPrograms = subjects !== null && subjects.length === 0 && !subjectsFailed;
+
+  const pickSubject = (s: LessonSubject) => {
+    const next = subjectCode === s.code ? null : s;
+    setSubject(next?.code ?? null);
+    if (next && grade !== null && (grade < next.grade_from || grade > next.grade_to)) setGrade(null);
+  };
 
   const words = q.trim();
   const canList = words !== "" || (grade !== null && lang !== null);
@@ -78,7 +123,7 @@ export function ObjectiveSheet({
     setLoading(true);
     setError(null);
     const timer = setTimeout(() => {
-      findObjectives({ q: words || undefined, grade, lang }).then(
+      findObjectives({ q: words || undefined, grade, lang, subject_code: subjectCode }).then(
         (res) => {
           if (!alive) return;
           setItems(res.items);
@@ -96,7 +141,7 @@ export function ObjectiveSheet({
       alive = false;
       clearTimeout(timer);
     };
-  }, [open, canList, words, grade, lang, attempt, handle, t]);
+  }, [open, canList, words, subjectCode, grade, lang, attempt, handle, t]);
 
   const pick = async (o: LessonChatObjective) => {
     setPicking(o.id);
@@ -105,6 +150,18 @@ export function ObjectiveSheet({
     setPicking(null);
     if (err) setPickError(err);
   };
+
+  if (noPrograms) {
+    return (
+      <Sheet open={open} onClose={onClose} title={t.laObjectiveChosen} wide>
+        <Empty
+          icon={<IconSearch size={38} />}
+          title={t.laObjectiveNoPrograms}
+          text={t.laObjectiveNoProgramsText}
+        />
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet open={open} onClose={onClose} title={t.laObjectiveChosen} wide>
@@ -123,10 +180,31 @@ export function ObjectiveSheet({
           />
         </div>
 
+        {subjects !== null && subjects.length > 0 && (
+          <div className="stack g6">
+            <span className="label">{t.laChatSheetSubject}</span>
+            {/* Предметов до двух десятков: перенос в строки, но не выше пяти строк — дальше прокрутка */}
+            <div className="row g6 wrap" style={{ maxHeight: 132, overflowY: "auto" }}>
+              {subjects.map((s) => (
+                <button
+                  key={s.code}
+                  type="button"
+                  className="chip"
+                  data-active={subjectCode === s.code}
+                  aria-pressed={subjectCode === s.code}
+                  onClick={() => pickSubject(s)}
+                >
+                  {uiLang === "kz" ? s.title_kz : s.title_ru}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="stack g6">
           <span className="label">{t.laChatSheetGrade}</span>
           <div className="row g6 wrap">
-            {GRADES.map((g) => (
+            {grades.map((g) => (
               <button
                 key={g}
                 type="button"

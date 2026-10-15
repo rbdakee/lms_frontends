@@ -378,6 +378,9 @@ export type LessonChatKit = S["LessonChatKitOut"];
 export type LessonChatFeed = S["LessonChatFeedOut"];
 export type LessonChatEvent = S["LessonChatEventOut"];
 export type LessonObjectives = S["LessonObjectivesOut"];
+/** Предмет для чипов «выбрать самому»: только с опубликованными программами. */
+export type LessonSubject = S["LessonSubjectOut"];
+export type LessonSubjects = S["LessonSubjectsOut"];
 
 /* Выдача доступа в админке (`/admin/lesson_ai/access`) */
 export type LessonAccess = S["LessonAccessOut"];
