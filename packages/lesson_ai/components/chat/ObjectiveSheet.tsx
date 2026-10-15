@@ -193,7 +193,7 @@ export function ObjectiveSheet({
           <div className="stack g6">
             <span className="label">{t.laChatSheetSubject}</span>
             {/* Предметов до двух десятков: перенос в строки, но не выше пяти строк — дальше прокрутка */}
-            <div className="row g6 wrap" style={{ maxHeight: 132, overflowY: "auto" }}>
+            <div className="row g6 wrap chip-scroll" style={{ maxHeight: 132, overflowY: "auto" }}>
               {subjects.map((s) => (
                 <button
                   key={s.code}

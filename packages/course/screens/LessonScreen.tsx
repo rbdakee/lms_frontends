@@ -459,7 +459,9 @@ export function LessonScreen({
                   </div>
                   <Progress value={percent} />
                 </div>
-                <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
+                {/* Отступ снизу — чтобы рамка и тень нижней карточки модуля
+                    не срезались краем прокрутки */}
+                <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto", paddingBottom: 4 }}>
                   <CourseProgram program={modules} courseId={courseId} activeItemId={l.id} />
                 </div>
               </div>

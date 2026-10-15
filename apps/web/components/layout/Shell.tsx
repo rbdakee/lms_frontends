@@ -184,7 +184,9 @@ function NotificationsBell() {
             )}
           </div>
           <hr className="divider" />
-          <div style={{ maxHeight: 340, overflowY: "auto" }}>
+          {/* Отступ снизу — чтобы рамка последней строки и обводка фокуса
+              не срезались краем прокрутки */}
+          <div style={{ maxHeight: 340, overflowY: "auto", paddingBottom: 4 }}>
             {feed.loading ? (
               <div className="stack g8" style={{ padding: "14px" }}>
                 <Skeleton w="90%" h={14} />
