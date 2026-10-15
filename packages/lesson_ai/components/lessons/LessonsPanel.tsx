@@ -4,15 +4,10 @@
  * Тело «Моих уроков»: поиск, список, «показать ещё», пустые состояния
  * и ошибки — без кадра страницы (`TEACHER_AI_BRIEF`, раздел 4.3, последний
  * абзац; задача `v596tj`). Кадром — `Shell`, заголовком, `AccessUntil`
- * и кнопкой «Новый урок» сверху — владеет тот, кто панель показывает:
- * сейчас это `LessonsScreen`, скоро ещё и рабочее место с чатом слева.
+ * и кнопкой «Новый урок» сверху — владеет `LessonsScreen`.
  *
  * Копию панель не делает: «Копия» ведёт в новый разговор по прошлому
  * комплекту, заказ там собирает экран чата.
- *
- * `compact` — боковая колонка рабочего места шириной ~360px: список и там,
- * и на странице в одну колонку («карточка» — это `stack`, а не сетка), гап
- * между поиском и списком там теснее, чтобы не съедать высоту зря.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -30,7 +25,7 @@ const PER_PAGE = 20;
 /* Запрос уходит, когда учитель перестал печатать, а не на каждую букву */
 const SEARCH_DELAY_MS = 300;
 
-export function LessonsPanel({ compact }: { compact?: boolean }): React.JSX.Element {
+export function LessonsPanel(): React.JSX.Element {
   const { t } = useLang();
   const routes = useRoutes();
   const { handle } = useLessonAiAccess();
@@ -130,12 +125,8 @@ export function LessonsPanel({ compact }: { compact?: boolean }): React.JSX.Elem
     }
   };
 
-  /* Гап — единственное, чем компактный режим отличается от страницы: сама
-     колонка уже в одну карточку в ширину в обоих случаях (`.stack`, не сетка),
-     поиск занимает всю ширину сам (`.input { width: 100% }`), а кнопка «Копия»
-     карточки не обрезается — строка футера переносится (`row wrap`) */
   return (
-    <div className={`stack ${compact ? "g12" : "g20"}`}>
+    <div className="stack g20">
       <div className="stack g8">
         <div className="input-wrap">
           <span className="input-icon">

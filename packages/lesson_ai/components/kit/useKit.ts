@@ -45,7 +45,11 @@ export interface KitState {
   pollFailing: boolean;
 }
 
-export function useKit(kitId: string): KitState {
+/**
+ * `poll: false` — комплект перечитывает хозяин: в рабочем месте за статусами
+ * следит опрос ленты чата, и второй опрос того же комплекта был бы лишним.
+ */
+export function useKit(kitId: string, { poll = true }: { poll?: boolean } = {}): KitState {
   const { handle } = useLessonAiAccess();
   const [kit, setKitState] = useState<LessonKit | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
@@ -89,7 +93,7 @@ export function useKit(kitId: string): KitState {
   const refresh = useCallback(() => load(true), [load]);
   const setKit = useCallback((k: LessonKit) => setKitState(k), []);
 
-  const generating = kit?.status === "generating";
+  const generating = poll && kit?.status === "generating";
   /* Счётчик ответов опроса, удачных и нет: от него заводится следующий тик */
   const [polls, setPolls] = useState(0);
   const startedAt = useRef(Date.now());

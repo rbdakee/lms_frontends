@@ -1,16 +1,38 @@
 "use client";
 
 /**
- * «Мои уроки» — то же рабочее место, что вход в продукт, только на телефоне
- * открыта вкладка уроков; на широком экране чат и уроки видны рядом.
- * Сам список — поиск, пустые состояния и ошибки — в `LessonsPanel`
- * (`components/lessons`), раскладка — в `WorkspaceScreen`. Экран остался
- * под прежним именем и на прежнем адресе: на него ведут ссылки площадок
- * и кнопка «назад» комплекта.
+ * «Мои уроки» — отдельная страница со списком всех комплектов: поиск, пустые
+ * состояния и ошибки живут в `LessonsPanel` (`components/lessons`). В рабочем
+ * месте справа не этот список, а материалы текущего разговора; сюда ведёт
+ * ссылка из сайдбара и кнопка «назад» комплекта.
  */
 
-import { WorkspaceScreen } from "./WorkspaceScreen";
+import { LinkButton } from "@lms/ui";
+import { IconPlus } from "@lms/ui/icons";
+import { useLang } from "@lms/ui/lang";
+import { AccessUntil } from "../access";
+import { useChrome, useRoutes } from "../host";
+import { LessonsPanel } from "../components/lessons/LessonsPanel";
 
 export function LessonsScreen() {
-  return <WorkspaceScreen tab="lessons" />;
+  const { t } = useLang();
+  const routes = useRoutes();
+  const { Shell } = useChrome();
+
+  return (
+    <Shell title={t.laMyLessons}>
+      <div className="page section stack g16" style={{ maxWidth: 720 }}>
+        <div className="row wrap between g10" style={{ alignItems: "center" }}>
+          <div className="stack g4">
+            <h1 className="h2">{t.laMyLessons}</h1>
+            <AccessUntil />
+          </div>
+          <LinkButton href={routes.home} icon={<IconPlus size={17} />}>
+            {t.laNewLesson}
+          </LinkButton>
+        </div>
+        <LessonsPanel />
+      </div>
+    </Shell>
+  );
 }

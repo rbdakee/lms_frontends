@@ -1,36 +1,46 @@
 "use client";
 
 /**
- * Рабочее место «Жоспара» — одна страница на весь продукт, кроме комплекта:
- * слева разговор с помощником и полоса прошлых разговоров, справа свои уроки.
- * На телефоне панели становятся вкладками «Чат» | «Мои уроки».
+ * Рабочее место «Жоспара» в стиле ChatGPT (решение владельца 15.10.2026):
+ *
+ *   слева   — все разговоры учителя и «Новый урок»; сворачивается;
+ *   по центру — чат: до «Готовить» собирает заказ, после — правит материалы;
+ *   справа  — материалы этой сессии: вкладки, блоки, предпросмотр, скачивание.
+ *
+ * Панель материалов появляется, когда у разговора есть комплект
+ * (`mode: "edit"`): до этого чату нужна вся ширина. Её ширину учитель
+ * тянет за край. На телефоне один столбец — чат, а сайдбар и материалы
+ * выезжают поверх него.
  *
  * Писать можно сразу, без поиска кнопки «Новый урок»: вход в продукт — это
- * уже новый разговор. Прошлый разговор открывается на месте, клик по чипу
- * не уводит со страницы — список уроков рядом не перезагружается.
+ * уже новый разговор. Прошлый разговор открывается на месте, клик по строке
+ * не уводит со страницы.
  *
- * Панель чата не размонтируется ни при смене вкладки, ни при смене ширины
- * окна: иначе оборвался бы идущий стрим ответа и пропал набранный текст.
- * Поэтому дерево одно на обе ширины, а спрятанная вкладка — `display: none`.
+ * Панель чата не размонтируется ни при смене ширины окна, ни при показе
+ * панелей: иначе оборвался бы идущий стрим ответа и пропал набранный текст.
+ * Поэтому дерево одно на все ширины, а закрытые панели — `display: none`.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import type { LessonChat } from "@lms/api";
+import type { LessonChat, LessonChatEvent, LessonChatKit, LessonChatListItem } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
+import { IconClose, IconLayers, IconMenu } from "@lms/ui/icons";
 import { useToast } from "@lms/ui/toast";
-import { AccessUntil, useLessonAiAccess } from "../access";
-import { listChats, type LessonChatListItem } from "../api";
+import { useLessonAiAccess } from "../access";
+import { listChats } from "../api";
 import { useChrome, useRoutes } from "../host";
 import { LESSON_AI_NAME } from "../name";
 import { ChatPanel } from "../components/chat/ChatPanel";
-import { History } from "../components/chat/History";
+import { Sidebar, chatTitle } from "../components/chat/Sidebar";
 import { useWide } from "../components/chat/util";
-import { LessonsPanel } from "../components/lessons/LessonsPanel";
-
-type Tab = "chat" | "lessons";
+import type { MaterialFlash } from "../components/kit/KitMaterials";
+import { MaterialsPanel } from "../components/kit/MaterialsPanel";
 
 const PER_PAGE = 20;
+const SIDEBAR_W = 280;
+const MATERIALS_W = { min: 360, max: 760, initial: 520 };
+const RESIZE_STEP = 24;
 
 /** Какой разговор открыт. `epoch` — номер нового разговора: без id ключ панели иначе не сменить. */
 interface Active {
@@ -46,15 +56,13 @@ interface HistoryState {
   fetched: number;
 }
 
-export function WorkspaceScreen({
-  chatId,
-  fromKitId,
-  tab = "chat",
-}: {
-  chatId?: string;
-  fromKitId?: string;
-  tab?: Tab;
-}) {
+/** То, что рабочему месту нужно знать о чате, кроме ленты. */
+interface Session {
+  mode: LessonChat["mode"];
+  kit: LessonChatKit | null;
+}
+
+export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKitId?: string }) {
   const { t } = useLang();
   const routes = useRoutes();
   const pathname = usePathname();
@@ -67,7 +75,17 @@ export function WorkspaceScreen({
      а адрес подменяется `replaceState` и маршрут Next остаётся прежним */
   const [active, setActive] = useState<Active>({ chatId, fromKitId, epoch: 0 });
   const [currentId, setCurrentId] = useState<number | null>(chatId ? Number(chatId) || null : null);
-  const [view, setView] = useState<Tab>(tab);
+  const [session, setSession] = useState<Session | null>(null);
+  const [flash, setFlash] = useState<MaterialFlash | null>(null);
+  const flashCount = useRef(0);
+
+  /* `null` — учитель ещё не выбирал: сайдбар и материалы открыты на широком
+     экране и закрыты на телефоне, где иначе перекрывали бы чат */
+  const [sidebarOpen, setSidebarOpen] = useState<boolean | null>(null);
+  const [materialsOpen, setMaterialsOpen] = useState<boolean | null>(null);
+  const [materialsW, setMaterialsW] = useState(MATERIALS_W.initial);
+  const showSidebar = sidebarOpen ?? wide;
+  const showMaterials = materialsOpen ?? wide;
 
   const lastPath = useRef(pathname);
 
@@ -75,6 +93,11 @@ export function WorkspaceScreen({
      на телефоне фокус открыл бы клавиатуру поверх ленты */
   const focusComposer = useRef(false);
   const chatSection = useRef<HTMLElement>(null);
+
+  const reset = useCallback(() => {
+    setSession(null);
+    setFlash(null);
+  }, []);
 
   const startNew = useCallback(() => {
     /* Адрес меняем сами — эффект ниже не должен принять это за переход извне
@@ -84,8 +107,9 @@ export function WorkspaceScreen({
     window.history.replaceState(null, "", routes.home);
     setActive((a) => ({ epoch: a.epoch + 1 }));
     setCurrentId(null);
-    setView("chat");
-  }, [routes.home]);
+    reset();
+    if (!wide) setSidebarOpen(false);
+  }, [routes.home, reset, wide]);
 
   /*
    * Ссылка на вход в продукт извне экрана (таб-панель, меню) ведёт на тот же
@@ -96,10 +120,10 @@ export function WorkspaceScreen({
     if (pathname === routes.home && lastPath.current !== routes.home) {
       setActive((a) => ({ epoch: a.epoch + 1 }));
       setCurrentId(null);
-      setView("chat");
+      reset();
     }
     lastPath.current = pathname;
-  }, [pathname, routes.home]);
+  }, [pathname, routes.home, reset]);
 
   /* Эффект родителя идёт после монтирования новой панели — поле уже на месте */
   useEffect(() => {
@@ -109,11 +133,12 @@ export function WorkspaceScreen({
   }, [active.epoch, wide]);
 
   const pick = (id: number) => {
-    setView("chat");
+    if (!wide) setSidebarOpen(false);
     if (id === currentId) return;
     window.history.replaceState(null, "", routes.chat(id));
     setActive((a) => ({ chatId: String(id), epoch: a.epoch }));
     setCurrentId(id);
+    reset();
   };
 
   /* ---------- История ---------- */
@@ -135,8 +160,8 @@ export function WorkspaceScreen({
       },
       (e) => {
         if (!alive || handle(e)) return;
-        /* Полоса вспомогательная: без неё разговор идёт как шёл, поэтому
-           отказ сети — не экран ошибки, а просто нет чипов */
+        /* Сайдбар вспомогательный: без него разговор идёт как шёл, поэтому
+           отказ сети — не экран ошибки, а просто пустой список */
         setHistory(null);
       },
     );
@@ -169,145 +194,225 @@ export function WorkspaceScreen({
   };
 
   /* Ключ панели чата. Колбэк ниже помнит свой ключ: запрос старого разговора,
-     вернувшийся после переключения, не должен подсветить чужой чип */
+     вернувшийся после переключения, не должен подсветить чужую строку */
   const chatKey = `${active.chatId ?? ""}|${active.fromKitId ?? ""}|${active.epoch}`;
   const keyRef = useRef(chatKey);
   keyRef.current = chatKey;
+  const modeRef = useRef<LessonChat["mode"] | null>(null);
 
   const onChatFor = (key: string) => (c: LessonChat) => {
     const item = itemOf(c);
-    if (key === keyRef.current) setCurrentId(c.id);
+    if (key === keyRef.current) {
+      setCurrentId(c.id);
+      setSession({ mode: c.mode, kit: c.kit });
+      /* «Готовить» только что нажали: материалы появляются справа, и на
+         телефоне их стоит показать — иначе непонятно, что случилось */
+      if (modeRef.current === "order" && c.mode === "edit") setMaterialsOpen(true);
+      modeRef.current = c.mode;
+    }
     if (history === undefined) early.current = place(early.current, item);
     setHistory((h) => (h ? { ...h, items: place(h.items, item) } : h));
   };
 
+  /* Новая панель чата начинает с чистого листа — режим прошлой не переносим */
+  useEffect(() => {
+    modeRef.current = null;
+  }, [chatKey]);
+
+  const onMaterial = useCallback((ev: LessonChatEvent) => {
+    if (ev.material_id == null || !ev.block) return;
+    setFlash({ material_id: ev.material_id, block: ev.block, nonce: ++flashCount.current });
+  }, []);
+
+  /* ---------- Ширина панели материалов ---------- */
+
+  const dragFrom = useRef<{ x: number; w: number } | null>(null);
+  const clampW = (w: number) => Math.max(MATERIALS_W.min, Math.min(w, MATERIALS_W.max, window.innerWidth * 0.6));
+  const onResizeDown = (e: PointerEvent<HTMLDivElement>) => {
+    dragFrom.current = { x: e.clientX, w: materialsW };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onResizeMove = (e: PointerEvent<HTMLDivElement>) => {
+    const from = dragFrom.current;
+    /* Панель справа: тянем влево — шире */
+    if (from) setMaterialsW(clampW(from.w + (from.x - e.clientX)));
+  };
+  const onResizeKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const dir = e.key === "ArrowLeft" ? 1 : e.key === "ArrowRight" ? -1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    setMaterialsW((w) => clampW(w + dir * RESIZE_STEP));
+  };
+
   /* ---------- Кадр ---------- */
 
-  const header = (
-    <div className="stack g4" style={{ marginBottom: 16, minWidth: 0 }}>
-      <h1 className="h2">{LESSON_AI_NAME}</h1>
-      {/* Первый заход: без этой строки учитель видит имя и чат и не знает,
-          что на выходе будут готовые файлы к уроку */}
-      <span className="small muted pretty">{t.laTagline}</span>
-      <AccessUntil />
-    </div>
-  );
+  const hasKit = session?.mode === "edit" && session.kit !== null;
+  const generating = session?.kit?.status === "generating";
+  const currentItem = history?.items.find((i) => i.id === currentId);
+  const title = currentItem ? chatTitle(t, currentItem) : LESSON_AI_NAME;
 
-  const tabs = (
-    <div
-      style={{
-        position: "sticky",
-        top: "var(--header-h)",
-        zIndex: 6,
-        background: "var(--bg)",
-        paddingBlock: 8,
-        marginBottom: 8,
-      }}
-    >
-      <div className="segmented" role="tablist" style={{ display: "flex" }}>
-        {(["chat", "lessons"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            role="tab"
-            aria-selected={view === v}
-            data-active={view === v}
-            onClick={() => setView(v)}
-            style={{ flex: 1 }}
-          >
-            {v === "chat" ? t.laTabChat : t.laMyLessons}
-          </button>
-        ))}
-      </div>
+  /* Высота — от окна, а не от содержимого: лента и панели крутятся каждая сама,
+     страница стоит. Нижний отступ `main.has-tabbar` (48px на широком, 16px + таб-панель
+     на телефоне) вычитаем из высоты и гасим отрицательным полем — иначе под рабочим
+     местом оставалась бы прокрутка страницы */
+  const frame: CSSProperties = wide
+    ? { height: "calc(100dvh - var(--header-h))", marginBottom: -48 }
+    : {
+        height: "calc(100dvh - var(--header-h) - var(--tabbar-h) - env(safe-area-inset-bottom))",
+        marginBottom: -16,
+      };
+
+  /* Телефон: панель выезжает поверх чата между шапкой и таб-панелью сайта */
+  const overlay: CSSProperties = {
+    position: "fixed",
+    top: "var(--header-h)",
+    bottom: "calc(var(--tabbar-h) + env(safe-area-inset-bottom))",
+    zIndex: 44,
+    background: "var(--card)",
+    boxShadow: "var(--shadow-lg)",
+  };
+
+  const closeBar = (heading: string, closeLabel: string, onClose: () => void): ReactNode => (
+    <div className="row between" style={{ alignItems: "center", padding: "6px 8px 6px 16px", borderBottom: "1px solid var(--border)" }}>
+      <strong>{heading}</strong>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label={closeLabel} title={closeLabel} style={{ minWidth: 40, padding: 0 }}>
+        <IconClose size={18} />
+      </button>
     </div>
   );
 
   return (
     <Shell title={LESSON_AI_NAME}>
-      <div className="page section" style={{ paddingBottom: 0 }}>
-        {header}
-        {/* Одно дерево на обе ширины: сменись позиция панели чата в дереве,
-            React размонтировал бы её вместе со стримом */}
-        <div
-          style={
-            wide
-              ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 360px", gap: 24, alignItems: "start" }
-              : undefined
-          }
+      <div style={{ ...frame, display: "flex", overflow: "hidden", position: "relative" }}>
+        {/* ---------- Слева: разговоры ---------- */}
+        {!wide && showSidebar && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{ position: "fixed", inset: 0, top: "var(--header-h)", zIndex: 43, background: "rgba(15, 23, 42, 0.4)" }}
+          />
+        )}
+        <aside
+          style={{
+            display: showSidebar ? "block" : "none",
+            width: wide ? SIDEBAR_W : "min(86vw, 320px)",
+            flexShrink: 0,
+            borderRight: "1px solid var(--border)",
+            background: "var(--card)",
+            ...(wide ? null : { ...overlay, left: 0 }),
+          }}
         >
-          {!wide && tabs}
-          <section
-            ref={chatSection}
-            className="stack g12"
-            style={{
-              minWidth: 0,
-              ...(wide ? null : { maxWidth: 720, margin: "0 auto" }),
-              ...(wide || view === "chat" ? null : { display: "none" }),
-            }}
+          <Sidebar
+            items={history ? history.items : null}
+            activeId={currentId}
+            hasMore={!!history && history.fetched < history.total}
+            loadingMore={loadingMore}
+            onPick={pick}
+            onMore={() => void loadMore()}
+            onNew={startNew}
+          />
+        </aside>
+
+        {/* ---------- По центру: чат ---------- */}
+        <section ref={chatSection} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+          <div
+            className="row g8"
+            style={{ alignItems: "center", minHeight: 52, padding: "0 12px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}
           >
-            <History
-              items={history ? history.items : null}
-              activeId={currentId}
-              hasMore={!!history && history.fetched < history.total}
-              loadingMore={loadingMore}
-              onPick={pick}
-              onMore={() => void loadMore()}
-              onNew={startNew}
-            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setSidebarOpen(!showSidebar)}
+              aria-label={showSidebar ? t.laWsChatsHide : t.laWsChatsShow}
+              aria-expanded={showSidebar}
+              title={showSidebar ? t.laWsChatsHide : t.laWsChatsShow}
+              style={{ minWidth: 40, padding: 0 }}
+            >
+              <IconMenu size={19} />
+            </button>
+            <strong className="grow" style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {title}
+            </strong>
+            {hasKit && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setMaterialsOpen(!showMaterials)}
+                aria-expanded={showMaterials}
+                title={showMaterials ? t.laWsMaterialsHide : t.laWsMaterialsShow}
+              >
+                {generating ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <IconLayers size={16} />}
+                {t.laKitMaterials}
+              </button>
+            )}
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
             <ChatPanel
               key={chatKey}
               chatId={active.chatId}
               fromKitId={active.fromKitId}
-              wide={wide}
-              visible={wide || view === "chat"}
               onChat={onChatFor(chatKey)}
+              onMaterial={onMaterial}
               onNew={startNew}
             />
-          </section>
-          <aside
-            aria-label={wide ? t.laMyLessons : undefined}
-            className="stack g12"
-            style={
-              wide
-                ? {
-                    /* Уроки липнут под шапкой сайта и крутятся сами: лента слева
-                       длинная, и без этого список уезжал бы вверх вместе с ней */
-                    position: "sticky",
-                    top: "calc(var(--header-h) + 16px)",
-                    /* Под сеткой — нижний отступ `main.has-tabbar` (48px на широком).
-                       Липкий блок не выходит за низ сетки: в конце страницы колонка
-                       ростом в экран поднималась бы под шапку сайта. Вычитаем этот
-                       хвост — верх колонки всегда остаётся под шапкой */
-                    maxHeight: "calc(100vh - var(--header-h) - 16px - 48px)",
-                    overflowY: "auto",
-                  }
-                : {
-                    maxWidth: 720,
-                    margin: "0 auto",
-                    paddingBottom: 24,
-                    ...(view === "lessons" ? null : { display: "none" }),
-                  }
-            }
-          >
-            {wide && <h2 className="h3">{t.laMyLessons}</h2>}
-            <LessonsPanel compact={wide} />
-          </aside>
-        </div>
+          </div>
+        </section>
+
+        {/* ---------- Справа: материалы этой сессии ---------- */}
+        {hasKit && session.kit && (
+          <>
+            {wide && showMaterials && (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label={t.laWsResize}
+                aria-valuemin={MATERIALS_W.min}
+                aria-valuemax={MATERIALS_W.max}
+                aria-valuenow={materialsW}
+                tabIndex={0}
+                onPointerDown={onResizeDown}
+                onPointerMove={onResizeMove}
+                onPointerUp={() => (dragFrom.current = null)}
+                onKeyDown={onResizeKey}
+                style={{ width: 6, flexShrink: 0, cursor: "col-resize", background: "var(--border)", touchAction: "none" }}
+              />
+            )}
+            <aside
+              aria-label={t.laKitMaterials}
+              style={{
+                display: showMaterials ? "block" : "none",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+                background: "var(--bg)",
+                ...(wide ? { width: materialsW, flexShrink: 0 } : { ...overlay, left: 0, right: 0 }),
+              }}
+            >
+              {closeBar(t.laKitMaterials, t.laWsMaterialsHide, () => setMaterialsOpen(false))}
+              <MaterialsPanel kit={session.kit} flash={flash} />
+            </aside>
+          </>
+        )}
       </div>
     </Shell>
   );
 }
 
-/** Элемент истории из чата с сервера: тема и класс — из заказа, подпись — первая реплика учителя. */
+/**
+ * Строка сайдбара из чата с сервера. Подпись собираем так же, как сервер
+ * (`title`): тема из заказа, пока её нет — первая реплика учителя.
+ */
 function itemOf(c: LessonChat): LessonChatListItem {
+  const first = c.items.find((m) => m.role === "user")?.content.slice(0, 120) ?? null;
   return {
     id: c.id,
     status: c.status,
+    mode: c.mode,
     kit_id: c.kit_id,
+    kit_status: c.kit?.status ?? null,
+    title: c.order.topic?.trim() || first,
     topic: c.order.topic,
     subject_code: c.order.subject_code,
     grade: c.order.grade,
-    first_message: c.items.find((m) => m.role === "user")?.content ?? null,
+    first_message: first,
     created_at: c.created_at,
     updated_at: c.updated_at,
   };

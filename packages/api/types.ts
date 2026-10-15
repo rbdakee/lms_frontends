@@ -371,6 +371,12 @@ export type LessonChatOrderPatch = S["LessonChatOrderPatchIn"];
 export type LessonChatConfirmIn = S["LessonChatConfirmIn"];
 export type LessonChatConfirm = S["LessonChatConfirmOut"];
 export type LessonChatTurn = S["LessonChatTurnOut"];
+/* Рабочее место: строка сайдбара, комплект чата без содержимого, хвост ленты и событие ленты */
+export type LessonChatListItem = S["LessonChatListItemOut"];
+export type LessonChatsPage = S["LessonChatsPageOut"];
+export type LessonChatKit = S["LessonChatKitOut"];
+export type LessonChatFeed = S["LessonChatFeedOut"];
+export type LessonChatEvent = S["LessonChatEventOut"];
 export type LessonObjectives = S["LessonObjectivesOut"];
 
 /* Выдача доступа в админке (`/admin/lesson_ai/access`) */

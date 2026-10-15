@@ -24,8 +24,11 @@ import {
   type LessonChat,
   type LessonChatConfirm,
   type LessonChatConfirmIn,
+  type LessonChatEvent,
+  type LessonChatFeed,
   type LessonChatObjective,
   type LessonChatOrderPatch,
+  type LessonChatsPage,
   type LessonChatTurn,
   type LessonKit,
   type LessonKitsPage,
@@ -210,39 +213,14 @@ export function getChat(id: number | string): Promise<LessonChat> {
   return api<LessonChat>(`/lesson_ai/chats/${id}`);
 }
 
-/* История чатов — полоса над лентой.
+/* История чатов — сайдбар рабочего места.
 
      GET /lesson_ai/chats?page=&per_page=
      → { items, total, page, per_page }, свежие по активности сверху
 
-   Форма элемента — `LessonChatListItemOut` из схемы бэкенда, но описана здесь
-   руками: `packages/api/types.ts` сейчас не перегенерируем, в нём лежат чужие
-   незакоммиченные правки. После их коммита перегенерировать типы и заменить
-   `LessonChatListItem` на схемный.
-
    Фронт может уехать в бой раньше ручки: тогда FastAPI отвечает на GET `405`
    (у пути есть только POST) — `listChats` возвращает `null`, и экран просто
    не показывает историю. */
-
-export interface LessonChatListItem {
-  id: number;
-  status: "collecting" | "confirmed";
-  kit_id: number | null;
-  topic: string | null;
-  subject_code: string | null;
-  grade: number | null;
-  /** Первая реплика учителя — подпись, пока темы нет */
-  first_message: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface LessonChatsPage {
-  items: LessonChatListItem[];
-  total: number;
-  page: number;
-  per_page: number;
-}
 
 export async function listChats(params: { page?: number; per_page?: number }): Promise<LessonChatsPage | null> {
   try {
@@ -251,6 +229,14 @@ export async function listChats(params: { page?: number; per_page?: number }): P
     if (e instanceof ApiError && (e.status === 405 || e.status === 404)) return null;
     throw e;
   }
+}
+
+/**
+ * Хвост ленты после строки `after_id` и комплект — опрос, пока комплект
+ * собирается: воркер дописывает события, когда экран ничего не отправляет.
+ */
+export function getChatFeed(id: number, afterId: number): Promise<LessonChatFeed> {
+  return api<LessonChatFeed>(`/lesson_ai/chats/${id}/messages${qs({ after_id: afterId })}`);
 }
 
 /** Кнопки под сообщениями: «Да, она», язык обучения, тема. `null` — стереть поле. */
@@ -287,6 +273,8 @@ export interface ChatHandlers {
    * присказка «сейчас посмотрю», в ленту он не ляжет.
    */
   onTool: (event: ChatToolEvent) => void;
+  /** Помощник изменил блок материала: подсветить его справа и перечитать. */
+  onMaterial: (event: LessonChatEvent) => void;
 }
 
 /**
@@ -299,7 +287,12 @@ export interface ChatHandlers {
  * Отказы — `ApiError` двумя путями: до стрима обычным статусом (`403`, `409`,
  * `422`, `429`), после — событием `error`: хода тогда не было вовсе.
  */
-export async function say(chatId: number, text: string, on: ChatHandlers): Promise<LessonChatTurn> {
+export async function say(
+  chatId: number,
+  text: string,
+  on: ChatHandlers,
+  signal?: AbortSignal,
+): Promise<LessonChatTurn> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}/lesson_ai/chats/${chatId}/messages`, {
@@ -307,8 +300,11 @@ export async function say(chatId: number, text: string, on: ChatHandlers): Promi
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
+      signal,
     });
-  } catch {
+  } catch (e) {
+    /* «Стоп» — не сбой сети: вызывающий отличает его по `signal.aborted` */
+    if (signal?.aborted) throw e;
     throw new ApiError(0, { code: NETWORK_ERROR, message: "Не удалось соединиться с сервером" });
   }
 
@@ -340,6 +336,7 @@ export async function say(chatId: number, text: string, on: ChatHandlers): Promi
       if (!event) continue;
       if (event.name === "delta") on.onDelta(String(event.data.text ?? ""));
       else if (event.name === "tool") on.onTool(event.data as unknown as ChatToolEvent);
+      else if (event.name === "material_changed") on.onMaterial(event.data as unknown as LessonChatEvent);
       else if (event.name === "done") done = event.data as unknown as LessonChatTurn;
       else if (event.name === "error") {
         const err = event.data.error as { code: string; message: string } | undefined;

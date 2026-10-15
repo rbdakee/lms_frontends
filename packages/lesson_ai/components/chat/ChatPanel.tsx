@@ -21,24 +21,32 @@
  * Адрес заведённого чата подменяется `history.replaceState`, а не роутером:
  * навигация размонтировала бы экран посреди стрима.
  *
+ * Чат не заканчивается на «Готовить» (решение 15.10.2026): `mode: "edit"` —
+ * та же лента и то же поле ввода, но реплика теперь просьба поправить
+ * материал. События ленты (`role: "event"`) рисуются плашками, а правки
+ * материалов (`material_changed` в стриме, `block_changed` в опросе) панель
+ * отдаёт наверх (`onMaterial`) — подсветить блок справа решает рабочее место.
+ * Пока комплект собирается, ленту и статусы материалов подтягивает опрос.
+ *
  * Каждый чат с сервера панель отдаёт наверх (`onChat`): так новый разговор
- * встаёт в полосу истории после первого действия, а тема в чипе обновляется,
- * как только её задали, — без перечитывания списка.
+ * встаёт в сайдбар после первого действия, а тема и статус комплекта
+ * обновляются, как только изменились, — без перечитывания списка.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   isApiError,
   type LessonChat,
   type LessonChatConfirmIn,
+  type LessonChatEvent,
+  type LessonChatFeed,
   type LessonChatObjective,
   type LessonChatOrder,
   type LessonChatOrderPatch,
   type LessonKit,
   type LessonLang,
 } from "@lms/api";
-import { Button, Empty, LinkButton, Note, Skeleton } from "@lms/ui";
+import { Button, Empty, Note, Skeleton } from "@lms/ui";
 import { IconMessage } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
@@ -47,6 +55,7 @@ import {
   confirmChat,
   createChat,
   getChat,
+  getChatFeed,
   getKit,
   objectivesOf,
   patchOrder,
@@ -56,6 +65,7 @@ import { useLessonAiAccess } from "../../access";
 import { useRoutes } from "../../host";
 import { KIND_ORDER, hoursFrom } from "../../labels";
 import { ConfirmForm, type ConfirmPreset } from "./ConfirmForm";
+import { EventPill } from "./EventPill";
 import { BotBubble, Composer, Thinking, UserBubble } from "./Feed";
 import { ObjectiveCards } from "./ObjectiveCards";
 import { ObjectiveSheet } from "./ObjectiveSheet";
@@ -89,26 +99,25 @@ interface SheetFor {
   lang: LessonLang | null;
 }
 
+/* Как часто спрашиваем ленту, пока комплект собирается (контракт: раз в 2–3 с) */
+const POLL_MS = 2500;
+
 export function ChatPanel({
   chatId,
   fromKitId,
-  wide,
-  visible,
   onChat,
+  onMaterial,
   onNew,
 }: {
   chatId?: string;
   fromKitId?: string;
-  /** Широкий экран: под полем ввода нет таб-панели площадки */
-  wide: boolean;
-  /** На телефоне панель прячется за вкладкой «Мои уроки», но не размонтируется */
-  visible: boolean;
   onChat: (chat: LessonChat) => void;
+  /** Помощник поправил блок материала: подсветить справа и перечитать */
+  onMaterial: (event: LessonChatEvent) => void;
   onNew: () => void;
 }) {
   const { t } = useLang();
   const routes = useRoutes();
-  const router = useRouter();
   const { handle } = useLessonAiAccess();
   const toast = useToast();
 
@@ -124,19 +133,28 @@ export function ChatPanel({
   const [pending, setPending] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [live, setLive] = useState<LessonChatObjective[][]>([]);
+  /* В режиме правки `tool` — не поиск по программе, а работа над материалом */
+  const [editing, setEditing] = useState(false);
   const [sayError, setSayError] = useState<string | null>(null);
   const [patching, setPatching] = useState(false);
   const [sheet, setSheet] = useState<SheetFor | null>(null);
 
   const idRef = useRef<number | null>(null);
   const creating = useRef<Promise<number> | null>(null);
+  /* Идущий ответ: «Стоп» обрывает чтение стрима */
+  const turn = useRef<AbortController | null>(null);
 
   /* Через ref: `adopt` стоит в зависимостях входного эффекта, и новый колбэк
      от рабочего места на каждом его рендере перезапускал бы вход */
   const onChatRef = useRef(onChat);
   onChatRef.current = onChat;
+  const onMaterialRef = useRef(onMaterial);
+  onMaterialRef.current = onMaterial;
+  /* Чат, каким его видит опрос: к моменту тика state в замыкании уже старый */
+  const chatRef = useRef<LessonChat | null>(null);
   const adopt = useCallback((c: LessonChat) => {
     idRef.current = c.id;
+    chatRef.current = c;
     setChat(c);
     onChatRef.current(c);
   }, []);
@@ -217,10 +235,63 @@ export function ChatPanel({
     return creating.current;
   }, [adopt, moveTo]);
 
-  /** Заказ уже отправлен (`409 chat_confirmed`): ввод закрывается, ведём к комплекту. */
-  const markConfirmed = useCallback((kitId: unknown) => {
-    setChat((c) => (c ? { ...c, status: "confirmed", kit_id: Number(kitId) || c.kit_id } : c));
-  }, []);
+  /** Заказ уже отправлен (`409 chat_confirmed` на кнопку): чат перечитывается — он в режиме правки. */
+  const reloadChat = useCallback(async () => {
+    const id = idRef.current;
+    if (id !== null) adopt(await getChat(id));
+  }, [adopt]);
+
+  /* ---------- Опрос, пока комплект собирается ---------- */
+
+  const kitGenerating = chat?.kit?.status === "generating";
+  useEffect(() => {
+    if (!kitGenerating || sending) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    /* Хвост кладём на чат, каким он стал к моменту ответа: разговор мог
+       продвинуться, пока шёл запрос, — лишние строки отсеет `known` */
+    const mergeFeed = (feed: LessonChatFeed) => {
+      const cur = chatRef.current;
+      if (!cur) return;
+      const known = new Set(cur.items.map((i) => i.id));
+      const fresh = feed.items.filter((i) => !known.has(i.id));
+      adopt({
+        ...cur,
+        status: feed.status,
+        mode: feed.mode,
+        kit: feed.kit,
+        kit_id: feed.kit?.id ?? cur.kit_id,
+        items: [...cur.items, ...fresh],
+        updated_at: fresh.length > 0 ? fresh[fresh.length - 1].created_at : cur.updated_at,
+      });
+      for (const m of fresh) if (m.event?.type === "block_changed") onMaterialRef.current(m.event);
+    };
+
+    const tick = async () => {
+      const id = idRef.current;
+      const cur = chatRef.current;
+      /* Скрытая вкладка не спрашивает — вернётся, и следующий тик догонит */
+      if (id !== null && cur && document.visibilityState === "visible") {
+        try {
+          const lastId = cur.items.reduce((m, i) => Math.max(m, i.id), 0);
+          const feed = await getChatFeed(id, lastId);
+          if (!alive) return;
+          mergeFeed(feed);
+        } catch (e) {
+          /* Сеть мигнула — не страшно, следующий тик спросит снова */
+          if (alive && handle(e)) return;
+        }
+      }
+      if (alive) timer = setTimeout(tick, POLL_MS);
+    };
+
+    timer = setTimeout(tick, POLL_MS);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [kitGenerating, sending, adopt, handle]);
 
   /* ---------- Реплика ---------- */
 
@@ -234,35 +305,57 @@ export function ChatPanel({
     setText("");
     setDraft("");
     setLive([]);
+    setEditing(false);
+    stick.current = true;
+    const ctrl = new AbortController();
+    turn.current = ctrl;
     try {
       const id = await ensureChat();
-      const turn = await say(id, said, {
-        onDelta: (piece) => setDraft((d) => d + piece),
-        onTool: (ev) => {
-          /* Текст до поиска — «сейчас посмотрю», в ленту он не ляжет */
-          setDraft("");
-          const found = objectivesOf(ev.tool_result);
-          if (found.length > 0) setLive((l) => [...l, found]);
+      const done = await say(
+        id,
+        said,
+        {
+          onDelta: (piece) => setDraft((d) => d + piece),
+          onTool: (ev) => {
+            /* Текст до вызова — «сейчас посмотрю», в ленту он не ляжет */
+            setDraft("");
+            const found = objectivesOf(ev.tool_result);
+            if (found.length > 0) setLive((l) => [...l, found]);
+            else setEditing(true);
+          },
+          onMaterial: (ev) => onMaterialRef.current(ev),
         },
-      });
-      adopt(turn.chat);
+        ctrl.signal,
+      );
+      adopt(done.chat);
     } catch (e) {
+      if (ctrl.signal.aborted) {
+        /* «Стоп»: что сервер успел записать — решает он, лента берётся с него.
+           Блок, переписанный до обрыва, остаётся переписанным (контракт) */
+        try {
+          await reloadChat();
+        } catch (e2) {
+          handle(e2);
+        }
+        return;
+      }
       if (handle(e)) return;
       /* Хода не было — реплика возвращается в поле, если учитель не начал новую */
       setText((cur) => cur || said);
       if (isApiError(e, RATE_LIMITED)) setSayError(t.laChatTooMany(minutesFrom(e.retryAfterSec)));
-      else if (isApiError(e, "chat_confirmed")) {
-        setText("");
-        markConfirmed(e.details.kit_id);
-      } else if (isApiError(e, "validation_error")) setSayError(fieldMessage(e) ?? t.laChatAiFailed);
+      else if (isApiError(e, "validation_error")) setSayError(fieldMessage(e) ?? t.laChatAiFailed);
       else setSayError(t.laChatAiFailed);
     } finally {
+      turn.current = null;
       setSending(false);
       setPending(null);
       setDraft("");
       setLive([]);
+      setEditing(false);
     }
   };
+
+  const stop = () => turn.current?.abort();
 
   /* ---------- Кнопки заказа ---------- */
 
@@ -278,7 +371,11 @@ export function ChatPanel({
       if (handle(e)) return null;
       if (isApiError(e, "objective_lang_missing")) return t.laObjectiveLangMissing;
       if (isApiError(e, "chat_confirmed")) {
-        markConfirmed(e.details.kit_id);
+        try {
+          await reloadChat();
+        } catch (e2) {
+          handle(e2);
+        }
         return null;
       }
       if (isApiError(e) && e.status === 404) return t.laChatObjectiveGone;
@@ -306,9 +403,8 @@ export function ChatPanel({
     const id = idRef.current;
     if (id === null) return null;
     try {
-      const res = await confirmChat(id, body);
-      adopt(res.chat);
-      router.push(routes.kit(res.kit.id));
+      /* Остаёмся в разговоре: в `res.chat` режим уже правки, комплект справа */
+      adopt((await confirmChat(id, body)).chat);
       return null;
     } catch (e) {
       if (handle(e)) return null;
@@ -317,8 +413,13 @@ export function ChatPanel({
         return e.retryAfterSec < 3600 ? t.laOrderLimitSoon : t.laOrderLimit(hoursFrom(e.retryAfterSec));
       }
       if (isApiError(e, "chat_confirmed")) {
-        router.push(routes.kit(Number(e.details.kit_id)));
-        return null;
+        try {
+          await reloadChat();
+          return null;
+        } catch (e2) {
+          if (handle(e2)) return null;
+          return e.message;
+        }
       }
       if (isApiError(e, "order_incomplete")) {
         /* Заказ на сервере не тот, что на экране: перечитываем — карточка
@@ -338,20 +439,27 @@ export function ChatPanel({
 
   /* ---------- Прокрутка к свежему ---------- */
 
+  /* Лента крутится сама, а не страница. К низу — пока учитель сам не поднялся
+     читать выше: стрим иначе вырывал бы его из прочитанного */
+  const scroller = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
+  const onScroll = () => {
+    const el = scroller.current;
+    if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
   const itemsCount = chat?.items.length ?? 0;
   /* Кнопки цели, языка и темы модель не зовут — лента не растёт, а внизу
      появляется следующий вопрос или форма «Готовить». К ним тоже прокручиваем */
   const missingKey = chat?.order.missing.join() ?? "";
-  /* Спрятанная за вкладкой панель страницу не крутит — там сейчас список уроков.
-     Вернулись во вкладку чата — к свежему, как при входе */
   useEffect(() => {
-    if (!visible || phase !== "ready" || (itemsCount === 0 && !pending)) return;
-    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
-  }, [visible, phase, itemsCount, pending, draft, live.length, missingKey]);
+    const el = scroller.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
+  }, [phase, itemsCount, pending, draft, live.length, missingKey, sending, editing]);
 
   if (phase === "loading") {
     return (
-      <div className="stack g12" aria-busy="true">
+      <div className="stack g12" aria-busy="true" style={{ padding: 16 }}>
         <Skeleton h={64} r={16} />
         <Skeleton w="70%" h={48} r={16} />
         <Skeleton w="50%" h={40} r={16} style={{ alignSelf: "flex-end" }} />
@@ -389,6 +497,8 @@ export function ChatPanel({
 
   const order = chat?.order ?? NO_ORDER;
   const confirmed = chat?.status === "confirmed";
+  const edit = chat?.mode === "edit";
+  /* Карточки заказа и кнопки под ним после «Готовить» только читаются */
   const locked = sending || patching || confirmed;
   const chosenId = order.objective?.id ?? null;
 
@@ -427,6 +537,9 @@ export function ChatPanel({
 
   const feed = (
     <div className="stack g12" aria-live="polite">
+      {/* Первый заход: без этой строки учитель видит чат и не знает,
+          что на выходе будут готовые файлы к уроку */}
+      {!edit && !chat && !pending && <span className="small muted pretty">{t.laTagline}</span>}
       <BotBubble>
         {t.laChatHello}
         <span className="caption muted" style={{ display: "block", marginTop: 6 }}>
@@ -439,7 +552,10 @@ export function ChatPanel({
           <UserBubble key={m.id}>{m.content}</UserBubble>
         ) : m.role === "assistant" ? (
           m.content ? <BotBubble key={m.id}>{m.content}</BotBubble> : null
+        ) : m.role === "event" ? (
+          <EventPill key={m.id} message={m} />
         ) : (
+          /* Вызов инструмента правки карточкой не рисуется: о нём скажет событие */
           cards(objectivesOf(m.tool_result), m.id)
         ),
       )}
@@ -451,7 +567,15 @@ export function ChatPanel({
       {sending && !draft && (
         /* До первого события сервер разбирает реплику; без цели в заказе
            модель первым делом ищет её в программе */
-        <Thinking text={order.objective || live.length > 0 ? t.laChatThinking : t.laChatSearching} />
+        <Thinking
+          text={
+            editing
+              ? t.laChatEditing
+              : order.objective || live.length > 0 || edit
+                ? t.laChatThinking
+                : t.laChatSearching
+          }
+        />
       )}
 
       {/* Вопрос языка — под лентой, как в брифе, когда цель уже подтверждена */}
@@ -483,48 +607,36 @@ export function ChatPanel({
     </div>
   );
 
-  const bottomEnd = confirmed ? (
-    <div style={{ marginTop: 16 }}>
-      <Note kind="success">
-        <div className="stack g8">
-          <span>{t.laChatConfirmed}</span>
-          {chat?.kit_id != null && (
-            <div>
-              <LinkButton href={routes.kit(chat.kit_id)} size="sm">
-                {t.laChatOpenKit}
-              </LinkButton>
-            </div>
-          )}
-        </div>
-      </Note>
-    </div>
-  ) : (
-    <Composer
-      value={text}
-      sending={sending}
-      bottom={wide ? "0px" : "calc(var(--tabbar-h) + env(safe-area-inset-bottom))"}
-      onChange={(v) => {
-        setText(v);
-        if (sayError) setSayError(null);
-      }}
-      onSend={() => void send()}
-      notice={sayError && <Note kind="warning">{sayError}</Note>}
-    />
-  );
-
   const noticeNote = notice && <Note kind="info">{notice}</Note>;
 
-  /* Карточка заказа сверху ленты и свёрнута до строки на любой ширине: правая
-     колонка широкого экрана занята «Моими уроками». Галочки и «Готовить» —
-     под лентой: помощник пишет «ниже список материалов» */
+  /* Карточка заказа сверху ленты и свёрнута до строки; галочки и «Готовить» —
+     под лентой: помощник пишет «ниже список материалов». Поле ввода живёт
+     вне прокрутки, у нижнего края, как в ChatGPT */
   return (
     <>
-      <div className="stack g12">
-        {orderCard}
-        {noticeNote}
-        {feed}
-        {confirmForm}
-        {bottomEnd}
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+        <div ref={scroller} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 16px 8px" }}>
+          <div className="stack g12" style={{ maxWidth: 760, margin: "0 auto" }}>
+            {!edit && orderCard}
+            {noticeNote}
+            {feed}
+            {confirmForm}
+          </div>
+        </div>
+        <div style={{ padding: "8px 16px 12px" }}>
+          <Composer
+            value={text}
+            sending={sending}
+            placeholder={edit ? t.laChatPlaceholderEdit : t.laChatPlaceholder}
+            onChange={(v) => {
+              setText(v);
+              if (sayError) setSayError(null);
+            }}
+            onSend={() => void send()}
+            onStop={stop}
+            notice={sayError && <Note kind="warning">{sayError}</Note>}
+          />
+        </div>
       </div>
 
       <ObjectiveSheet
