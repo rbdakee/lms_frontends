@@ -103,6 +103,8 @@ const NAV: NavGroup[] = [
          оба пункта разом — она лежит внутри `/settings` */
       { href: "/settings", label: "Настройки", icon: IconSettings, exact: true },
       { href: "/settings/admins", label: "Администраторы", icon: IconShield },
+      /* Внешний ИИ, который работает в админке от имени админа (`MCP_BRIEF`) */
+      { href: "/mcp", label: "Подключения ИИ", icon: IconKey },
     ],
   },
 ];
