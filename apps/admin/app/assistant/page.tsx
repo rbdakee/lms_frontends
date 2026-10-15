@@ -407,6 +407,24 @@ function NewChatInvite({ onNew }: { onNew: () => void }) {
 
 /* ============ Лента одного чата ============ */
 
+/* Вопрос админа в ленте, пока идёт ход. Настоящую строку — со своим `id`
+   и временем сервера — пришлёт конец хода, эта живёт до него.
+   `id` отрицательный: ключ не столкнётся с настоящими строками ленты. */
+function askedRow(content: string): AssistantMessage {
+  return {
+    id: -Date.now(),
+    role: "user",
+    content,
+    tool_name: null,
+    tool_args: null,
+    tool_result: null,
+    proposal: null,
+    tokens_in: 0,
+    tokens_out: 0,
+    created_at: new Date().toISOString(),
+  };
+}
+
 function Chat({ threadId, onThreadChanged }: { threadId: number; onThreadChanged: () => void }) {
   const { t } = useLang();
   const toast = useToast();
@@ -441,6 +459,13 @@ function Chat({ threadId, onThreadChanged }: { threadId: number; onThreadChanged
     setCap(false);
     setDraft("");
     setLive([]);
+    /* Вопрос уходит в ленту и из поля сразу, не дожидаясь конца хода. Ход
+       идёт секундами, и всё это время админ видел свой текст в поле и ленту
+       без своего вопроса — это читается как «не отправилось», и вопрос
+       посылают второй раз. */
+    const before = items;
+    setItems([...items, askedRow(body)]);
+    setText("");
     try {
       const turn = await say(threadId, body, {
         onDelta: (piece) => setDraft((was) => was + piece),
@@ -454,12 +479,14 @@ function Chat({ threadId, onThreadChanged }: { threadId: number; onThreadChanged
       setItems(turn.items);
       setCap(turn.stopped_at_cap);
       setSpent({ in: turn.tokens_in, out: turn.tokens_out });
-      setText("");
       /* Заголовок ассистент пишет сам после первого ответа — он приезжает
          в `done`, и список чатов надо перечитать, чтобы его увидеть */
       onThreadChanged();
     } catch (e) {
-      /* Текст админа НЕ трогаем: хода не было, и он нажмёт ещё раз */
+      /* Хода не было: вопрос возвращается в поле и уходит из ленты, чтобы
+         админ нажал ещё раз, а не искал, куда делся его текст */
+      setItems(before);
+      setText(body);
       toast(assistantErrorText(e), "error");
       if (isApiError(e, ASSISTANT_OFF)) onThreadChanged();
     } finally {
