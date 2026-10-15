@@ -382,6 +382,11 @@ export type LessonChatSection = LessonChatReorder["section"];
 export type LessonChatKit = S["LessonChatKitOut"];
 export type LessonChatFeed = S["LessonChatFeedOut"];
 export type LessonChatEvent = S["LessonChatEventOut"];
+/* Вложения чата: строка у скрепки и список `GET …/attachments` */
+export type LessonAttachment = S["LessonAttachmentOut"];
+export type LessonAttachmentKind = LessonAttachment["kind"];
+export type LessonAttachmentStatus = LessonAttachment["status"];
+export type LessonAttachments = S["LessonAttachmentsOut"];
 export type LessonObjectives = S["LessonObjectivesOut"];
 /** Предмет для чипов «выбрать самому»: только с опубликованными программами. */
 export type LessonSubject = S["LessonSubjectOut"];

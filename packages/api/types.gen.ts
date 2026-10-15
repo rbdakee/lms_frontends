@@ -1863,6 +1863,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lesson_ai/chats/{chat_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Attachments */
+        get: operations["attachments_lesson_ai_chats__chat_id__attachments_get"];
+        put?: never;
+        /**
+         * Upload Attachment
+         * @description Приложить файл к чату. Один файл на запрос — учителю проще понять,
+         *     у какой скрепки отказ. Ответ — строка вложения со статусом `processing`:
+         *     выжимка снимается фоном, и статус меняется на `ready` или `failed`;
+         *     экран узнаёт о нём опросом ленты или списка вложений.
+         */
+        post: operations["upload_attachment_lesson_ai_chats__chat_id__attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/chats/{chat_id}/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Attachment
+         * @description Снять файл с чата: строка и объект хранилища уходят вместе.
+         *     Разбор при этом не останавливается — выжимка упавшего разбора не запишется
+         *     в удалённую строку (`SET NULL` не нужен: строка уже снесена), это нормально.
+         */
+        delete: operations["delete_attachment_lesson_ai_chats__chat_id__attachments__attachment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lesson_ai/kits/{kit_id}/chat": {
         parameters: {
             query?: never;
@@ -3855,6 +3901,14 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** Body_upload_attachment_lesson_ai_chats__chat_id__attachments_post */
+        Body_upload_attachment_lesson_ai_chats__chat_id__attachments_post: {
+            /**
+             * File
+             * @description Фото (JPG, PNG, WEBP), PDF, .docx или .pptx
+             */
+            file: string;
+        };
         /** Body_upload_file_files_post */
         Body_upload_file_files_post: {
             /** File */
@@ -4577,6 +4631,52 @@ export interface components {
             cost_usd: number | null;
         };
         /**
+         * LessonAttachmentOut
+         * @description Строка вложения у скрепки. Имя файла — для учителя; выжимки в ответе
+         *     нет: она материал для модели, экрану хватает статуса. `pages` — только
+         *     у PDF. `status: "processing"` — файл ещё читается, `"failed"` — не
+         *     получилось (`error_code`: `attachment_unsupported`, `ai_failed`,
+         *     `extract_failed`); в обоих случаях файл можно удалить и приложить снова.
+         */
+        LessonAttachmentOut: {
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "image" | "pdf" | "docx" | "pptx";
+            /** Mime */
+            mime: string;
+            /** Filename */
+            filename: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Pages */
+            pages: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "processing" | "ready" | "failed";
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * LessonAttachmentsOut
+         * @description Вложения чата — в порядке загрузки. Выжимки файлов модель видит сама,
+         *     фронту список нужен ради скрепок и статусов.
+         */
+        LessonAttachmentsOut: {
+            /** Items */
+            items: components["schemas"]["LessonAttachmentOut"][];
+        };
+        /**
          * LessonBlockEditIn
          * @description Ручная правка: блок целиком, той же формы, что в `content` материала.
          *     Проверяется той же схемой, что ответ модели.
@@ -4892,7 +4992,8 @@ export interface components {
          * @description Строка ленты. `role: "tool"` — вызов инструмента: поиск по программе
          *     (в `tool_result.items` найденные цели формы `LessonChatObjectiveOut`, отказ —
          *     в `tool_result.error`) или правка материала. `role: "event"` — событие
-         *     (`event`), `content` у него — запасная подпись словами.
+         *     (`event`), `content` у него — запасная подпись словами. У реплики учителя
+         *     — приложенные к ней файлы (`attachments`), у остальных ролей их не бывает.
          */
         LessonChatMessageOut: {
             /** Id */
@@ -4917,6 +5018,11 @@ export interface components {
             event: components["schemas"]["LessonChatEventOut"] | null;
             /** Suggestions */
             suggestions?: components["schemas"]["LessonSuggestionOut"][] | null;
+            /**
+             * Attachments
+             * @default []
+             */
+            attachments: components["schemas"]["LessonAttachmentOut"][];
             /**
              * Created At
              * Format: date-time
@@ -5068,10 +5174,17 @@ export interface components {
             /** Chat Ids */
             chat_ids: number[];
         };
-        /** LessonChatSayIn */
+        /**
+         * LessonChatSayIn
+         * @description Реплика учителя. `attachment_ids` — файлы этого же чата, уже загруженные
+         *     ручкой вложений и ещё не приложенные ни к одной реплике; каждый получает
+         *     `message_id` этой реплики.
+         */
         LessonChatSayIn: {
             /** Text */
             text: string;
+            /** Attachment Ids */
+            attachment_ids?: number[];
         };
         /**
          * LessonChatTurnOut
@@ -11002,6 +11115,102 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["LessonBlockOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attachments_lesson_ai_chats__chat_id__attachments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonAttachmentsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_attachment_lesson_ai_chats__chat_id__attachments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_attachment_lesson_ai_chats__chat_id__attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonAttachmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_attachment_lesson_ai_chats__chat_id__attachments__attachment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+                attachment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
