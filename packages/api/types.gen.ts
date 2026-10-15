@@ -4752,7 +4752,10 @@ export interface components {
             grade: number | null;
             /** Lang */
             lang: ("ru" | "kz") | null;
-            objective: components["schemas"]["LessonChatObjectiveOut"] | null;
+            /** Objectives */
+            objectives: components["schemas"]["LessonChatObjectiveOut"][];
+            /** Many Objectives Confirmed */
+            many_objectives_confirmed: boolean;
             /** Topic */
             topic: string | null;
             /**
@@ -4782,8 +4785,10 @@ export interface components {
          *     Прислано `null` — поле стёрто; не прислано — не тронуто.
          */
         LessonChatOrderPatchIn: {
-            /** Objective Id */
-            objective_id?: number | null;
+            /** Objective Ids */
+            objective_ids?: number[] | null;
+            /** Many Objectives Confirmed */
+            many_objectives_confirmed?: boolean | null;
             /** Lang */
             lang?: ("ru" | "kz") | null;
             /** Topic */
@@ -4881,7 +4886,11 @@ export interface components {
         };
         /**
          * LessonKitIn
-         * @description Заказ комплекта. Язык и класс не принимаются: их знает цель обучения.
+         * @description Заказ комплекта. Язык и класс не принимаются: их знают цели обучения.
+         *
+         *     `objective_ids` — цели урока в порядке учителя, без потолка по числу.
+         *     Все из одной программы и одного класса, иначе 422 `objectives_mixed`;
+         *     повторы схлопываются.
          *
          *     `kinds` — что подготовить, любые из семи видов. `answer_key` не генерируется,
          *     а собирается из ответов к `tasks`, `homework` и `assessment` — без них
@@ -4891,8 +4900,8 @@ export interface components {
          *     уровень. Не прислал — середина, `active` и `standard`.
          */
         LessonKitIn: {
-            /** Objective Id */
-            objective_id: number;
+            /** Objective Ids */
+            objective_ids: number[];
             /** Topic */
             topic: string;
             /** Kinds */
@@ -4925,7 +4934,8 @@ export interface components {
         LessonKitListItemOut: {
             /** Id */
             id: number;
-            objective: components["schemas"]["LessonObjectiveOut"];
+            /** Objectives */
+            objectives: components["schemas"]["LessonObjectiveOut"][];
             /** Subject Code */
             subject_code: string;
             /** Grade */
@@ -4988,7 +4998,8 @@ export interface components {
         LessonKitOut: {
             /** Id */
             id: number;
-            objective: components["schemas"]["LessonObjectiveOut"];
+            /** Objectives */
+            objectives: components["schemas"]["LessonObjectiveOut"][];
             /** Subject Code */
             subject_code: string;
             /** Grade */

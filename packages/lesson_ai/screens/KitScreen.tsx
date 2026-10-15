@@ -21,6 +21,7 @@ import { AccessUntil } from "../access";
 import { useChrome, useRoutes } from "../host";
 import { contentLang } from "../labels";
 import { KitMaterials } from "../components/kit/KitMaterials";
+import { ObjectiveList } from "../components/chat/ObjectiveCards";
 import { useKit } from "../components/kit/useKit";
 
 const KIT_BADGE: Record<LessonKitStatus, BadgeKind> = {
@@ -111,7 +112,6 @@ function KitHeader({ kit }: { kit: LessonKit }) {
   const { t } = useLang();
   const routes = useRoutes();
   const docLang = contentLang(kit.lang);
-  const { objective } = kit;
 
   return (
     <header className="card card-pad stack g14">
@@ -137,13 +137,7 @@ function KitHeader({ kit }: { kit: LessonKit }) {
           {t.laObjectiveChosen}
         </span>
         {/* Код и формулировка — дословно из справочника: их сверяет завуч */}
-        <p className="small pretty" lang={docLang} style={{ margin: 0 }}>
-          <strong className="mono">
-            {objective.code}
-            {objective.marker}
-          </strong>{" "}
-          {objective.text}
-        </p>
+        <ObjectiveList objectives={kit.objectives} lang={kit.lang} />
       </div>
 
       <div className="stack g4 small">

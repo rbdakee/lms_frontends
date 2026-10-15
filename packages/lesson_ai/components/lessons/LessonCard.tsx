@@ -62,11 +62,17 @@ export function LessonCard({ item }: { item: LessonKitListItem }) {
           {item.topic}
         </h2>
 
-        <p className="small muted clamp-2" lang={docLang}>
+        {/* Цели урока: коды всех через запятую, текст — первой; остальные видны в комплекте.
+            Раскрытия здесь нет: вся карточка — ссылка */}
+        <p
+          className="small muted clamp-2"
+          lang={docLang}
+          title={item.objectives.map((o) => `${o.code} ${o.text}`).join("\n")}
+        >
           <span className="mono" style={{ fontWeight: 700, color: "var(--text-2)" }}>
-            {item.objective.code}
+            {item.objectives.map((o) => o.code).join(", ")}
           </span>{" "}
-          {item.objective.text}
+          {item.objectives[0].text}
         </p>
 
         {materials.length > 0 && (

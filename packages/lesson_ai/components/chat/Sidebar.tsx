@@ -20,7 +20,7 @@ import { LESSON_AI_NAME } from "../../name";
 
 type T = ReturnType<typeof useLang>["t"];
 
-/** Подпись разговора: тема из заказа, пока её нет — первая реплика, пока и той нет — заглушка. */
+/** Подпись разговора — название урока с сервера (тема или цели); пока урока нет — заглушка. */
 export function chatTitle(t: T, item: LessonChatListItem): string {
   return item.title?.trim() || t.laChatUntitled;
 }

@@ -398,7 +398,9 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
 
 /**
  * Строка сайдбара из чата с сервера. Подпись собираем так же, как сервер
- * (`title`): тема из заказа, пока её нет — первая реплика учителя.
+ * (`title`): тема урока, пока её нет — текст первой цели; первая реплика учителя
+ * в название не идёт. Предмета здесь нет в виде названия, поэтому без темы подпись
+ * короче серверной; список при перечитывании возвращает серверную.
  */
 function itemOf(c: LessonChat): LessonChatListItem {
   const first = c.items.find((m) => m.role === "user")?.content.slice(0, 120) ?? null;
@@ -408,7 +410,7 @@ function itemOf(c: LessonChat): LessonChatListItem {
     mode: c.mode,
     kit_id: c.kit_id,
     kit_status: c.kit?.status ?? null,
-    title: c.order.topic?.trim() || first,
+    title: c.order.topic?.trim() || c.order.objectives[0]?.text.slice(0, 70) || null,
     topic: c.order.topic,
     subject_code: c.order.subject_code,
     grade: c.order.grade,

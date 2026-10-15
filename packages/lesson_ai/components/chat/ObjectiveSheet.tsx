@@ -7,7 +7,11 @@
  * формулировки; без слов — все цели класса в порядке приказа, для этого
  * серверу нужны класс и язык редакции.
  *
- * Язык здесь — фильтр списка, а не язык обучения заказа: заказ он не меняет.
+ * Целей на урок может быть несколько: цели отмечаются круглыми чекбоксами,
+ * «Готово (N)» записывает набор в урок. Отмеченные живут в чате, а не здесь, —
+ * шторку можно закрыть и открыть, не потеряв отметок.
+ *
+ * Язык здесь — фильтр списка, а не язык обучения урока: урок он не меняет.
  * Подставляется только из заказа или из показанной карточки, но не из языка
  * интерфейса — русский интерфейс у учителя казахского класса обычное дело.
  */
@@ -24,7 +28,7 @@ import { IconSearch } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { findObjectives, listSubjects } from "../../api";
 import { useLessonAiAccess } from "../../access";
-import { ObjectiveText } from "./ObjectiveCards";
+import { DoneBar, ManyNote, ObjectiveChoice } from "./ObjectiveCards";
 import { fieldMessage } from "./util";
 
 /* Начальная школа: 1–4 классы; выбранный предмет сужает их до своего диапазона */
@@ -38,18 +42,22 @@ export function ObjectiveSheet({
   subjectCode: initialSubject,
   grade: initialGrade,
   lang: initialLang,
-  chosenId,
+  picked,
+  committedIds,
   onClose,
-  onPick,
+  onToggle,
+  onDone,
 }: {
   open: boolean;
   subjectCode: string | null;
   grade: number | null;
   lang: LessonLang | null;
-  chosenId: number | null;
+  picked: LessonChatObjective[];
+  committedIds: number[];
   onClose: () => void;
-  /** Вернул текст — выбор не прошёл, шторка остаётся открытой с ним. */
-  onPick: (o: LessonChatObjective) => Promise<string | null>;
+  onToggle: (o: LessonChatObjective) => void;
+  /** Вернул текст — набор не записался, шторка остаётся открытой с ним. */
+  onDone: () => Promise<string | null>;
 }) {
   const { t, lang: uiLang } = useLang();
   const { handle } = useLessonAiAccess();
@@ -64,7 +72,7 @@ export function ObjectiveSheet({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
-  const [picking, setPicking] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   /* Каждое открытие — с того, что известно о заказе сейчас */
@@ -143,11 +151,11 @@ export function ObjectiveSheet({
     };
   }, [open, canList, words, subjectCode, grade, lang, attempt, handle, t]);
 
-  const pick = async (o: LessonChatObjective) => {
-    setPicking(o.id);
+  const done = async () => {
+    setSaving(true);
     setPickError(null);
-    const err = await onPick(o);
-    setPicking(null);
+    const err = await onDone();
+    setSaving(false);
     if (err) setPickError(err);
   };
 
@@ -263,21 +271,29 @@ export function ObjectiveSheet({
           <div className="stack g8" style={{ opacity: loading ? 0.6 : 1 }}>
             {!words && <span className="caption muted-3">{t.laObjectiveAllOfGrade}</span>}
             {(items ?? []).map((o) => (
-              <div key={o.id} className="card card-pad stack g8">
-                <ObjectiveText o={o} />
-                <div>
-                  <Button
-                    size="sm"
-                    variant={o.id === chosenId ? "secondary" : "primary"}
-                    loading={picking === o.id}
-                    disabled={picking !== null || o.id === chosenId}
-                    onClick={() => void pick(o)}
-                  >
-                    {o.id === chosenId ? t.laChatPicked : t.laObjectiveYes}
-                  </Button>
-                </div>
-              </div>
+              <ObjectiveChoice key={o.id} o={o} picked={picked} disabled={saving} onToggle={onToggle} />
             ))}
+          </div>
+        )}
+
+        {/* Отметки не пропадают при смене фильтров: счётчик и «Готово» всегда на виду */}
+        {picked.length > 0 && (
+          <div
+            className="stack g8"
+            style={{ position: "sticky", bottom: 0, padding: "8px 0", background: "var(--sticky-bg)" }}
+          >
+            <ManyNote count={picked.length} />
+            <div className="row g8 wrap">
+              <DoneBar
+                picked={picked}
+                committedIds={committedIds}
+                disabled={false}
+                loading={saving}
+                onDone={() => void done()}
+              />
+              <span className="small muted">{t.laObjectivesCount(picked.length)}</span>
+              <span className="caption muted-3">{t.laObjectivesOrder}</span>
+            </div>
           </div>
         )}
       </div>
