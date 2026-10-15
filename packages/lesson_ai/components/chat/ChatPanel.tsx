@@ -48,7 +48,7 @@ import {
   type LessonSubject,
 } from "@lms/api";
 import { Button, Empty, Note, Skeleton } from "@lms/ui";
-import { IconMessage } from "@lms/ui/icons";
+import { IconArrowDown, IconMessage } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
 import {
@@ -535,9 +535,24 @@ export function ChatPanel({
      читать выше: стрим иначе вырывал бы его из прочитанного */
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  /* Далеко ли ушли от низа: кнопка «вниз» видна только когда учитель поднялся
+     читать выше. Порог больше, чем у stick, чтобы кнопка не мигала на границе */
+  const [downShown, setDownShown] = useState(false);
   const onScroll = () => {
     const el = scroller.current;
-    if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (!el) return;
+    const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stick.current = fromBottom < 80;
+    setDownShown(fromBottom > 150);
+  };
+
+  /* Плавно к последнему сообщению: отступ снизу — часть прокрутки, докручиваем
+     до конца ленты. Дошли до низа — автопрокрутка стрима снова включается сама */
+  const scrollToBottom = () => {
+    const el = scroller.current;
+    if (!el) return;
+    stick.current = true;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   };
 
   const itemsCount = chat?.items.length ?? 0;
@@ -724,7 +739,9 @@ export function ChatPanel({
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-        <div ref={scroller} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 16px 8px" }}>
+        {/* Нижний отступ держит последнее сообщение и чипы на виду у поля ввода;
+            он внутри прокрутки, поэтому автопрокрутка докручивает ленту до конца */}
+        <div ref={scroller} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 16px 20px" }}>
           <div className="stack g12" style={{ maxWidth: 760, margin: "0 auto" }}>
             {!edit && orderCard}
             {noticeNote}
@@ -743,7 +760,38 @@ export function ChatPanel({
             {confirmForm}
           </div>
         </div>
-        <div style={{ padding: "8px 16px 12px" }}>
+        {/* Кнопка «вниз» — над полем ввода, поверх ленты: якорится к обёртке поля,
+            поэтому не перекрывает ни ввод, ни кнопку отправки, каким бы ни был ввод высоким */}
+        <div style={{ position: "relative", padding: "8px 16px 12px" }}>
+          {downShown && (
+            <button
+              type="button"
+              aria-label={t.laChatScrollDown}
+              title={t.laChatScrollDown}
+              onClick={scrollToBottom}
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: "calc(100% + 8px)",
+                transform: "translateX(-50%)",
+                width: 36,
+                height: 36,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                border: "1px solid var(--border-strong)",
+                borderRadius: "50%",
+                cursor: "pointer",
+                background: "var(--card)",
+                color: "var(--primary)",
+                boxShadow: "var(--shadow)",
+                zIndex: 2,
+              }}
+            >
+              <IconArrowDown size={16} />
+            </button>
+          )}
           <Composer
             value={text}
             sending={sending}
