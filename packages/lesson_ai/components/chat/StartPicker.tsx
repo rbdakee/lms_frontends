@@ -10,6 +10,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { LessonLang, LessonSubject } from "@lms/api";
 import { Button } from "@lms/ui";
 import { useLang } from "@lms/ui/lang";
+import { SubjectIcon } from "./SubjectIcon";
 
 const LANGS: LessonLang[] = ["ru", "kz"];
 /* Иностранные языки: цели одни и те же на любом языке обучения, язык учителя не спрашиваем */
@@ -109,6 +110,7 @@ export function StartPicker({
               disabled={disabled}
               onClick={() => pickSubject(s)}
             >
+              <SubjectIcon url={s.icon_url} />
               {title(s)}
             </button>
           ))}
