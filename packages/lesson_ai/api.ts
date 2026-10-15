@@ -33,6 +33,7 @@ import {
   type LessonKit,
   type LessonKitsPage,
   type LessonLang,
+  type LessonMaterialKind,
   type LessonObjectives,
   type LessonSubjects,
 } from "@lms/api";
@@ -59,6 +60,14 @@ export function getAccess(): Promise<LessonAccessStatus> {
 /** Опрос комплекта: та же форма, что у заказа, — экран перерисовывается ею целиком. */
 export function getKit(id: number | string): Promise<LessonKit> {
   return api<LessonKit>(`/lesson_ai/kits/${id}`);
+}
+
+/**
+ * «Пересобрать урок»: материалы заново с текущими целями. Без `kinds` — все.
+ * `409` — комплект уже собирается, `429` — суточный лимит комплектов.
+ */
+export function regenerateKit(id: number, kinds?: LessonMaterialKind[]): Promise<LessonKit> {
+  return api<LessonKit>(`/lesson_ai/kits/${id}/regenerate`, { method: "POST", json: { kinds: kinds ?? null } });
 }
 
 /**

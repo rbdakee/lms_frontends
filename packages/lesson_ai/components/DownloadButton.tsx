@@ -23,12 +23,15 @@ export function DownloadButton({
   kit,
   material,
   size = "md",
+  compact = false,
 }: {
   /* Только нужные поля: кнопка стоит и в шторке просмотра «Моих уроков»,
      где у комплекта урезанная форма списка */
   kit: Pick<LessonKit, "lang" | "topic">;
   material: Pick<LessonMaterial, "id" | "kind" | "status">;
   size?: "sm" | "md";
+  /** Только значок: телефону не до подписей, название и формат остаются в `title` */
+  compact?: boolean;
 }) {
   const { t } = useLang();
   const toast = useToast();
@@ -52,10 +55,13 @@ export function DownloadButton({
     }
   };
 
+  const label = `${t.laDownload} .${material.kind === "presentation" ? "pptx" : "docx"}`;
   return (
     <Button
       variant="secondary"
       size={size}
+      aria-label={label}
+      title={label}
       loading={busy}
       disabled={material.status !== "ready"}
       icon={<IconDownload size={17} />}
@@ -63,7 +69,7 @@ export function DownloadButton({
     >
       {/* Формат на кнопке: презентация уходит .pptx, остальное .docx — учитель
           заранее знает, чем открывать */}
-      {t.laDownload} .{material.kind === "presentation" ? "pptx" : "docx"}
+      {!compact && label}
     </Button>
   );
 }

@@ -1693,6 +1693,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lesson_ai/kits/{kit_id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Kit
+         * @description Кнопка «Пересобрать урок»; тот же сценарий, что у инструмента чата.
+         *     Комплект уже собирается — 409, суточный лимит исчерпан — 429.
+         */
+        post: operations["regenerate_kit_lesson_ai_kits__kit_id__regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lesson_ai/materials/{material_id}/file": {
         parameters: {
             query?: never;
@@ -4731,6 +4752,8 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             event: components["schemas"]["LessonChatEventOut"] | null;
+            /** Suggestions */
+            suggestions?: components["schemas"]["LessonSuggestionOut"][] | null;
             /**
              * Created At
              * Format: date-time
@@ -5088,6 +5111,14 @@ export interface components {
             /** Materials */
             materials: components["schemas"]["LessonMaterialOut"][];
         };
+        /**
+         * LessonKitRegenerateIn
+         * @description Пересборка материалов комплекта. Без `kinds` или пусто — все материалы.
+         */
+        LessonKitRegenerateIn: {
+            /** Kinds */
+            kinds?: ("lesson_plan" | "presentation" | "tasks" | "homework" | "assessment" | "game" | "answer_key")[] | null;
+        };
         /** LessonKitsPageOut */
         LessonKitsPageOut: {
             /** Items */
@@ -5204,6 +5235,13 @@ export interface components {
         LessonSubjectsOut: {
             /** Items */
             items: components["schemas"]["LessonSubjectOut"][];
+        };
+        /** LessonSuggestionOut */
+        LessonSuggestionOut: {
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
         };
         /** LogoutOthersOut */
         LogoutOthersOut: {
@@ -10463,6 +10501,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LessonKitObjectivesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonKitOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_kit_lesson_ai_kits__kit_id__regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonKitRegenerateIn"];
             };
         };
         responses: {

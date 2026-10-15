@@ -43,6 +43,7 @@ export function Sidebar({
   onPick,
   onMore,
   onNew,
+  headerHeight,
 }: {
   /** `null` — истории нет: ещё грузится, ручки нет или сеть не ответила */
   items: LessonChatListItem[] | null;
@@ -52,6 +53,8 @@ export function Sidebar({
   onPick: (id: number) => void;
   onMore: () => void;
   onNew: () => void;
+  /** Высота шапки рабочего места: линия под названием совпадает с линиями соседних колонок */
+  headerHeight: number;
 }) {
   const { t } = useLang();
   const routes = useRoutes();
@@ -61,15 +64,26 @@ export function Sidebar({
   for (const item of items ?? []) groups[groupOf(item.updated_at, now)].push(item);
 
   return (
-    <div className="stack g12" style={{ height: "100%", padding: 12, minHeight: 0 }}>
-      <div className="stack g10">
-        <strong className="h3" style={{ margin: 0, padding: "2px 4px" }}>
+    <div className="stack" style={{ flex: 1, minHeight: 0 }}>
+      <div
+        className="row"
+        style={{
+          alignItems: "center",
+          height: headerHeight,
+          boxSizing: "border-box",
+          padding: "0 16px",
+          borderBottom: "1px solid var(--border)",
+          flexShrink: 0,
+        }}
+      >
+        <strong className="h3" style={{ margin: 0 }}>
           {LESSON_AI_NAME}
         </strong>
-        <Button variant="secondary" block icon={<IconPlus size={17} />} onClick={onNew}>
-          {t.laNewLesson}
-        </Button>
       </div>
+      <div className="stack g12" style={{ flex: 1, minHeight: 0, padding: 12 }}>
+      <Button variant="secondary" block icon={<IconPlus size={17} />} onClick={onNew}>
+        {t.laNewLesson}
+      </Button>
 
       <nav
         aria-label={t.laChatsHistory}
@@ -145,6 +159,7 @@ export function Sidebar({
           {t.laMyLessons}
         </LinkButton>
         <AccessUntil />
+      </div>
       </div>
     </div>
   );

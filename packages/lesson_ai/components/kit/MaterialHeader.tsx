@@ -41,21 +41,25 @@ export function MaterialStatusBadge({ status }: { status: LessonMaterialStatus }
 export function MaterialHeader({
   material,
   actions,
+  compact = false,
 }: {
   material: LessonMaterial;
   /** Кнопки справа — «Скачать» у готового материала */
   actions?: ReactNode;
+  /** В панели рабочего места заголовок мельче: строка с кнопками не должна раздуваться */
+  compact?: boolean;
 }) {
   const { t } = useLang();
   return (
-    <div className="row wrap between g10" style={{ alignItems: "center" }}>
+    <div className={`row ${compact ? "" : "wrap "}between g10`} style={{ alignItems: "center" }}>
       <div className="row wrap g8" style={{ alignItems: "center", minWidth: 0 }}>
-        <h2 className="h2" style={{ margin: 0, overflowWrap: "anywhere" }}>
+        <h2 className={compact ? "h3" : "h2"} style={{ margin: 0, overflowWrap: "anywhere", minWidth: 0 }}>
           {kindTitle(t, material.kind)}
         </h2>
-        <MaterialStatusBadge status={material.status} />
+        {/* В панели «готов» уже сказано значком вкладки: место нужно кнопкам */}
+        {!(compact && material.status === "ready") && <MaterialStatusBadge status={material.status} />}
       </div>
-      {actions && <div className="row wrap g8">{actions}</div>}
+      {actions && <div className="row g8" style={{ flexShrink: 0 }}>{actions}</div>}
     </div>
   );
 }
