@@ -68,6 +68,36 @@ type Menu =
 
 type NameDialog = { mode: "create"; chatId?: number } | { mode: "rename"; groupId: number } | null;
 
+/* «Новый урок» со значком и подписью; не помещается — только значок.
+   Ширина шапки зависит от языка («Жаңа сабақ», «Сабақтар»), ширины экрана
+   (на телефоне сайдбар — до 86vw) и размера шрифта у человека, поэтому
+   меряем по факту, а не по угаданному порогу. Ширину полного вида запоминаем:
+   вернуть подпись можно, только когда для неё снова есть место. */
+function useFits() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = useState(false);
+  const full = useRef(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => {
+      if (!compact) {
+        if (el.scrollWidth > el.clientWidth + 1) {
+          full.current = el.scrollWidth;
+          setCompact(true);
+        }
+      } else if (full.current && el.clientWidth >= full.current) {
+        setCompact(false);
+      }
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [compact]);
+  return { ref, compact };
+}
+
 export function Sidebar({
   library,
   activeId,
@@ -99,6 +129,7 @@ export function Sidebar({
   /* Что тащим — в ref: обработчики видят это сразу, а не после перерисовки.
      В state — только то, что рисуем (приглушение строки, зоны сброса) */
   const dragRef = useRef<Drag>(null);
+  const head = useFits();
 
   const clearDrag = () => {
     dragRef.current = null;
@@ -340,9 +371,12 @@ export function Sidebar({
   return (
     <div className="stack" style={{ flex: 1, minHeight: 0 }}>
       <div
+        ref={head.ref}
         className="row"
         style={{
           alignItems: "center",
+          gap: 4,
+          overflow: "hidden",
           height: headerHeight,
           boxSizing: "border-box",
           padding: "0 16px",
@@ -350,12 +384,21 @@ export function Sidebar({
           flexShrink: 0,
         }}
       >
-        <strong className="h3" style={{ margin: 0, flex: 1 }}>
-          {t.laSbTitle}
-        </strong>
-        {/* Действия — значками в шапке, как в чат-приложениях: «новый разговор»
-            и «новая папка» узнаются без подписи, а список получает всю высоту.
-            Подпись — во всплывающей подсказке и для экранного диктора */}
+        {/* Шапка — два действия, без заголовка: что это список уроков, видно
+            и так. «Новый урок» — значок с подписью (подпись уходит, когда
+            не помещается), «новая группа» — значок справа */}
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-label={head.compact ? t.laNewLesson : undefined}
+          title={head.compact ? t.laNewLesson : undefined}
+          onClick={onNew}
+          style={{ flexShrink: 0, paddingInline: head.compact ? 8 : 10, whiteSpace: "nowrap" }}
+        >
+          <IconMessagePlus size={18} />
+          {!head.compact && t.laNewLesson}
+        </Button>
+        <span style={{ flex: 1 }} />
         {!showArchive && (
           <Button
             variant="ghost"
@@ -368,16 +411,6 @@ export function Sidebar({
             <IconFolderPlus size={19} />
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label={t.laNewLesson}
-          title={t.laNewLesson}
-          onClick={onNew}
-          style={{ flexShrink: 0, paddingInline: 8 }}
-        >
-          <IconMessagePlus size={19} />
-        </Button>
       </div>
       <div className="stack g12" style={{ flex: 1, minHeight: 0, padding: 12 }}>
 
