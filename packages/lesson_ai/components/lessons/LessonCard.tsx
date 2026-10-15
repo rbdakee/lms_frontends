@@ -15,7 +15,7 @@ import { Badge, Button, LinkButton, Skeleton, type BadgeKind } from "@lms/ui";
 import { dayMonth } from "@lms/ui/i18n";
 import { IconCheck, IconCopy, IconEye, IconGlobe } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
-import type { LessonKitListItem } from "../../api";
+import type { LessonKitListItem } from "@lms/api";
 import { useRoutes } from "../../host";
 import { KIND_ORDER, contentLang, kindTitle } from "../../labels";
 import { PreviewSheet } from "../PreviewSheet";

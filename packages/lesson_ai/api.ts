@@ -1,9 +1,8 @@
 /**
- * Все запросы «Жоспара» — одно место на пакет, как `assistantApi.ts` у админки.
+ * Все запросы «Жоспара» — одно место на пакет.
  *
  * Формы ответов — из схемы бэкенда (`@lms/api`), контракт с примерами —
- * `backend/CONTRACT.md`, разделы L3–L7. Исключение одно — список своих
- * комплектов, см. `listKits`: ручки на сервере ещё нет.
+ * `backend/CONTRACT.md`, разделы L3–L7 и `GET /lesson_ai/kits`.
  *
  * Отказы приходят `ApiError` с `code`, и два из них экраны не показывают
  * «ошибкой»: `lesson_ai_off` (продукта нет — прячем вход) и `lesson_ai_no_access`
@@ -29,8 +28,8 @@ import {
   type LessonChatOrderPatch,
   type LessonChatTurn,
   type LessonKit,
+  type LessonKitsPage,
   type LessonLang,
-  type LessonMaterial,
   type LessonObjectives,
 } from "@lms/api";
 
@@ -58,47 +57,15 @@ export function getKit(id: number | string): Promise<LessonKit> {
   return api<LessonKit>(`/lesson_ai/kits/${id}`);
 }
 
-/* ============ Свои уроки — ручки на сервере ещё нет ============
+/* ============ Свои уроки ============ */
 
-   Бриф (раздел 4.3): «список своих уроков, поиск, копия как основа». На бэкенде
-   L3–L7 ручки списка не сделали, а L8 бэкенд не правит. Экран написан под
-   предложенную форму — она же записана владельцу в `SESSION_L8_QA.md`
-   («Нужно от бэкенда», пункт 1) — и собрана из уже сгенерированных типов,
-   чтобы руками описывать как можно меньше:
-
-     GET /lesson_ai/kits?q=&page=&per_page=
-     → { items: [комплект без content, notes и class_size], total, page, per_page }
-
-   Свежие сверху; `q` ищет по теме и по коду и тексту цели.
-
-   Пока ручки нет, FastAPI отвечает на GET по этому пути `405` (у пути есть
-   только POST) — `listKits` возвращает `null`, и экран показывает комплекты,
-   открытые на этом устройстве (`recent.ts`). Появится ручка — перегенерировать
-   типы, заменить `LessonKitListItem` на тип из схемы, убрать ветку `405`
-   и удалить `recent.ts`. */
-
-export type LessonKitListItem = Omit<LessonKit, "materials" | "notes" | "class_size"> & {
-  materials: Pick<LessonMaterial, "id" | "kind" | "status">[];
-};
-
-export interface LessonKitsPage {
-  items: LessonKitListItem[];
-  total: number;
-  page: number;
-  per_page: number;
-}
-
+/** Список без `content`, `notes` и `class_size`: тело комплекта открывается отдельно. */
 export async function listKits(params: {
   q?: string;
   page?: number;
   per_page?: number;
-}): Promise<LessonKitsPage | null> {
-  try {
-    return await api<LessonKitsPage>(`/lesson_ai/kits${qs(params)}`);
-  } catch (e) {
-    if (e instanceof ApiError && (e.status === 405 || e.status === 404)) return null;
-    throw e;
-  }
+}): Promise<LessonKitsPage> {
+  return api<LessonKitsPage>(`/lesson_ai/kits${qs(params)}`);
 }
 
 /* ============ Материал: блоки, версии, файл ============ */
@@ -149,11 +116,12 @@ export function restoreBlockVersion(
  * Не ссылкой, а запросом: так отказ (`403` снятого доступа, `409` неготового
  * материала) приходит экрану, а не открывается у учителя страницей с JSON.
  *
- * Имя файла сервер кладёт в `Content-Disposition`, но CORS его наружу пока
- * не выпускает (`expose_headers` нет — `SESSION_L8_QA.md`, «Нужно от бэкенда»).
- * Поэтому имя берётся из заголовка, если он виден, а иначе собирается здесь
- * по той же таблице, что у сервера (`CONTRACT.md`, L5): «ҚМЖ — тема.docx».
- * Откроет сервер заголовок — запасное имя перестанет использоваться само.
+ * Имя файла берётся из `Content-Disposition`: его собирает сервер, и оно
+ * совпадает с тем, что учитель видел бы при прямой ссылке. Имя, собранное
+ * на фронте (`fallbackName`, «ҚМЖ — тема.docx»), нужно только как запасное:
+ * заголовка может не быть, если прокси или расширение браузера срезали его
+ * по дороге. Сервер выставил его в CORS (`expose_headers`), так что в обычной
+ * работе запасное имя не используется.
  */
 export async function downloadMaterial(materialId: number, fallbackName: string): Promise<void> {
   let res: Response;
@@ -325,7 +293,7 @@ export interface ChatHandlers {
  * Реплика учителя и ответ помощника стримом.
  *
  * `EventSource` умеет только GET, а реплика — POST, поэтому стрим читается
- * `fetch` и разбирается вручную (так же у ассистента админки). Возвращает
+ * `fetch` и разбирается вручную. Возвращает
  * то, что пришло в `done`: **чат целиком** — ленту и заказ. Он и есть правда.
  *
  * Отказы — `ApiError` двумя путями: до стрима обычным статусом (`403`, `409`,

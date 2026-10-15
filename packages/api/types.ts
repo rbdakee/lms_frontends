@@ -341,6 +341,9 @@ export type LessonAccessStatus = S["LessonAccessStatusOut"];
 
 export type LessonKit = S["LessonKitOut"];
 export type LessonKitIn = S["LessonKitIn"];
+/* Строка списка «Моих уроков»: без content, notes и class_size. */
+export type LessonKitListItem = S["LessonKitListItemOut"];
+export type LessonKitsPage = S["LessonKitsPageOut"];
 export type LessonKitStatus = LessonKit["status"];
 /** Язык обучения — язык документов. С языком интерфейса не связан. */
 export type LessonLang = LessonKit["lang"];
