@@ -1621,31 +1621,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/lesson_ai/images/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Catalog Image
-         * @description PNG из каталога картинок презентаций (значки предметов на чипах).
-         *
-         *     Без входа и без проверки доступа к продукту, но не без флага продукта: картинки
-         *     публичные по лицензии (Fluent Emoji, MIT), а `<img>` не несёт заголовков и живёт
-         *     на другом домене, чем API. Ключ ищется только среди ключей каталога — путь
-         *     из запроса к файловой системе не доходит.
-         */
-        get: operations["catalog_image_lesson_ai_images__key__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/lesson_ai/access": {
         parameters: {
             query?: never;
@@ -5534,8 +5509,6 @@ export interface components {
             grade_to: number;
             /** Langs */
             langs: ("ru" | "kz")[];
-            /** Icon Url */
-            icon_url: string;
         };
         /** LessonSubjectsOut */
         LessonSubjectsOut: {
@@ -10666,37 +10639,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    catalog_image_lesson_ai_images__key__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
             };
             /** @description Validation Error */
             422: {
