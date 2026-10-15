@@ -3,8 +3,9 @@
 /* Значок предмета на чипе — контурная иконка в стиле набора `@lms/ui/icons`
    (сетка 24, обводка 1.75, цвет от текста), а не картинка: чип красится вместе
    с подписью в обычном, выбранном и неактивном состоянии и ничего не грузит.
-   Рисунки — Tabler Icons (MIT, tabler.io/icons); «әқ» для казахского языка
-   нарисован здесь, своего значка у казахского алфавита в наборе нет.
+   Рисунки — Tabler Icons (MIT, tabler.io/icons). Языки — буквами алфавита
+   (`LETTERS`): нарисованные линиями казахские «әқ» выглядели чужими, а шрифт
+   сайта (Manrope) казахских букв не знает — поэтому системный шрифт, где они есть.
    Предмет без значка (новый в справочнике) — чип просто без иконки. */
 
 import type { ReactNode } from "react";
@@ -97,22 +98,6 @@ const SHAPES: Record<string, ReactNode> = {
       <path d="M13 12h2" />
     </>
   ),
-  /* «әқ» — пара к русскому «аб»: две буквы казахского алфавита, которых
-     нет в русском, отличают предмет с первого взгляда */
-  kazakh_lang: (
-    <>
-      <path d="M5 13h6a3 3 0 1 1 -.88 -2.12" transform="rotate(180 8 12)" />
-      <path d="M15 7v10" />
-      <path d="M15 13h.5l3.5 -3.5" />
-      <path d="M15.5 13l3.5 4h1v2" />
-    </>
-  ),
-  russian_lang: (
-    <>
-      <path d="M6 10h2a2 2 0 0 1 2 2v5h-3a2 2 0 1 1 0 -4h3" />
-      <path d="M19 7h-3a2 2 0 0 0 -2 2v6a2 2 0 0 0 2 2h1a2 2 0 0 0 2 -2v-3a2 2 0 0 0 -2 -2h-3" />
-    </>
-  ),
   literary_reading: (
     <>
       <path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" />
@@ -122,14 +107,17 @@ const SHAPES: Record<string, ReactNode> = {
       <path d="M21 6v13" />
     </>
   ),
-  foreign_lang: (
-    <>
-      <path d="M6 10h2a2 2 0 0 1 2 2v5h-3a2 2 0 1 1 0 -4h3" />
-      <path d="M14 7v10" />
-      <path d="M14 12a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2z" />
-    </>
-  ),
 };
+
+/* Языки — две буквы своего алфавита: «әқ» — казахский (этих букв нет
+   в русском), «аб» — русский, «ab» — иностранные */
+const LETTERS: Record<string, string> = {
+  kazakh_lang: "әқ",
+  russian_lang: "аб",
+  foreign_lang: "ab",
+};
+
+const LETTER_FONT = '-apple-system, "Segoe UI", Arial, sans-serif';
 
 /* Варианты одного предмета (Т1/Т2, Я1/Я2, два литературных чтения, три
    иностранных языка) делят значок: различает их подпись на чипе */
@@ -146,7 +134,18 @@ const ALIAS: Record<string, string> = {
 };
 
 export function SubjectIcon({ code, size = 18 }: { code: string; size?: number }) {
-  const shape = SHAPES[ALIAS[code] ?? code];
+  const key = ALIAS[code] ?? code;
+  const letters = LETTERS[key];
+  if (letters) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ flex: "none" }}>
+        <text x="12" y="17" textAnchor="middle" fontSize="15" fontWeight="600" fill="currentColor" fontFamily={LETTER_FONT}>
+          {letters}
+        </text>
+      </svg>
+    );
+  }
+  const shape = SHAPES[key];
   if (!shape) return null;
   return (
     <svg
