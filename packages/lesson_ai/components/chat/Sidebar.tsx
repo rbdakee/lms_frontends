@@ -96,9 +96,30 @@ export function Sidebar({
   const [dialog, setDialog] = useState<NameDialog>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
 
+  /* Что тащим — в ref: обработчики видят это сразу, а не после перерисовки.
+     В state — только то, что рисуем (приглушение строки, зоны сброса) */
+  const dragRef = useRef<Drag>(null);
+
   const clearDrag = () => {
+    dragRef.current = null;
     setDrag(null);
     setOver(null);
+  };
+
+  /* Перерисовку откладываем: Chrome отменяет перетаскивание, если DOM меняется
+     прямо в `dragstart` (приходит `dragend` без единого `dragover`). Зоны сброса
+     появляются на следующем тике — к тому времени браузер уже держит перенос. */
+  const beginDrag = (d: NonNullable<Drag>) => {
+    dragRef.current = d;
+    setTimeout(() => {
+      if (dragRef.current === d) setDrag(d);
+    }, 0);
+  };
+
+  /* Курсор ушёл за пределы цели — подсветку снимаем, иначе она «залипает» */
+  const leave = (key: string) => (e: DragEvent<HTMLElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    setOver((o) => (o?.key === key ? null : o));
   };
 
   /* ---------- Перетаскивание ---------- */
@@ -114,37 +135,42 @@ export function Sidebar({
     onDragStart: (e: DragEvent<HTMLElement>) => {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", String(item.id));
-      setDrag({ kind: "chat", id: item.id });
+      beginDrag({ kind: "chat", id: item.id });
     },
     onDragEnd: clearDrag,
+    onDragLeave: leave(`c${item.id}`),
     onDragOver: (e: DragEvent<HTMLElement>) => {
-      if (drag?.kind !== "chat" || drag.id === item.id) return;
+      const d = dragRef.current;
+      if (d?.kind !== "chat" || d.id === item.id) return;
       e.preventDefault();
       const at = half(e);
-      if (over?.key !== `c${item.id}` || over.at !== at) setOver({ key: `c${item.id}`, at });
+      setOver((o) => (o?.key === `c${item.id}` && o.at === at ? o : { key: `c${item.id}`, at }));
     },
     onDrop: (e: DragEvent<HTMLElement>) => {
-      if (drag?.kind !== "chat" || drag.id === item.id) return;
+      const d = dragRef.current;
+      if (d?.kind !== "chat" || d.id === item.id) return;
       e.preventDefault();
       const at = half(e);
       const i = list.findIndex((x) => x.id === item.id);
-      const next = list.slice(i + 1).find((x) => x.id !== drag.id);
-      void library.place(drag.id, target, at === "before" ? item.id : (next?.id ?? null));
+      const next = list.slice(i + 1).find((x) => x.id !== d.id);
+      void library.place(d.id, target, at === "before" ? item.id : (next?.id ?? null));
       clearDrag();
     },
   });
 
   /** Заголовок секции или группы принимает чат «внутрь» — в конец списка. */
   const dropIntoHandlers = (key: string, target: Target) => ({
+    onDragLeave: leave(key),
     onDragOver: (e: DragEvent<HTMLElement>) => {
-      if (drag?.kind !== "chat") return;
+      if (dragRef.current?.kind !== "chat") return;
       e.preventDefault();
-      if (over?.key !== key || over.at !== "into") setOver({ key, at: "into" });
+      setOver((o) => (o?.key === key && o.at === "into" ? o : { key, at: "into" }));
     },
     onDrop: (e: DragEvent<HTMLElement>) => {
-      if (drag?.kind !== "chat") return;
+      const d = dragRef.current;
+      if (d?.kind !== "chat") return;
       e.preventDefault();
-      void library.place(drag.id, target, null);
+      void library.place(d.id, target, null);
       clearDrag();
     },
   });
@@ -157,26 +183,29 @@ export function Sidebar({
       onDragStart: (e: DragEvent<HTMLElement>) => {
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", `group:${groupId}`);
-        setDrag({ kind: "group", id: groupId });
+        beginDrag({ kind: "group", id: groupId });
       },
       onDragEnd: clearDrag,
+      onDragLeave: leave(key),
       onDragOver: (e: DragEvent<HTMLElement>) => {
-        if (drag?.kind === "group") {
-          if (drag.id === groupId) return;
+        const d = dragRef.current;
+        if (d?.kind === "group") {
+          if (d.id === groupId) return;
           e.preventDefault();
           const at = half(e);
-          if (over?.key !== key || over.at !== at) setOver({ key, at });
+          setOver((o) => (o?.key === key && o.at === at ? o : { key, at }));
           return;
         }
         into.onDragOver(e);
       },
       onDrop: (e: DragEvent<HTMLElement>) => {
-        if (drag?.kind === "group") {
-          if (drag.id === groupId) return;
+        const d = dragRef.current;
+        if (d?.kind === "group") {
+          if (d.id === groupId) return;
           e.preventDefault();
           const ids = lay.groups.map((g) => g.group.id);
-          const next = ids.slice(ids.indexOf(groupId) + 1).find((x) => x !== drag.id);
-          void library.moveGroup(drag.id, half(e) === "before" ? groupId : (next ?? null));
+          const next = ids.slice(ids.indexOf(groupId) + 1).find((x) => x !== d.id);
+          void library.moveGroup(d.id, half(e) === "before" ? groupId : (next ?? null));
           clearDrag();
           return;
         }
@@ -472,6 +501,22 @@ export function Sidebar({
                     </button>
                   </div>
                   {open && rows.length > 0 && <div style={{ paddingLeft: 10 }}>{list(rows, { section: "group", groupId: group.id })}</div>}
+                  {open && rows.length === 0 && dragging && (
+                    <p
+                      className="caption muted-3"
+                      style={{
+                        margin: "2px 0 2px 10px",
+                        padding: "8px",
+                        textAlign: "center",
+                        border: "1px dashed var(--border)",
+                        borderRadius: 8,
+                        ...mark(`e${group.id}`),
+                      }}
+                      {...dropIntoHandlers(`e${group.id}`, { section: "group", groupId: group.id })}
+                    >
+                      {t.laSbDropHere}
+                    </p>
+                  )}
                 </div>
               );
             })}
