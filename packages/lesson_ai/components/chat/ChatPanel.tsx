@@ -66,7 +66,7 @@ import { useRoutes } from "../../host";
 import { KIND_ORDER, hoursFrom } from "../../labels";
 import { ConfirmForm, type ConfirmPreset } from "./ConfirmForm";
 import { EventPill } from "./EventPill";
-import { BotBubble, Composer, Thinking, UserBubble } from "./Feed";
+import { BotBubble, Composer, Markdown, Thinking, UserBubble } from "./Feed";
 import { ObjectiveCards, toggled } from "./ObjectiveCards";
 import { ObjectiveSheet } from "./ObjectiveSheet";
 import { LangPicker, OrderCard, TopicField } from "./OrderCard";
@@ -330,7 +330,7 @@ export function ChatPanel({
           onTool: (ev) => {
             /* Текст до вызова — «сейчас посмотрю», в ленту он не ляжет */
             setDraft("");
-            const found = objectivesOf(ev.tool_result);
+            const found = objectivesOf(ev.tool_name, ev.tool_result);
             if (found.length > 0) setLive((l) => [...l, found]);
             else setEditing(true);
           },
@@ -566,18 +566,18 @@ export function ChatPanel({
         m.role === "user" ? (
           <UserBubble key={m.id}>{m.content}</UserBubble>
         ) : m.role === "assistant" ? (
-          m.content ? <BotBubble key={m.id}>{m.content}</BotBubble> : null
+          m.content ? <BotBubble key={m.id}><Markdown text={m.content} /></BotBubble> : null
         ) : m.role === "event" ? (
           <EventPill key={m.id} message={m} />
         ) : (
           /* Вызов инструмента правки карточкой не рисуется: о нём скажет событие */
-          cards(objectivesOf(m.tool_result), m.id)
+          cards(objectivesOf(m.tool_name, m.tool_result), m.id)
         ),
       )}
 
       {pending && <UserBubble>{pending}</UserBubble>}
       {/* Тот же порядок, что в ленте: сначала «подойдут такие цели», потом карточки */}
-      {draft && <BotBubble>{draft}</BotBubble>}
+      {draft && <BotBubble><Markdown text={draft} /></BotBubble>}
       {live.map((found, i) => cards(found, `live-${i}`))}
       {sending && !draft && (
         /* До первого события сервер разбирает реплику; без цели в заказе
@@ -705,7 +705,7 @@ function readingOrder(items: LessonChat["items"]): LessonChat["items"] {
 function lastShown(chat: LessonChat | null): LessonChatObjective | undefined {
   if (!chat) return undefined;
   for (let i = chat.items.length - 1; i >= 0; i--) {
-    const found = objectivesOf(chat.items[i].tool_result);
+    const found = objectivesOf(chat.items[i].tool_name, chat.items[i].tool_result);
     if (found.length > 0) return found[0];
   }
   return undefined;
