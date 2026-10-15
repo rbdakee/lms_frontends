@@ -36,11 +36,15 @@ import { Sidebar, chatTitle } from "../components/chat/Sidebar";
 import { useWide } from "../components/chat/util";
 import type { MaterialFlash } from "../components/kit/KitMaterials";
 import { MaterialsPanel } from "../components/kit/MaterialsPanel";
+import { RegenerateButton } from "../components/kit/RegenerateButton";
 
 const PER_PAGE = 20;
 const SIDEBAR_W = 280;
 const MATERIALS_W = { min: 360, max: 760, initial: 520 };
 const RESIZE_STEP = 24;
+/* Высота шапки каждой колонки. Одна на все: нижние границы шапок встают на одну линию
+   независимо от содержимого, а кнопки и вкладки живут ниже линии или внутри этой высоты */
+const HEADER_H = 52;
 
 /** Какой разговор открыт. `epoch` — номер нового разговора: без id ключ панели иначе не сменить. */
 interface Active {
@@ -231,6 +235,8 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
 
   /* «Изменить цели» в панели материалов: шторка выбора целей — у чата, ему уходит номер просьбы */
   const [goalsRequest, setGoalsRequest] = useState(0);
+  /* «Пересобрать урок»: чату уходит номер — он перечитывает себя и начинает опрос ленты */
+  const [reloadRequest, setReloadRequest] = useState(0);
   const editGoals = () => {
     if (!wide) setMaterialsOpen(false);
     setGoalsRequest((n) => n + 1);
@@ -274,6 +280,15 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
         marginBottom: -16,
       };
 
+  /* Шапка колонки: фиксированная высота с рамкой внутри (border-box) */
+  const headerBar: CSSProperties = {
+    alignItems: "center",
+    height: HEADER_H,
+    boxSizing: "border-box",
+    borderBottom: "1px solid var(--border)",
+    flexShrink: 0,
+  };
+
   /* Телефон: панель выезжает поверх чата между шапкой и таб-панелью сайта */
   const overlay: CSSProperties = {
     position: "fixed",
@@ -284,12 +299,15 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
     boxShadow: "var(--shadow-lg)",
   };
 
-  const closeBar = (heading: string, closeLabel: string, onClose: () => void): ReactNode => (
-    <div className="row between" style={{ alignItems: "center", padding: "6px 8px 6px 16px", borderBottom: "1px solid var(--border)" }}>
+  const closeBar = (heading: string, closeLabel: string, onClose: () => void, extra?: ReactNode): ReactNode => (
+    <div className="row g8" style={{ ...headerBar, padding: "0 8px 0 16px", justifyContent: "space-between" }}>
       <strong>{heading}</strong>
-      <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label={closeLabel} title={closeLabel} style={{ minWidth: 40, padding: 0 }}>
-        <IconClose size={18} />
-      </button>
+      <div className="row g8" style={{ alignItems: "center" }}>
+        {extra}
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label={closeLabel} title={closeLabel} style={{ minWidth: 40, padding: 0 }}>
+          <IconClose size={18} />
+        </button>
+      </div>
     </div>
   );
 
@@ -305,7 +323,8 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
         )}
         <aside
           style={{
-            display: showSidebar ? "block" : "none",
+            display: showSidebar ? "flex" : "none",
+            flexDirection: "column",
             width: wide ? SIDEBAR_W : "min(86vw, 320px)",
             flexShrink: 0,
             borderRight: "1px solid var(--border)",
@@ -321,6 +340,7 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
             onPick={pick}
             onMore={() => void loadMore()}
             onNew={startNew}
+            headerHeight={HEADER_H}
           />
         </aside>
 
@@ -328,7 +348,7 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
         <section ref={chatSection} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
           <div
             className="row g8"
-            style={{ alignItems: "center", minHeight: 52, padding: "0 12px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}
+            style={{ ...headerBar, padding: "0 12px" }}
           >
             <button
               type="button"
@@ -365,6 +385,7 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
               onChat={onChatFor(chatKey)}
               onMaterial={onMaterial}
               editGoalsRequest={goalsRequest}
+              reloadRequest={reloadRequest}
               onNew={startNew}
             />
           </div>
@@ -392,14 +413,23 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
             <aside
               aria-label={t.laKitMaterials}
               style={{
-                display: showMaterials ? "block" : "none",
-                overflowY: "auto",
-                overscrollBehavior: "contain",
+                display: showMaterials ? "flex" : "none",
+                flexDirection: "column",
+                overflow: "hidden",
                 background: "var(--bg)",
                 ...(wide ? { width: materialsW, flexShrink: 0 } : { ...overlay, left: 0, right: 0 }),
               }}
             >
-              {closeBar(t.laKitMaterials, t.laWsMaterialsHide, () => setMaterialsOpen(false))}
+              {closeBar(
+                t.laKitMaterials,
+                t.laWsMaterialsHide,
+                () => setMaterialsOpen(false),
+                <RegenerateButton
+                  kitId={session.kit.id}
+                  generating={generating}
+                  onStarted={() => setReloadRequest((n) => n + 1)}
+                />,
+              )}
               <MaterialsPanel kit={session.kit} flash={flash} onEditGoals={editGoals} />
             </aside>
           </>

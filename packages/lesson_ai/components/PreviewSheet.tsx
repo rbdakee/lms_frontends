@@ -20,11 +20,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NETWORK_ERROR, isApiError, type LessonKit, type LessonMaterial } from "@lms/api";
-import { Button, Empty, Sheet, Skeleton } from "@lms/ui";
+import { Button, Empty, Skeleton } from "@lms/ui";
+import { IconClose } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { useLessonAiAccess } from "../access";
 import { previewMaterial } from "../api";
 import { KIND_ORDER, kindTitle } from "../labels";
+import { useWide } from "./chat/util";
 import { DownloadButton } from "./DownloadButton";
 
 type Material = Pick<LessonMaterial, "id" | "kind" | "status">;
@@ -44,6 +46,7 @@ export function PreviewSheet({
   initialId?: number;
 }) {
   const { t } = useLang();
+  const roomy = useWide();
   const ready = [...materials]
     .filter((m) => m.status === "ready")
     .sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
@@ -55,41 +58,64 @@ export function PreviewSheet({
     if (open) setSelected(initialId);
   }, [open, initialId]);
 
+  /* Escape и запрет прокрутки страницы под шторкой — как у общей шторки */
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
   /* Закрытая шторка ничего не рисует — и на сервере, где `document` нет */
   if (!open || !current) return null;
 
+  /* Не общая `Sheet`: у той прокручивается вся шторка вместе с липкими шапкой и подвалом.
+     Здесь высота задана, шапка (название, скачивание, закрыть) и вкладки стоят на месте,
+     а прокручивается одна область — страница материала */
   return createPortal(
-    <Sheet
-      open={open}
-      onClose={onClose}
-      wide
-      title={kindTitle(t, current.kind)}
-      footer={
-        <div className="row between wrap g8" style={{ alignItems: "center" }}>
-          <span className="caption muted-3 pretty" style={{ flex: "1 1 200px" }}>
+    <div className="overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={kindTitle(t, current.kind)}>
+      <div
+        className="sheet sheet-wide"
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "min(88dvh, 900px)", maxHeight: "none" }}
+      >
+        <div className="row g8" style={{ alignItems: "center", padding: "12px 12px 8px 16px", flexShrink: 0 }}>
+          <div className="h3 grow" style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {kindTitle(t, current.kind)}
+          </div>
+          <DownloadButton kit={kit} material={current} size="sm" compact={!roomy} />
+          <button className="btn btn-icon" onClick={onClose} aria-label={t.uiClose} title={t.uiClose}>
+            <IconClose />
+          </button>
+        </div>
+        {ready.length > 1 && (
+          <div className="tabs" role="tablist" aria-label={t.laKitMaterials} style={{ margin: "0 16px", flexShrink: 0 }}>
+            {ready.map((m) => (
+              <button
+                key={m.id}
+                role="tab"
+                aria-selected={m.id === current.id}
+                data-active={m.id === current.id}
+                onClick={() => setSelected(m.id)}
+              >
+                {kindTitle(t, m.kind)}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "0 16px 16px" }}>
+          <p className="caption muted-3 pretty" style={{ margin: "10px 0" }}>
             {t.laPreviewNote}
-          </span>
-          <DownloadButton kit={kit} material={current} size="sm" />
+          </p>
+          <PreviewFrame key={current.id} materialId={current.id} />
         </div>
-      }
-    >
-      {ready.length > 1 && (
-        <div className="tabs" role="tablist" aria-label={t.laKitMaterials} style={{ marginBottom: 12 }}>
-          {ready.map((m) => (
-            <button
-              key={m.id}
-              role="tab"
-              aria-selected={m.id === current.id}
-              data-active={m.id === current.id}
-              onClick={() => setSelected(m.id)}
-            >
-              {kindTitle(t, m.kind)}
-            </button>
-          ))}
-        </div>
-      )}
-      <PreviewFrame key={current.id} materialId={current.id} />
-    </Sheet>,
+      </div>
+    </div>,
     document.body,
   );
 }
