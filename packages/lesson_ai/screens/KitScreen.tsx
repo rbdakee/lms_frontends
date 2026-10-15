@@ -116,15 +116,18 @@ function KitHeader({ kit }: { kit: LessonKit }) {
 
   return (
     <header className="card card-pad stack g14">
-      <div>
-        <OpenInChatButton kitId={kit.id} chatId={kit.chat_id} />
-      </div>
-      <div className="row wrap g6">
+      {/* «Открыть в чате» — справа от плашек, в одной строке: слева и так
+          плотно (статус, класс, язык), а главное действие страницы видно
+          в правом верхнем углу; не помещается — переносится под плашки */}
+      <div className="row wrap g6" style={{ alignItems: "center" }}>
         <Badge kind={KIT_BADGE[kit.status]}>{t.laKitStatus[kit.status]}</Badge>
         <Badge kind="neutral">{t.laGrade(kit.grade)}</Badge>
         <Badge kind="new" icon={<IconGlobe size={13} />}>
           {t.laDocsLang[kit.lang]}
         </Badge>
+        <div style={{ marginLeft: "auto" }}>
+          <OpenInChatButton kitId={kit.id} chatId={kit.chat_id} />
+        </div>
       </div>
 
       <div className="stack g4">
