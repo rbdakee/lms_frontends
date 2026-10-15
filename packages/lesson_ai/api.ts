@@ -34,6 +34,8 @@ import {
   type LessonChatOrderPatch,
   type LessonChatsPage,
   type LessonChatTurn,
+  type LessonAttachment,
+  type LessonAttachments,
   type LessonKit,
   type LessonKitsPage,
   type LessonLang,
@@ -295,6 +297,34 @@ export function openKitChat(kitId: number | string): Promise<LessonChat> {
   return api<LessonChat>(`/lesson_ai/kits/${kitId}/chat`, { method: "POST" });
 }
 
+/* ============ Вложения чата ============
+
+   Файлы заводятся в чате до реплики: сначала загрузка, потом отправка
+   с `attachment_ids`. Финальная проверка лимитов всегда на сервере —
+   клиентская нужна только для мгновенной подсказки. */
+
+/** Один файл на запрос: `multipart/form-data`, поле `file`. */
+export function uploadAttachment(chatId: number, file: File): Promise<LessonAttachment> {
+  const form = new FormData();
+  form.append("file", file);
+  /* Content-Type ставит браузер сам — вместе с boundary,
+     без него сервер тело не разберёт */
+  return api<LessonAttachment>(`/lesson_ai/chats/${chatId}/attachments`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+/** Вложения чата в порядке загрузки — по ним же экран узнаёт, что файл прочитался. */
+export function listAttachments(chatId: number): Promise<LessonAttachments> {
+  return api<LessonAttachments>(`/lesson_ai/chats/${chatId}/attachments`);
+}
+
+/** Снять файл с чата: строка и объект хранилища уходят вместе (`204`). */
+export function deleteAttachment(chatId: number, attachmentId: number): Promise<void> {
+  return api<void>(`/lesson_ai/chats/${chatId}/attachments/${attachmentId}`, { method: "DELETE" });
+}
+
 /**
  * Хвост ленты после строки `after_id` и комплект — опрос, пока комплект
  * собирается: воркер дописывает события, когда экран ничего не отправляет.
@@ -350,6 +380,9 @@ export interface ChatHandlers {
 /**
  * Реплика учителя и ответ помощника стримом.
  *
+ * `attachmentIds` — файлы, уже загруженные ручкой вложений этого же чата:
+ * каждый получает `message_id` реплики, и повторно приложить его нельзя.
+ *
  * `EventSource` умеет только GET, а реплика — POST, поэтому стрим читается
  * `fetch` и разбирается вручную. Возвращает
  * то, что пришло в `done`: **чат целиком** — ленту и заказ. Он и есть правда.
@@ -362,6 +395,7 @@ export async function say(
   text: string,
   on: ChatHandlers,
   signal?: AbortSignal,
+  attachmentIds?: number[],
 ): Promise<LessonChatTurn> {
   let res: Response;
   try {
@@ -369,7 +403,9 @@ export async function say(
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(
+        attachmentIds && attachmentIds.length > 0 ? { text, attachment_ids: attachmentIds } : { text },
+      ),
       signal,
     });
   } catch (e) {

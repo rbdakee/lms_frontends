@@ -33,9 +33,10 @@
  * обновляются, как только изменились, — без перечитывания списка.
  */
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import {
   isApiError,
+  type LessonAttachment,
   type LessonChat,
   type LessonChatConfirmIn,
   type LessonChatEvent,
@@ -55,21 +56,34 @@ import {
   RATE_LIMITED,
   confirmChat,
   createChat,
+  deleteAttachment,
   getChat,
   getChatFeed,
   getKit,
+  listAttachments,
+  listSubjects,
   objectivesOf,
   patchOrder,
   say,
   setKitObjectives,
-  listSubjects,
+  uploadAttachment,
 } from "../../api";
 import { useLessonAiAccess } from "../../access";
 import { useRoutes } from "../../host";
 import { KIND_ORDER, hoursFrom } from "../../labels";
 import { ConfirmForm, type ConfirmPreset } from "./ConfirmForm";
 import { EventPill } from "./EventPill";
-import { BotBubble, Composer, Markdown, SuggestionChips, Thinking, UserBubble } from "./Feed";
+import {
+  BotBubble,
+  Composer,
+  Markdown,
+  MessageAttachments,
+  SuggestionChips,
+  Thinking,
+  UserBubble,
+  kindFromName,
+  type DraftAttachment,
+} from "./Feed";
 import { ObjectiveCards, toggled } from "./ObjectiveCards";
 import { ObjectiveSheet } from "./ObjectiveSheet";
 import { StartPicker } from "./StartPicker";
@@ -107,6 +121,43 @@ interface SheetFor {
 
 /* Как часто спрашиваем ленту, пока комплект собирается (контракт: раз в 2–3 с) */
 const POLL_MS = 2500;
+
+/* Лимиты вложений знает сервер; клиент повторяет их только ради мгновенной
+   подсказки — финальная проверка всегда на бэкенде (контракт) */
+const ATTACH_MAX_FILES = 5;
+const ATTACH_MAX_MB = 20;
+/* Как часто спрашиваем список вложений, пока есть непрочитанные файлы */
+const ATTACH_POLL_MS = 2000;
+
+const ATTACH_EXTS = ["jpg", "jpeg", "png", "webp", "pdf", "docx", "pptx"];
+
+/** Текст ошибки загрузки: сервер отвечает человеческой фразой — берём её. */
+function attachErrorText(e: unknown, t: ReturnType<typeof useLang>["t"]): string {
+  if (isApiError(e) && e.status > 0) return e.message;
+  return t.laAttachUploadError;
+}
+
+/** Файл не прочитался: список вложений отдаёт только код, словами — свои. */
+function failedText(code: string | null, t: ReturnType<typeof useLang>["t"]): string {
+  if (code === "attachment_unsupported") return t.laAttachErrUnsupported;
+  if (code === "ai_failed") return t.laAttachErrAi;
+  if (code === "extract_failed") return t.laAttachErrExtract;
+  return t.laAttachUploadError;
+}
+
+/** Строка списка вложений — карточка у поля ввода (после перезагрузки страницы). */
+function draftFromRow(r: LessonAttachment, t: ReturnType<typeof useLang>["t"]): DraftAttachment {
+  return {
+    localId: `s${r.id}`,
+    serverId: r.id,
+    kind: r.kind,
+    filename: r.filename,
+    sizeBytes: r.size_bytes,
+    pages: r.pages,
+    status: r.status === "ready" ? "ready" : r.status === "processing" ? "processing" : "failed",
+    error: r.status === "failed" ? failedText(r.error_code, t) : null,
+  };
+}
 
 export function ChatPanel({
   chatId,
@@ -149,6 +200,19 @@ export function ChatPanel({
   const [editing, setEditing] = useState(false);
   const [sayError, setSayError] = useState<string | null>(null);
   const [patching, setPatching] = useState(false);
+  /* Вложения у поля ввода: до отправки живут здесь, после — в ленте на сервере.
+     Дубль в ref нужен тем же местам, что и `chatRef`: колбэки читают ряд
+     из замыканий, где state к моменту вызова уже старый */
+  const [drafts, setDrafts] = useState<DraftAttachment[]>([]);
+  const draftsRef = useRef<DraftAttachment[]>([]);
+  const localSeq = useRef(0);
+  /* Идущие загрузки: «Отправить» дожидается их, чтобы файлы уехали той же репликой */
+  const uploads = useRef(new Set<Promise<void>>());
+  const updateDrafts = useCallback((fn: (list: DraftAttachment[]) => DraftAttachment[]) => {
+    const next = fn(draftsRef.current);
+    draftsRef.current = next;
+    setDrafts(next);
+  }, []);
   const [sheet, setSheet] = useState<SheetFor | null>(null);
   /* Предметы для стартового блока; не загрузились — блока просто нет, чат работает и без него */
   const [startSubjects, setStartSubjects] = useState<LessonSubject[]>([]);
@@ -296,6 +360,145 @@ export function ChatPanel({
     if (id !== null) adopt(await getChat(id));
   }, [adopt]);
 
+  /* ---------- Вложения ---------- */
+
+  /* Вложения заводятся в чате до реплики, поэтому первому файлу нужен чат —
+     он заводится тем же `ensureChat`, что и первая реплика */
+  const upload = async (file: File, localId: string) => {
+    const job = (async () => {
+      try {
+        const chatId = await ensureChat();
+        const row = await uploadAttachment(chatId, file);
+        updateDrafts((l) =>
+          l.map((d): DraftAttachment =>
+            d.localId === localId
+              ? {
+                  ...d,
+                  serverId: row.id,
+                  kind: row.kind,
+                  filename: row.filename,
+                  sizeBytes: row.size_bytes,
+                  pages: row.pages,
+                  status: row.status === "ready" ? "ready" : row.status === "processing" ? "processing" : "failed",
+                  error: row.status === "failed" ? failedText(row.error_code, t) : null,
+                }
+              : d,
+          ),
+        );
+      } catch (e) {
+        if (handle(e)) return;
+        /* Карточка к этому моменту могла быть снята крестиком — тогда маппинг её не найдёт */
+        updateDrafts((l) =>
+          l.map(
+            (d): DraftAttachment =>
+              d.localId === localId ? { ...d, status: "failed", error: attachErrorText(e, t) } : d,
+          ),
+        );
+      }
+    })();
+    uploads.current.add(job);
+    try {
+      await job;
+    } finally {
+      uploads.current.delete(job);
+    }
+  };
+
+  const addFiles = (files: File[]) => {
+    for (const file of files) {
+      /* Клиентские проверки — подсказка сразу, а не после круглой поездки на сервер */
+      if (draftsRef.current.length >= ATTACH_MAX_FILES) {
+        toast(t.laAttachLimit(ATTACH_MAX_FILES), "error");
+        return;
+      }
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      if (!ATTACH_EXTS.includes(ext)) {
+        toast(t.laAttachBadType, "error");
+        continue;
+      }
+      if (file.size === 0) {
+        toast(t.laAttachEmpty, "error");
+        continue;
+      }
+      if (file.size > ATTACH_MAX_MB * 1024 * 1024) {
+        toast(t.laAttachTooBig(ATTACH_MAX_MB), "error");
+        continue;
+      }
+      const kind = kindFromName(file.name);
+      const localId = `d${++localSeq.current}`;
+      updateDrafts((l) => [
+        ...l,
+        {
+          localId,
+          serverId: null,
+          kind,
+          filename: file.name,
+          sizeBytes: file.size,
+          pages: null,
+          status: "uploading",
+          error: null,
+          /* Миниатюра фото — из локального файла, пока реплика не ушла */
+          thumbUrl: kind === "image" ? URL.createObjectURL(file) : undefined,
+        },
+      ]);
+      void upload(file, localId);
+    }
+  };
+
+  /** Снять карточку: из ряда сразу, с сервера — ручкой, если файл уже загружен. */
+  const removeDraft = async (localId: string) => {
+    const d = draftsRef.current.find((x) => x.localId === localId);
+    if (!d) return;
+    updateDrafts((l) => l.filter((x) => x.localId !== localId));
+    if (d.thumbUrl) URL.revokeObjectURL(d.thumbUrl);
+    if (d.serverId !== null && idRef.current !== null) {
+      try {
+        await deleteAttachment(idRef.current, d.serverId);
+      } catch (e) {
+        if (!handle(e)) toast(t.laAttachDeleteError, "error");
+      }
+    }
+  };
+
+  /** Ряд очищается, когда реплика с файлами ушла: дальше они живут в ленте. */
+  const clearDrafts = () => {
+    for (const d of draftsRef.current) {
+      if (d.thumbUrl) URL.revokeObjectURL(d.thumbUrl);
+    }
+    updateDrafts(() => []);
+  };
+
+  /* ---------- Перетаскивание файла в чат ---------- */
+
+  const [dragOver, setDragOver] = useState(false);
+  /* enter/leave срабатывают на каждом ребёнке: считаем глубину, а не флаг */
+  const dragDepth = useRef(0);
+  const dragsFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+  const onDragEnter = (e: DragEvent) => {
+    if (!dragsFiles(e)) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragOver(true);
+  };
+  const onDragOver = (e: DragEvent) => {
+    if (!dragsFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const onDragLeave = () => {
+    dragDepth.current -= 1;
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0;
+      setDragOver(false);
+    }
+  };
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) addFiles(Array.from(e.dataTransfer.files));
+  };
+
   /* ---------- Опрос, пока комплект собирается ---------- */
 
   const kitGenerating = chat?.kit?.status === "generating";
@@ -350,12 +553,90 @@ export function ChatPanel({
     };
   }, [kitGenerating, sending, adopt, handle]);
 
+  /* ---------- Вложения: уже лежащие в чате и ещё не прочитанные ---------- */
+
+  /* Файлы, загруженные раньше (в том числе до перезагрузки страницы) и ещё не
+     приложенные к реплике, возвращаются в тот же ряд у поля ввода */
+  const seededFor = useRef<number | null>(null);
+  const chatIdNum = chat?.id ?? null;
+  useEffect(() => {
+    if (chatIdNum === null || seededFor.current === chatIdNum) return;
+    seededFor.current = chatIdNum;
+    let alive = true;
+    listAttachments(chatIdNum).then(
+      (res) => {
+        if (!alive) return;
+        const known = new Set(draftsRef.current.map((d) => d.serverId));
+        const fresh = res.items.filter((r) => !known.has(r.id)).map((r) => draftFromRow(r, t));
+        if (fresh.length > 0) updateDrafts((l) => [...l, ...fresh]);
+      },
+      () => {
+        /* Список не приехал — ряд просто останется пустым, чат работает и без него */
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [chatIdNum, t, updateDrafts]);
+
+  /* Пока есть файлы со статусом `processing`, опрашиваем список: о готовности
+     экран узнаёт только так (контракт) */
+  const processingKey = drafts
+    .filter((d) => d.status === "processing")
+    .map((d) => d.serverId)
+    .join(",");
+  useEffect(() => {
+    if (!processingKey) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      const id = idRef.current;
+      if (id !== null && document.visibilityState === "visible") {
+        try {
+          const res = await listAttachments(id);
+          if (!alive) return;
+          const rows = new Map(res.items.map((r) => [r.id, r]));
+          updateDrafts((l) => {
+            let changed = false;
+            /* Файл, снятый на сервере кем-то другим, из ряда уходит */
+            const kept = l.filter((d) => d.serverId === null || rows.has(d.serverId));
+            if (kept.length !== l.length) changed = true;
+            const next = kept.map((d): DraftAttachment => {
+              if (d.serverId === null || d.status !== "processing") return d;
+              const row = rows.get(d.serverId);
+              if (!row || row.status === "processing") return d;
+              changed = true;
+              return {
+                ...d,
+                pages: row.pages,
+                status: row.status === "ready" ? "ready" : "failed",
+                error: row.status === "failed" ? failedText(row.error_code, t) : null,
+              };
+            });
+            return changed ? next : l;
+          });
+        } catch {
+          /* Сеть мигнула — не страшно, следующий тик спросит снова */
+        }
+      }
+      if (alive) timer = setTimeout(tick, ATTACH_POLL_MS);
+    };
+    timer = setTimeout(tick, ATTACH_POLL_MS);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [processingKey, t, updateDrafts]);
+
   /* ---------- Реплика ---------- */
 
   /* `quick` — текст кнопки-подсказки: уходит как реплика, а набранное в поле не трогаем */
   const send = async (quick?: string) => {
     const said = (quick ?? text).trim();
-    if (!said || sending) return;
+    /* Реплика уходит и без текста, если прикреплены файлы: читать их сервер
+       успеет к отправке — идущие загрузки дожидаемся ниже */
+    const hasFiles = draftsRef.current.some((d) => d.status !== "failed");
+    if ((!said && !hasFiles) || sending) return;
     setSending(true);
     setSayError(null);
     setNotice(null);
@@ -368,6 +649,15 @@ export function ChatPanel({
     const ctrl = new AbortController();
     turn.current = ctrl;
     try {
+      /* Загрузки дожимаем до запроса: их файлы уезжают этой же репликой */
+      if (uploads.current.size > 0) await Promise.allSettled([...uploads.current]);
+      const attachmentIds = draftsRef.current
+        .filter((d) => d.serverId !== null && d.status !== "failed")
+        .map((d) => d.serverId as number);
+      if (!said && attachmentIds.length === 0) {
+        /* Все файлы упали — отправлять нечего; состояние снимет `finally` */
+        return;
+      }
       const id = await ensureChat();
       const done = await say(
         id,
@@ -384,8 +674,11 @@ export function ChatPanel({
           onMaterial: (ev) => onMaterialRef.current(ev),
         },
         ctrl.signal,
+        attachmentIds,
       );
       adopt(done.chat);
+      /* Ход записан: вложения получили `message_id` и ушли из ряда в ленту */
+      clearDrafts();
     } catch (e) {
       if (ctrl.signal.aborted) {
         /* «Стоп»: что сервер успел записать — решает он, лента берётся с него.
@@ -661,7 +954,12 @@ export function ChatPanel({
 
       {readingOrder(chat?.items ?? []).map((m) =>
         m.role === "user" ? (
-          <UserBubble key={m.id}>{m.content}</UserBubble>
+          <Fragment key={m.id}>
+            {/* Файлы реплики — плашками над ней; миниатюр в ленте нет,
+                сервер их не отдаёт, и хранить локальные уже нечего */}
+            {m.attachments.length > 0 && <MessageAttachments items={m.attachments} />}
+            {m.content && <UserBubble>{m.content}</UserBubble>}
+          </Fragment>
         ) : m.role === "assistant" ? (
           m.content ? (
             <Fragment key={m.id}>
@@ -738,7 +1036,36 @@ export function ChatPanel({
      вне прокрутки, у нижнего края, как в ChatGPT */
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+      <div
+        style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, position: "relative" }}
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
+        {/* Файл тащат в чат: подсветка на всю колонку, пока он над ней */}
+        {dragOver && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 3,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "2px dashed var(--primary)",
+              borderRadius: 16,
+              background: "var(--primary-bg)",
+              color: "var(--primary)",
+              fontSize: 15,
+              fontWeight: 600,
+              pointerEvents: "none",
+            }}
+          >
+            {t.laAttachDrop}
+          </div>
+        )}
         {/* Нижний отступ держит последнее сообщение и чипы на виду у поля ввода;
             он внутри прокрутки, поэтому автопрокрутка докручивает ленту до конца */}
         <div ref={scroller} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 16px 56px" }}>
@@ -803,6 +1130,9 @@ export function ChatPanel({
             onSend={() => void send()}
             onStop={stop}
             notice={sayError && <Note kind="warning">{sayError}</Note>}
+            attachments={drafts}
+            onPickFiles={addFiles}
+            onRemoveAttachment={(localId) => void removeDraft(localId)}
           />
         </div>
       </div>

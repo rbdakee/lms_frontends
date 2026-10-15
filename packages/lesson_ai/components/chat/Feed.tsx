@@ -12,7 +12,9 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { IconArrowUp, IconSparkle } from "@lms/ui/icons";
+import type { LessonAttachment, LessonAttachmentKind } from "@lms/api";
+import { fileSize } from "@lms/ui/i18n";
+import { IconArrowUp, IconClose, IconFile, IconImage, IconPaperclip, IconSparkle } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 
 const bubble: CSSProperties = {
@@ -186,6 +188,205 @@ const LINE_PX = 22;
 /* Выше восьми строк поле не растёт, а прокручивается само */
 const MAX_ROWS = 8;
 
+/* Файлы, которые принимает «Жоспар»: то же, что в accept у поля выбора */
+const ATTACH_ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf,.docx,.pptx";
+
+/** Вид вложения по имени файла — до ответа сервера, который знает точнее. */
+export function kindFromName(name: string): LessonAttachmentKind {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf") return "pdf";
+  if (ext === "docx") return "docx";
+  if (ext === "pptx") return "pptx";
+  return "image";
+}
+
+/** Подпись вида на карточке: латиница и «Фото» одинаковы в обоих языках. */
+function kindLabel(kind: LessonAttachmentKind, t: ReturnType<typeof useLang>["t"]): string {
+  if (kind === "pdf") return t.laAttachKindPdf;
+  if (kind === "docx") return t.laAttachKindDocx;
+  if (kind === "pptx") return t.laAttachKindPptx;
+  return t.laAttachKindImage;
+}
+
+/**
+ * Вложение у поля ввода, пока реплика с ним не ушла. `serverId` появляется
+ * после загрузки, но файл остаётся в ряду до отправки: реплика уходит
+ * с `attachment_ids`, и только тогда карточки исчезают.
+ */
+export interface DraftAttachment {
+  /** Ключ ряда, пока серверного номера нет. */
+  localId: string;
+  serverId: number | null;
+  kind: LessonAttachmentKind;
+  filename: string;
+  sizeBytes: number;
+  pages: number | null;
+  status: "uploading" | "processing" | "ready" | "failed";
+  /** Текст ошибки — с сервера или своя подсказка. */
+  error: string | null;
+  /** Миниатюра фото: локальный objectURL, на сервере его нет. */
+  thumbUrl?: string;
+}
+
+/** Миниатюра фото или значок документа с подписью вида — общий глаз карточки. */
+function AttachmentTile({ kind, thumbUrl, big }: { kind: LessonAttachmentKind; thumbUrl?: string; big?: boolean }) {
+  const { t } = useLang();
+  const size = big ? 44 : 36;
+  if (kind === "image") {
+    return thumbUrl ? (
+      <img
+        src={thumbUrl}
+        alt=""
+        width={size}
+        height={size}
+        style={{ width: size, height: size, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+      />
+    ) : (
+      <Tile size={size}>
+        <IconImage size={big ? 20 : 16} />
+      </Tile>
+    );
+  }
+  return (
+    <Tile size={size}>
+      <IconFile size={big ? 18 : 15} />
+      <span style={{ fontSize: 8, fontWeight: 700, lineHeight: "10px", letterSpacing: "0.02em", marginTop: 1 }}>
+        {kindLabel(kind, t)}
+      </span>
+    </Tile>
+  );
+}
+
+function Tile({ size, children }: { size: number; children: ReactNode }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 8,
+        flexShrink: 0,
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--primary-bg)",
+        color: "var(--primary)",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** Карточка прикреплённого над полем ввода: вид, имя, размер и состояние. */
+function DraftCard({ a, onRemove }: { a: DraftAttachment; onRemove: () => void }) {
+  const { t } = useLang();
+  const status =
+    a.status === "uploading"
+      ? t.laAttachUploading
+      : a.status === "processing"
+        ? t.laAttachReading
+        : null;
+  return (
+    <div
+      className="row g8"
+      style={{
+        alignItems: "center",
+        padding: "6px 8px",
+        border: `1px solid ${a.status === "failed" ? "var(--danger-line)" : "var(--border-strong)"}`,
+        borderRadius: 12,
+        background: "var(--card)",
+      }}
+    >
+      <AttachmentTile kind={a.kind} thumbUrl={a.thumbUrl} />
+      <span className="stack" style={{ gap: 2, minWidth: 0, maxWidth: 150 }}>
+        <span style={{ fontSize: 13, lineHeight: "16px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {a.filename}
+        </span>
+        {a.status === "failed" ? (
+          <span className="caption" style={{ color: "var(--danger)", lineHeight: "14px" }}>
+            {a.error}
+          </span>
+        ) : (
+          <span className="caption muted" style={{ lineHeight: "14px" }}>
+            {fileSize(a.sizeBytes)}
+            {status && ` · ${status}`}
+          </span>
+        )}
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={t.laAttachRemove}
+        title={t.laAttachRemove}
+        style={{
+          width: 24,
+          height: 24,
+          flexShrink: 0,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+          border: 0,
+          borderRadius: "50%",
+          background: "transparent",
+          color: "var(--text-3)",
+          cursor: "pointer",
+        }}
+      >
+        <IconClose size={14} />
+      </button>
+    </div>
+  );
+}
+
+/** Ряд карточек над полем ввода. */
+export function AttachmentDrafts({
+  items,
+  onRemove,
+}: {
+  items: DraftAttachment[];
+  onRemove: (localId: string) => void;
+}) {
+  return (
+    <div className="row wrap g8" style={{ width: "100%", maxWidth: 760, margin: "0 auto" }}>
+      {items.map((a) => (
+        <DraftCard key={a.localId} a={a} onRemove={() => onRemove(a.localId)} />
+      ))}
+    </div>
+  );
+}
+
+/** Вложения у реплики учителя в ленте: компактная плашка вида и имени. */
+export function MessageAttachments({ items }: { items: LessonAttachment[] }) {
+  const { t } = useLang();
+  return (
+    <div className="row wrap g8" style={{ alignSelf: "flex-end", maxWidth: "min(85%, 620px)" }}>
+      {items.map((a) => (
+        <span
+          key={a.id}
+          className="row g8"
+          title={a.filename}
+          style={{
+            alignItems: "center",
+            padding: "6px 10px",
+            border: "1px solid var(--border-strong)",
+            borderRadius: 12,
+            background: "var(--card)",
+            fontSize: 13,
+          }}
+        >
+          <AttachmentTile kind={a.kind} />
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {a.filename}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function Composer({
   value,
   sending,
@@ -194,6 +395,9 @@ export function Composer({
   onSend,
   onStop,
   notice,
+  attachments = [],
+  onPickFiles,
+  onRemoveAttachment,
 }: {
   value: string;
   /** Ответ идёт: вместо отправки кнопка «Стоп». */
@@ -203,11 +407,19 @@ export function Composer({
   onSend: () => void;
   onStop: () => void;
   notice?: ReactNode;
+  /** Прикреплённое над полем ввода: карточки рисует `AttachmentDrafts`. */
+  attachments?: DraftAttachment[];
+  onPickFiles?: (files: File[]) => void;
+  onRemoveAttachment?: (localId: string) => void;
 }) {
   const { t } = useLang();
   const field = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
-  const canSend = value.trim().length > 0 && !sending;
+  /* Реплика уходит и без текста, если есть что приложить: файлы, ещё
+     читающиеся на сервере, уходят вместе с ней (контракт) */
+  const hasFiles = attachments.some((a) => a.status !== "failed");
+  const canSend = !sending && (value.trim().length > 0 || hasFiles);
 
   /* Растём вместе с текстом: сначала сбрасываем высоту, иначе поле не сжалось бы
      после стирания */
@@ -223,6 +435,10 @@ export function Composer({
   return (
     <div className="stack g8" style={{ width: "100%", maxWidth: 760, margin: "0 auto" }}>
       {notice}
+      {/* Прикреплённое живёт над полем ввода и уходит вместе с репликой */}
+      {attachments.length > 0 && onRemoveAttachment && (
+        <AttachmentDrafts items={attachments} onRemove={onRemoveAttachment} />
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -231,13 +447,51 @@ export function Composer({
         className="row g8"
         style={{
           alignItems: "flex-end",
-          padding: "6px 6px 6px 16px",
+          padding: "6px 6px 6px 10px",
           background: "var(--card)",
           border: `1px solid ${focused ? "var(--primary)" : "var(--border-strong)"}`,
           borderRadius: 26,
           boxShadow: "var(--shadow)",
         }}
       >
+        {onPickFiles && (
+          <>
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              aria-label={t.laAttachAdd}
+              title={t.laAttachAdd}
+              style={{
+                width: 36,
+                height: 40,
+                flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: 0,
+                borderRadius: "50%",
+                background: "transparent",
+                color: "var(--text-3)",
+                cursor: "pointer",
+              }}
+            >
+              <IconPaperclip size={19} />
+            </button>
+            {/* Выбор файлов: загрузка начинается сразу, ряд карточек рисует Composer */}
+            <input
+              ref={fileInput}
+              type="file"
+              accept={ATTACH_ACCEPT}
+              multiple
+              hidden
+              onChange={(e) => {
+                onPickFiles(Array.from(e.target.files ?? []));
+                /* Один и тот же файл выбирают дважды — событие должно сработать снова */
+                e.target.value = "";
+              }}
+            />
+          </>
+        )}
         <textarea
           ref={field}
           rows={1}
@@ -283,8 +537,9 @@ export function Composer({
           <button
             type="submit"
             disabled={!canSend}
-            aria-label={t.laChatSend}
-            title={t.laChatSend}
+            /* Без текста и файлов отправлять нечего — подсказка объясняет, что нужно */
+            aria-label={canSend || sending ? t.laChatSend : t.laAttachSendHint}
+            title={canSend || sending ? t.laChatSend : t.laAttachSendHint}
             style={roundButton(canSend)}
           >
             <IconArrowUp size={19} />
