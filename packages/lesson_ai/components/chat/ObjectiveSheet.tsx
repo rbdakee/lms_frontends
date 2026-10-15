@@ -203,7 +203,7 @@ export function ObjectiveSheet({
                   aria-pressed={subjectCode === s.code}
                   onClick={() => pickSubject(s)}
                 >
-                  <SubjectIcon url={s.icon_url} />
+                  <SubjectIcon code={s.code} />
                   {uiLang === "kz" ? s.title_kz : s.title_ru}
                 </button>
               ))}

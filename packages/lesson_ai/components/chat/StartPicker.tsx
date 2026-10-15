@@ -111,7 +111,7 @@ export function StartPicker({
               disabled={disabled}
               onClick={() => pickSubject(s)}
             >
-              <SubjectIcon url={s.icon_url} />
+              <SubjectIcon code={s.code} />
               {title(s)}
             </button>
           ))}
