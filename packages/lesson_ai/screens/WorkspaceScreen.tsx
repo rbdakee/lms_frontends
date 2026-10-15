@@ -26,19 +26,17 @@ import { usePathname } from "next/navigation";
 import type { LessonChat, LessonChatEvent, LessonChatKit, LessonChatListItem } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { IconClose, IconLayers, IconMenu } from "@lms/ui/icons";
-import { useToast } from "@lms/ui/toast";
 import { useLessonAiAccess } from "../access";
-import { listChats } from "../api";
 import { useChrome, useRoutes } from "../host";
 import { LESSON_AI_NAME } from "../name";
 import { ChatPanel } from "../components/chat/ChatPanel";
 import { Sidebar, chatTitle } from "../components/chat/Sidebar";
+import { useChatLibrary } from "../components/chat/useChatLibrary";
 import { useWide } from "../components/chat/util";
 import type { MaterialFlash } from "../components/kit/KitMaterials";
 import { MaterialsPanel } from "../components/kit/MaterialsPanel";
 import { RegenerateButton } from "../components/kit/RegenerateButton";
 
-const PER_PAGE = 20;
 const SIDEBAR_W = 280;
 const MATERIALS_W = { min: 360, max: 760, initial: 520 };
 const RESIZE_STEP = 24;
@@ -53,13 +51,6 @@ interface Active {
   epoch: number;
 }
 
-interface HistoryState {
-  items: LessonChatListItem[];
-  /** Сколько всего у сервера и сколько из них уже пришло страницами — для «Ещё» */
-  total: number;
-  fetched: number;
-}
-
 /** То, что рабочему месту нужно знать о чате, кроме ленты. */
 interface Session {
   mode: LessonChat["mode"];
@@ -72,7 +63,6 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
   const pathname = usePathname();
   const { Shell } = useChrome();
   const { handle } = useLessonAiAccess();
-  const toast = useToast();
   const wide = useWide();
 
   /* Пропсы — только начальное состояние: дальше разговоры меняются на месте,
@@ -145,57 +135,9 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
     reset();
   };
 
-  /* ---------- История ---------- */
+  /* ---------- История: чаты, группы, архив ---------- */
 
-  /* `undefined` — ещё грузится, `null` — показывать нечего: ручки нет или сеть не ответила */
-  const [history, setHistory] = useState<HistoryState | null | undefined>(undefined);
-  const [loadingMore, setLoadingMore] = useState(false);
-  /* Чаты, пришедшие из панели раньше первой страницы истории */
-  const early = useRef<LessonChatListItem[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    listChats({ page: 1, per_page: PER_PAGE }).then(
-      (page) => {
-        if (!alive) return;
-        if (!page) return setHistory(null);
-        const items = early.current.reduceRight(place, page.items);
-        setHistory({ items, total: page.total, fetched: page.items.length });
-      },
-      (e) => {
-        if (!alive || handle(e)) return;
-        /* Сайдбар вспомогательный: без него разговор идёт как шёл, поэтому
-           отказ сети — не экран ошибки, а просто пустой список */
-        setHistory(null);
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, [handle]);
-
-  const loadMore = async () => {
-    if (!history) return;
-    setLoadingMore(true);
-    try {
-      const next = await listChats({ page: Math.floor(history.fetched / PER_PAGE) + 1, per_page: PER_PAGE });
-      if (!next) return;
-      setHistory((h) => {
-        if (!h) return h;
-        const known = new Set(h.items.map((i) => i.id));
-        return {
-          items: [...h.items, ...next.items.filter((i) => !known.has(i.id))],
-          total: next.total,
-          fetched: h.fetched + next.items.length,
-        };
-      });
-    } catch (e) {
-      if (handle(e)) return;
-      toast(t.laLessonsMoreError, "error");
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  const library = useChatLibrary(handle);
 
   /* Ключ панели чата. Колбэк ниже помнит свой ключ: запрос старого разговора,
      вернувшийся после переключения, не должен подсветить чужую строку */
@@ -214,8 +156,7 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
       if (modeRef.current === "order" && c.mode === "edit") setMaterialsOpen(true);
       modeRef.current = c.mode;
     }
-    if (history === undefined) early.current = place(early.current, item);
-    setHistory((h) => (h ? { ...h, items: place(h.items, item) } : h));
+    library.upsert(item);
   };
 
   /* Новая панель чата начинает с чистого листа — режим прошлой не переносим */
@@ -266,7 +207,7 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
 
   const hasKit = session?.mode === "edit" && session.kit !== null;
   const generating = session?.kit?.status === "generating";
-  const currentItem = history?.items.find((i) => i.id === currentId);
+  const currentItem = library.items?.find((i) => i.id === currentId);
   const title = currentItem ? chatTitle(t, currentItem) : LESSON_AI_NAME;
 
   /* Высота — от окна, а не от содержимого: лента и панели крутятся каждая сама,
@@ -332,16 +273,7 @@ export function WorkspaceScreen({ chatId, fromKitId }: { chatId?: string; fromKi
             ...(wide ? null : { ...overlay, left: 0 }),
           }}
         >
-          <Sidebar
-            items={history ? history.items : null}
-            activeId={currentId}
-            hasMore={!!history && history.fetched < history.total}
-            loadingMore={loadingMore}
-            onPick={pick}
-            onMore={() => void loadMore()}
-            onNew={startNew}
-            headerHeight={HEADER_H}
-          />
+          <Sidebar library={library} activeId={currentId} onPick={pick} onNew={startNew} headerHeight={HEADER_H} />
         </aside>
 
         {/* ---------- По центру: чат ---------- */}
@@ -458,20 +390,12 @@ function itemOf(c: LessonChat): LessonChatListItem {
     subject_code: c.order.subject_code,
     grade: c.order.grade,
     first_message: first,
+    /* Личные поля сайдбара сервер в чате не отдаёт — `upsert` берёт их у известной строки */
+    pinned: false,
+    group_id: null,
+    position: null,
+    archived: false,
     created_at: c.created_at,
     updated_at: c.updated_at,
   };
-}
-
-/**
- * Разговор в полосу. Прошлый, открытый без изменений, остаётся на своём месте —
- * иначе чипы прыгали бы от каждого клика; новый или изменённый встаёт первым,
- * как у сервера «свежие по активности сверху».
- */
-function place(list: LessonChatListItem[], item: LessonChatListItem): LessonChatListItem[] {
-  const i = list.findIndex((x) => x.id === item.id);
-  if (i >= 0 && list[i].updated_at === item.updated_at) {
-    return list.map((x, j) => (j === i ? item : x));
-  }
-  return [item, ...list.filter((x) => x.id !== item.id)];
 }

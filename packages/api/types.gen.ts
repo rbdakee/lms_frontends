@@ -1838,6 +1838,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lesson_ai/kits/{kit_id}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Kit Chat
+         * @description Чат этого урока для рабочего места: есть — отдаём (из архива возвращаем),
+         *     нет — заводим в режиме правки. Идемпотентна.
+         */
+        post: operations["open_kit_chat_lesson_ai_kits__kit_id__chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lesson_ai/chats": {
         parameters: {
             query?: never;
@@ -1856,6 +1877,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lesson_ai/chats/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder Chats */
+        post: operations["reorder_chats_lesson_ai_chats_reorder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/chat_groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chat Groups */
+        get: operations["chat_groups_lesson_ai_chat_groups_get"];
+        put?: never;
+        /** Create Chat Group */
+        post: operations["create_chat_group_lesson_ai_chat_groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/chat_groups/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder Chat Groups */
+        post: operations["reorder_chat_groups_lesson_ai_chat_groups_reorder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lesson_ai/chat_groups/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Chat Group */
+        delete: operations["delete_chat_group_lesson_ai_chat_groups__group_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Chat Group */
+        patch: operations["rename_chat_group_lesson_ai_chat_groups__group_id__patch"];
+        trace?: never;
+    };
     "/lesson_ai/chats/{chat_id}": {
         parameters: {
             query?: never;
@@ -1870,7 +1961,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Patch Chat */
+        patch: operations["patch_chat_lesson_ai_chats__chat_id__patch"];
         trace?: never;
     };
     "/lesson_ai/chats/{chat_id}/messages": {
@@ -4593,13 +4685,15 @@ export interface components {
          *     `type: "objectives_changed"` — набор целей урока изменён (из чата или кнопкой
          *     «Изменить цели»): `objectives` — новый набор по порядку. Экран перечитывает
          *     комплект: цели, шапка и серверные блоки материалов уже другие.
+         *     `type: "kit_opened"` — чат заведён по готовому комплекту («Открыть в чате»):
+         *     плашка «Урок открыт для правки», `kit_id` — комплект.
          */
         LessonChatEventOut: {
             /**
              * Type
              * @enum {string}
              */
-            type: "kit_status" | "block_changed" | "objectives_changed";
+            type: "kit_status" | "block_changed" | "objectives_changed" | "kit_opened";
             /** Objectives */
             objectives?: components["schemas"]["LessonEventObjectiveOut"][] | null;
             /** Kit Id */
@@ -4640,6 +4734,42 @@ export interface components {
             kit: components["schemas"]["LessonChatKitOut"] | null;
             /** Items */
             items: components["schemas"]["LessonChatMessageOut"][];
+        };
+        /** LessonChatGroupIn */
+        LessonChatGroupIn: {
+            /** Name */
+            name: string;
+        };
+        /** LessonChatGroupOut */
+        LessonChatGroupOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /** Chats Count */
+            chats_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** LessonChatGroupPatchIn */
+        LessonChatGroupPatchIn: {
+            /** Name */
+            name?: string | null;
+        };
+        /** LessonChatGroupsOut */
+        LessonChatGroupsOut: {
+            /** Items */
+            items: components["schemas"]["LessonChatGroupOut"][];
+        };
+        /** LessonChatGroupsReorderIn */
+        LessonChatGroupsReorderIn: {
+            /** Group Ids */
+            group_ids: number[];
         };
         /**
          * LessonChatKitOut
@@ -4713,6 +4843,14 @@ export interface components {
             grade: number | null;
             /** First Message */
             first_message: string | null;
+            /** Pinned */
+            pinned: boolean;
+            /** Group Id */
+            group_id: number | null;
+            /** Position */
+            position: number | null;
+            /** Archived */
+            archived: boolean;
             /**
              * Created At
              * Format: date-time
@@ -4881,6 +5019,30 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * LessonChatPatchIn
+         * @description Только присланные поля; `group_id: null` — «без группы».
+         */
+        LessonChatPatchIn: {
+            /** Pinned */
+            pinned?: boolean | null;
+            /** Group Id */
+            group_id?: number | null;
+            /** Archived */
+            archived?: boolean | null;
+        };
+        /** LessonChatReorderIn */
+        LessonChatReorderIn: {
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "pinned" | "group" | "ungrouped";
+            /** Group Id */
+            group_id?: number | null;
+            /** Chat Ids */
+            chat_ids: number[];
+        };
         /** LessonChatSayIn */
         LessonChatSayIn: {
             /** Text */
@@ -5021,6 +5183,8 @@ export interface components {
              * @enum {string}
              */
             status: "generating" | "ready" | "partial" | "failed";
+            /** Chat Id */
+            chat_id: number | null;
             /**
              * Created At
              * Format: date-time
@@ -5098,6 +5262,8 @@ export interface components {
              * @enum {string}
              */
             status: "generating" | "ready" | "partial" | "failed";
+            /** Chat Id */
+            chat_id: number | null;
             /**
              * Created At
              * Format: date-time
@@ -10790,9 +10956,41 @@ export interface operations {
             };
         };
     };
+    open_kit_chat_lesson_ai_kits__kit_id__chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     chats_lesson_ai_chats_get: {
         parameters: {
             query?: {
+                archived?: boolean;
                 page?: number;
                 per_page?: number;
             };
@@ -10842,6 +11040,185 @@ export interface operations {
             };
         };
     };
+    reorder_chats_lesson_ai_chats_reorder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonChatReorderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_groups_lesson_ai_chat_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatGroupsOut"];
+                };
+            };
+        };
+    };
+    create_chat_group_lesson_ai_chat_groups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonChatGroupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatGroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_chat_groups_lesson_ai_chat_groups_reorder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonChatGroupsReorderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_chat_group_lesson_ai_chat_groups__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_chat_group_lesson_ai_chat_groups__group_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonChatGroupPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatGroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     chat_lesson_ai_chats__chat_id__get: {
         parameters: {
             query?: never;
@@ -10860,6 +11237,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LessonChatOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_chat_lesson_ai_chats__chat_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonChatPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatListItemOut"];
                 };
             };
             /** @description Validation Error */
