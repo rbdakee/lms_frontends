@@ -24,7 +24,6 @@ import {
 import { dayTime, fileSize } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
-import { useAssistantEnabled } from "@/components/admin/assistantApi";
 import {
   nextPendingId,
   SubmissionStatusBadge,
@@ -50,7 +49,6 @@ import {
   IconArrowRight,
   IconCheck,
   IconExternal,
-  IconSparkle,
 } from "@lms/ui/icons";
 
 /** Порог краснеющего ожидания у работ — три дня, как в очереди. */
@@ -65,8 +63,6 @@ export default function SubmissionReviewPage() {
   const toast = useToast();
 
   const card = useLoad(() => api<AdminSubmissionCard>(`/admin/submissions/${id}`), [id]);
-  /* Ключа модели нет — кнопки нет вовсе, а не отказ по нажатию */
-  const assistantOn = useAssistantEnabled();
 
   const [verdict, setVerdict] = useState<SubmissionVerdict | null>(null);
   const [comment, setComment] = useState("");
@@ -190,23 +186,6 @@ export default function SubmissionReviewPage() {
             {!reviewed && <Waiting days={s.waiting_days} redAfter={RED_AFTER_DAYS} />}
             <SubmissionStatusBadge status={s.status} />
           </div>
-
-          {/* Допуск «чтение»: здесь читают работу, а данные человека правят
-              на его карточке (ASSISTANT_BRIEF, раздел 5). В адрес уходит id
-              учителя, а не id работы — иначе допуск открылся бы не на того */}
-          {assistantOn && (
-            <div className="row wrap g10" style={{ width: "100%" }}>
-              <LinkButton
-                href={`/assistant?ask=${s.teacher.id}&level=read`}
-                variant="secondary"
-                size="sm"
-                icon={<IconSparkle size={15} />}
-              >
-                {t.asAskAssistant}
-              </LinkButton>
-              <span className="caption muted-3 pretty">{t.asAskAssistantHint}</span>
-            </div>
-          )}
         </div>
 
         <div className="review-two">

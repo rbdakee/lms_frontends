@@ -16,10 +16,6 @@
  * курс и оценка остались в состоянии экрана.
  *
  * Прототипная карточка `Moderation.tsx` осталась карточке курса до её сессии.
- *
- * «Ответить с помощью ИИ» кладёт черновик в то же поле и больше не делает
- * ничего: ответ живому учителю публикует админ кнопкой «Опубликовать ответ»
- * (`ASSISTANT_BRIEF`, разделы 6 и 11). Ключа модели нет — кнопки нет вовсе.
  */
 
 import Link from "next/link";
@@ -43,23 +39,12 @@ import {
   PlatformFilter,
   usePlatformFilter,
 } from "@/components/admin/platforms";
-import {
-  assistantErrorText,
-  draftReviewReply,
-  useAssistantEnabled,
-} from "@/components/admin/assistantApi";
 import { Avatar, Button, Empty, Sheet, Stars } from "@lms/ui";
-import { IconFilter, IconMessage, IconSparkle, IconStar, IconTrash } from "@lms/ui/icons";
+import { IconFilter, IconMessage, IconStar, IconTrash } from "@lms/ui/icons";
 
 const PER_PAGE = 20;
 /** Тот же лимит, что у сервера: 422 при 2000+ символов. */
 const TEXT_MAX = 2000;
-
-/* Казахский у модели заметно слабее русского, и текст, который прочитает
-   учитель, положено вычитывать (ASSISTANT_BRIEF, раздел 3). Смотрим на сам
-   черновик, а не на язык курса: отзыв на русском курсе бывает казахским,
-   и отвечает ассистент на языке отзыва. Этих букв в русском не бывает */
-const KZ_LETTERS = /[әғқңөұүһі]/i;
 
 export function ReviewsFeed({
   onTotal,
@@ -375,48 +360,15 @@ function ReviewItem({
   onGone: (id: number) => void;
   onError: (e: unknown) => void;
 }) {
-  const { t, lang } = useLang();
+  const { lang } = useLang();
   const toast = useToast();
   const [draft, setDraft] = useState("");
   const [answering, setAnswering] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
-  /* Ключа модели нет — кнопки нет вовсе, а не «есть и отвечает 503» */
-  const assistant = useAssistantEnabled();
-  const [drafting, setDrafting] = useState(false);
-  /* Что именно положил в поле ассистент: по нему отличаем нетронутый черновик
-     от набранного руками — второе перед затиранием подтверждают */
-  const [aiText, setAiText] = useState<string | null>(null);
-  const [builtFrom, setBuiltFrom] = useState("");
 
-  /* Уходя из формы, забываем черновик: строка «из чего собрано» не должна
-     пережить текст, к которому относилась */
   const closeAnswer = () => {
     setAnswering(false);
-    setAiText(null);
-    setBuiltFrom("");
-  };
-
-  /** Ассистент отдаёт текст — он встаёт в поле. Публикует его человек кнопкой
-      «Опубликовать ответ», как и раньше (ASSISTANT_BRIEF, раздел 11). */
-  const askDraft = async () => {
-    if (drafting) return;
-    /* Набранное руками молча не затираем: повторная генерация стоит одного
-       нажатия, а восстановить потерянный текст нечем. `confirm` здесь занят
-       состоянием окна удаления — зовём через window */
-    if (draft.trim() && draft !== aiText && !window.confirm(t.asDraftOverwrite)) return;
-    setDrafting(true);
-    try {
-      const d = await draftReviewReply(review.id);
-      setDraft(d.text);
-      setAiText(d.text);
-      setBuiltFrom(d.built_from);
-      toast(t.asDraftReady, "success");
-    } catch (e) {
-      toast(assistantErrorText(e), "error");
-    } finally {
-      setDrafting(false);
-    }
   };
 
   const send = async () => {
@@ -512,39 +464,17 @@ function ReviewItem({
             placeholder="Ответ появится под отзывом на странице курса"
             maxLength={TEXT_MAX}
             value={draft}
-            disabled={drafting}
             onChange={(e) => setDraft(e.target.value)}
           />
-          {builtFrom !== "" && KZ_LETTERS.test(draft) && (
-            <span className="caption pretty" style={{ color: "var(--warning-text)" }}>
-              {t.asDraftKzWarning}
-            </span>
-          )}
-          {/* Не вопрос админу и не требование что-то заполнить: просто видно,
-              на чём стоит текст */}
-          {builtFrom !== "" && (
-            <span className="caption muted-3 pretty">{t.asBuiltFrom(builtFrom)}</span>
-          )}
           <div className="row wrap g8">
             <Button
               size="sm"
               loading={busy}
-              disabled={!draft.trim() || drafting}
+              disabled={!draft.trim()}
               onClick={send}
             >
               Опубликовать ответ
             </Button>
-            {assistant && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<IconSparkle size={15} />}
-                loading={drafting}
-                onClick={askDraft}
-              >
-                {drafting ? t.asDrafting : aiText === null ? t.asDraftReply : t.asDraftAgain}
-              </Button>
-            )}
             <Button variant="secondary" size="sm" onClick={closeAnswer}>
               Отмена
             </Button>
