@@ -15,7 +15,7 @@ import { Button } from "@lms/ui";
 import { IconChevronDown } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { contentLang } from "../../labels";
-import { ObjectiveText } from "./ObjectiveCards";
+import { ObjectiveList, ManyNote } from "./ObjectiveCards";
 
 const TOPIC_MAX = 200;
 
@@ -37,7 +37,7 @@ export function OrderCard({
   const [open, setOpen] = useState(false);
 
   const summary = [
-    order.objective?.code,
+    order.objectives.length > 0 ? order.objectives.map((o) => o.code).join(", ") : null,
     order.grade !== null ? t.laGrade(order.grade) : null,
     order.lang ? (order.lang === "ru" ? t.laLangRu : t.laLangKz) : null,
   ].filter(Boolean);
@@ -46,14 +46,15 @@ export function OrderCard({
     <div className="stack g16">
       <div className="stack g6">
         <span className="label">{t.laObjectiveChosen}</span>
-        {order.objective ? (
-          <ObjectiveText o={order.objective} />
+        {order.objectives.length > 0 ? (
+          <ObjectiveList objectives={order.objectives} lang={order.objectives[0].lang} />
         ) : (
           <span className="small muted">{t.laChatNoObjective}</span>
         )}
+        <ManyNote count={order.objectives.length} />
         <div>
           <Button size="sm" variant="secondary" disabled={disabled} onClick={onPickObjective}>
-            {order.objective ? t.laObjectiveChange : t.laObjectivePick}
+            {order.objectives.length > 0 ? t.laObjectiveChange : t.laObjectivePick}
           </Button>
         </div>
       </div>

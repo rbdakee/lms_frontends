@@ -2229,3 +2229,31 @@ select.input {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* ---------- Круглый чекбокс цели урока ---------- */
+
+/* Номер внутри — место цели в уроке: порядок задаёт учитель своими отметками */
+.check-round {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--card);
+  color: var(--text-on-fill);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.check-round[aria-checked="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.check-round:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

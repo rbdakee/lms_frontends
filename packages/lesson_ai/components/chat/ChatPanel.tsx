@@ -67,7 +67,7 @@ import { KIND_ORDER, hoursFrom } from "../../labels";
 import { ConfirmForm, type ConfirmPreset } from "./ConfirmForm";
 import { EventPill } from "./EventPill";
 import { BotBubble, Composer, Thinking, UserBubble } from "./Feed";
-import { ObjectiveCards } from "./ObjectiveCards";
+import { ObjectiveCards, toggled } from "./ObjectiveCards";
 import { ObjectiveSheet } from "./ObjectiveSheet";
 import { LangPicker, OrderCard, TopicField } from "./OrderCard";
 import { fieldMessage, minutesFrom } from "./util";
@@ -81,7 +81,8 @@ const NO_ORDER: LessonChatOrder = {
   subject_code: null,
   grade: null,
   lang: null,
-  objective: null,
+  objectives: [],
+  many_objectives_confirmed: false,
   topic: null,
   engagement_level: "active",
   difficulty_level: "standard",
@@ -139,6 +140,15 @@ export function ChatPanel({
   const [sayError, setSayError] = useState<string | null>(null);
   const [patching, setPatching] = useState(false);
   const [sheet, setSheet] = useState<SheetFor | null>(null);
+  /* Отмеченные цели в порядке отметок. Записываются в урок кнопкой «Готово»;
+     пока не записаны, живут здесь, чтобы карточки в ленте и шторка видели одно и то же */
+  const [picked, setPicked] = useState<LessonChatObjective[]>([]);
+  /* Записанный сервером набор целей — правда: отметки подтягиваются к нему при
+     каждой его смене (разговор, «Готово», смена языка заменили цели) */
+  const savedKey = (chat?.order.objectives ?? []).map((o) => o.id).join(",");
+  useEffect(() => {
+    setPicked(chatRef.current?.order.objectives ?? []);
+  }, [savedKey]);
 
   const idRef = useRef<number | null>(null);
   const creating = useRef<Promise<number> | null>(null);
@@ -202,7 +212,7 @@ export function ChatPanel({
       idRef.current = id;
       moveTo(id);
       try {
-        adopt(await patchOrder(id, { objective_id: kit.objective.id, lang: kit.lang, topic: kit.topic }));
+        adopt(await patchOrder(id, { objective_ids: kit.objectives.map((o) => o.id), lang: kit.lang, topic: kit.topic }));
       } catch (e) {
         const gone = isApiError(e, "objective_lang_missing") || (isApiError(e) && e.status === 404);
         if (!gone) throw e;
@@ -392,8 +402,8 @@ export function ChatPanel({
     if (err) toast(err, "error");
   };
 
-  const pickFromSheet = async (o: LessonChatObjective) => {
-    const err = await patch({ objective_id: o.id });
+  const commitPicked = async () => {
+    const err = await patch({ objective_ids: picked.map((o) => o.id) });
     if (!err) setSheet(null);
     return err;
   };
@@ -501,23 +511,26 @@ export function ChatPanel({
   const edit = chat?.mode === "edit";
   /* Карточки заказа и кнопки под ним после «Готовить» только читаются */
   const locked = sending || patching || confirmed;
-  const chosenId = order.objective?.id ?? null;
+  const committedIds = order.objectives.map((o) => o.id);
+  const hasObjectives = order.objectives.length > 0;
 
   /* Класс и язык для «Показать другие»: из заказа, иначе из показанной карточки */
   const openSheet = (from?: LessonChatObjective) =>
     setSheet({
-      subject_code: order.subject_code ?? from?.subject_code ?? order.objective?.subject_code ?? null,
-      grade: order.grade ?? from?.grade ?? order.objective?.grade ?? lastShown(chat)?.grade ?? null,
-      lang: order.lang ?? from?.lang ?? order.objective?.lang ?? lastShown(chat)?.lang ?? null,
+      subject_code: order.subject_code ?? from?.subject_code ?? order.objectives[0]?.subject_code ?? null,
+      grade: order.grade ?? from?.grade ?? order.objectives[0]?.grade ?? lastShown(chat)?.grade ?? null,
+      lang: order.lang ?? from?.lang ?? order.objectives[0]?.lang ?? lastShown(chat)?.lang ?? null,
     });
 
   const cards = (items: LessonChatObjective[], key: string | number) => (
     <ObjectiveCards
       key={key}
       items={items}
-      chosenId={chosenId}
+      picked={picked}
+      committedIds={committedIds}
       disabled={locked}
-      onYes={(o) => void patchOrToast({ objective_id: o.id })}
+      onToggle={(o) => setPicked((p) => toggled(p, o))}
+      onDone={() => void patchOrToast({ objective_ids: picked.map((o) => o.id) })}
       onOthers={(o) => openSheet(o)}
     />
   );
@@ -573,7 +586,7 @@ export function ChatPanel({
           text={
             editing
               ? t.laChatEditing
-              : order.objective || live.length > 0 || edit
+              : hasObjectives || live.length > 0 || edit
                 ? t.laChatThinking
                 : t.laChatSearching
           }
@@ -581,7 +594,7 @@ export function ChatPanel({
       )}
 
       {/* Вопрос языка — под лентой, как в брифе, когда цель уже подтверждена */}
-      {chat && !sending && !confirmed && order.objective && order.missing.includes("lang") && (
+      {chat && !sending && !confirmed && hasObjectives && order.missing.includes("lang") && (
         <BotBubble>
           <LangPicker lang={order.lang} question disabled={locked} onPick={(lang) => void patchOrToast({ lang })} />
         </BotBubble>
@@ -592,7 +605,7 @@ export function ChatPanel({
       {chat &&
         !sending &&
         !confirmed &&
-        order.objective &&
+        hasObjectives &&
         order.lang &&
         order.missing.includes("topic") &&
         !order.missing.includes("lang") && (
@@ -646,9 +659,11 @@ export function ChatPanel({
         subjectCode={sheet?.subject_code ?? null}
         grade={sheet?.grade ?? null}
         lang={sheet?.lang ?? null}
-        chosenId={chosenId}
+        picked={picked}
+        committedIds={committedIds}
         onClose={() => setSheet(null)}
-        onPick={pickFromSheet}
+        onToggle={(o) => setPicked((p) => toggled(p, o))}
+        onDone={commitPicked}
       />
     </>
   );
