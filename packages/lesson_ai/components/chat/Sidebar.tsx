@@ -334,6 +334,7 @@ export function Sidebar({
           {!showArchive && (
             <Button
               variant="ghost"
+              size="sm"
               aria-label={t.laSbAddGroup}
               title={t.laSbAddGroup}
               onClick={() => setDialog({ mode: "create" })}
