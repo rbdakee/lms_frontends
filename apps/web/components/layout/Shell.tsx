@@ -282,9 +282,17 @@ function NavLinks({ items, label }: { items: NavItem[]; label: string }) {
         const Icon = l.icon;
         if (l.external) {
           return (
-            <a key={l.href} href={l.href} className="navlink" target="_blank" rel="noreferrer">
+            <a
+              key={l.href}
+              href={l.href}
+              className="navlink"
+              title={l.label}
+              aria-label={l.label}
+              target="_blank"
+              rel="noreferrer"
+            >
               <Icon size={18} strokeWidth={1.75} />
-              {l.label}
+              <span className="navlink-label">{l.label}</span>
             </a>
           );
         }
@@ -292,9 +300,16 @@ function NavLinks({ items, label }: { items: NavItem[]; label: string }) {
           (m) => pathname === m || (m !== "/" && pathname.startsWith(m + "/")),
         );
         return (
-          <Link key={l.href} href={l.href} className="navlink" data-active={active}>
+          <Link
+            key={l.href}
+            href={l.href}
+            className="navlink"
+            title={l.label}
+            aria-label={l.label}
+            data-active={active}
+          >
             <Icon size={18} strokeWidth={active ? 2.1 : 1.75} />
-            {l.label}
+            <span className="navlink-label">{l.label}</span>
           </Link>
         );
       })}
@@ -468,7 +483,7 @@ export function TeacherHeader({ title }: { title?: string }) {
     <header className="appbar">
       <div className="page appbar-inner">
         {/* Логотип — всегда на лендинг */}
-        <div className="desktop-only" style={{ alignItems: "center" }}>
+        <div className="desktop-only appbar-logo">
           <Logo />
         </div>
 
@@ -485,8 +500,8 @@ export function TeacherHeader({ title }: { title?: string }) {
           )}
         </div>
 
-        <div className="grow desktop-only" />
-        <div className="row g6">
+        <div className="grow desktop-only" style={{ minWidth: 12 }} />
+        <div className="row g6" style={{ flexShrink: 0 }}>
           <NotificationsBell />
           <UserMenu />
         </div>
