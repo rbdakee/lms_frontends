@@ -4,8 +4,8 @@
    (сетка 24, обводка 1.75, цвет от текста), а не картинка: чип красится вместе
    с подписью в обычном, выбранном и неактивном состоянии и ничего не грузит.
    Рисунки — Tabler Icons (MIT, tabler.io/icons). Языки — буквами алфавита
-   (`LETTERS`): нарисованные линиями казахские «әқ» выглядели чужими, а шрифт
-   сайта (Manrope) казахских букв не знает — поэтому системный шрифт, где они есть.
+   (`LETTERS`): код языка шрифтом, а не линиями; шрифт системный — в шрифте
+   сайта (Manrope) нет казахских букв.
    Предмет без значка (новый в справочнике) — чип просто без иконки. */
 
 import type { ReactNode } from "react";
@@ -109,18 +109,20 @@ const SHAPES: Record<string, ReactNode> = {
   ),
 };
 
-/* Языки — две буквы своего алфавита: «әқ» — казахский (этих букв нет
-   в русском), «аб» — русский, «ab» — иностранные */
+/* Языки — двухбуквенный код языка, у каждого свой: так иностранные
+   не сливаются в одно «ab», а казахский и русский различимы сразу */
 const LETTERS: Record<string, string> = {
-  kazakh_lang: "әқ",
-  russian_lang: "аб",
-  foreign_lang: "ab",
+  kazakh_lang: "ҚЗ",
+  russian_lang: "РУ",
+  english: "EN",
+  german: "DE",
+  french: "FR",
 };
 
 const LETTER_FONT = '-apple-system, "Segoe UI", Arial, sans-serif';
 
-/* Варианты одного предмета (Т1/Т2, Я1/Я2, два литературных чтения, три
-   иностранных языка) делят значок: различает их подпись на чипе */
+/* Варианты одного предмета (Т1/Т2, Я1/Я2, два литературных чтения) делят
+   значок: различает их подпись на чипе */
 const ALIAS: Record<string, string> = {
   kazakh_lang_l1: "kazakh_lang",
   kazakh_lang_l2: "kazakh_lang",
@@ -128,9 +130,6 @@ const ALIAS: Record<string, string> = {
   russian_lang_l2: "russian_lang",
   literary_reading_ru: "literary_reading",
   literary_reading_kz: "literary_reading",
-  english: "foreign_lang",
-  german: "foreign_lang",
-  french: "foreign_lang",
 };
 
 export function SubjectIcon({ code, size = 18 }: { code: string; size?: number }) {
@@ -139,7 +138,7 @@ export function SubjectIcon({ code, size = 18 }: { code: string; size?: number }
   if (letters) {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ flex: "none" }}>
-        <text x="12" y="17" textAnchor="middle" fontSize="15" fontWeight="600" fill="currentColor" fontFamily={LETTER_FONT}>
+        <text x="12" y="17.3" textAnchor="middle" fontSize="15" fontWeight="700" letterSpacing="-0.3" fill="currentColor" fontFamily={LETTER_FONT}>
           {letters}
         </text>
       </svg>
