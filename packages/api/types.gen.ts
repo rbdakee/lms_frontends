@@ -1839,7 +1839,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Chat Feed */
+        get: operations["chat_feed_lesson_ai_chats__chat_id__messages_get"];
         put?: never;
         /**
          * Say
@@ -4524,6 +4525,95 @@ export interface components {
             kit: components["schemas"]["LessonKitOut"];
         };
         /**
+         * LessonChatEventOut
+         * @description Событие ленты. `type: "kit_status"` — комплект собирается / готов /
+         *     собран не целиком / не собрался (`status`, `failed_kinds` у неполного);
+         *     `type: "block_changed"` — помощник изменил материал из чата: `action`,
+         *     `material_id`, `kind`, `block`, `index` (пункт блока с единицы, `null` —
+         *     блок переписан целиком) и `slide` (сквозной номер слайда презентации,
+         *     только у слайдов). По нему экран подсвечивает материал справа.
+         */
+        LessonChatEventOut: {
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "kit_status" | "block_changed";
+            /** Kit Id */
+            kit_id?: number | null;
+            /** Status */
+            status?: ("generating" | "ready" | "partial" | "failed") | null;
+            /** Failed Kinds */
+            failed_kinds?: ("lesson_plan" | "presentation" | "tasks" | "homework" | "assessment" | "game" | "answer_key")[] | null;
+            /** Action */
+            action?: ("rewritten" | "item_added" | "item_replaced" | "item_deleted") | null;
+            /** Material Id */
+            material_id?: number | null;
+            /** Kind */
+            kind?: ("lesson_plan" | "presentation" | "tasks" | "homework" | "assessment" | "game" | "answer_key") | null;
+            /** Block */
+            block?: string | null;
+            /** Index */
+            index?: number | null;
+            /** Slide */
+            slide?: number | null;
+        };
+        /**
+         * LessonChatFeedOut
+         * @description `GET /lesson_ai/chats/{id}/messages?after_id=` — хвост ленты и комплект:
+         *     опрос, пока комплект собирается.
+         */
+        LessonChatFeedOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "collecting" | "confirmed";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "order" | "edit";
+            kit: components["schemas"]["LessonChatKitOut"] | null;
+            /** Items */
+            items: components["schemas"]["LessonChatMessageOut"][];
+        };
+        /**
+         * LessonChatKitOut
+         * @description Комплект чата без содержимого — для правой панели: статусы материалов
+         *     и параметры урока. Содержимое — ручки `/lesson_ai/kits/{id}` и блоков.
+         */
+        LessonChatKitOut: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "generating" | "ready" | "partial" | "failed";
+            /** Topic */
+            topic: string;
+            /** Grade */
+            grade: number;
+            /**
+             * Lang
+             * @enum {string}
+             */
+            lang: "ru" | "kz";
+            /**
+             * Engagement Level
+             * @enum {string}
+             */
+            engagement_level: "calm" | "active" | "full_game";
+            /**
+             * Difficulty Level
+             * @enum {string}
+             */
+            difficulty_level: "basic" | "standard" | "advanced";
+            /** Materials */
+            materials: components["schemas"]["LessonKitListMaterialOut"][];
+        };
+        /**
          * LessonChatListItemOut
          * @description Строка истории разговоров. Предмет и класс — из цели заказа, как
          *     в `LessonChatOrderOut`; `first_message` — первая реплика учителя,
@@ -4537,8 +4627,17 @@ export interface components {
              * @enum {string}
              */
             status: "collecting" | "confirmed";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "order" | "edit";
             /** Kit Id */
             kit_id: number | null;
+            /** Kit Status */
+            kit_status: ("generating" | "ready" | "partial" | "failed") | null;
+            /** Title */
+            title: string | null;
             /** Topic */
             topic: string | null;
             /** Subject Code */
@@ -4560,8 +4659,10 @@ export interface components {
         };
         /**
          * LessonChatMessageOut
-         * @description Строка ленты. `role: "tool"` — поиск по программе: в `tool_result.items`
-         *     найденные цели формы `LessonChatObjectiveOut`, отказ — в `tool_result.error`.
+         * @description Строка ленты. `role: "tool"` — вызов инструмента: поиск по программе
+         *     (в `tool_result.items` найденные цели формы `LessonChatObjectiveOut`, отказ —
+         *     в `tool_result.error`) или правка материала. `role: "event"` — событие
+         *     (`event`), `content` у него — запасная подпись словами.
          */
         LessonChatMessageOut: {
             /** Id */
@@ -4570,7 +4671,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "user" | "assistant" | "tool";
+            role: "user" | "assistant" | "tool" | "event";
             /** Content */
             content: string;
             /** Tool Name */
@@ -4583,6 +4684,7 @@ export interface components {
             tool_result: {
                 [key: string]: unknown;
             } | null;
+            event: components["schemas"]["LessonChatEventOut"] | null;
             /**
              * Created At
              * Format: date-time
@@ -4670,7 +4772,11 @@ export interface components {
             /** Topic */
             topic?: string | null;
         };
-        /** LessonChatOut */
+        /**
+         * LessonChatOut
+         * @description `mode: "order"` — заказ собирается (`status: "collecting"`), `"edit"` —
+         *     комплект заказан (`status: "confirmed"`), чат правит материалы; `kit` — он же.
+         */
         LessonChatOut: {
             /** Id */
             id: number;
@@ -4679,8 +4785,14 @@ export interface components {
              * @enum {string}
              */
             status: "collecting" | "confirmed";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "order" | "edit";
             /** Kit Id */
             kit_id: number | null;
+            kit: components["schemas"]["LessonChatKitOut"] | null;
             order: components["schemas"]["LessonChatOrderOut"];
             /** Items */
             items: components["schemas"]["LessonChatMessageOut"][];
@@ -10560,6 +10672,39 @@ export interface operations {
             };
         };
     };
+    chat_feed_lesson_ai_chats__chat_id__messages_get: {
+        parameters: {
+            query?: {
+                after_id?: number;
+            };
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonChatFeedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     say_lesson_ai_chats__chat_id__messages_post: {
         parameters: {
             query?: never;
@@ -10575,7 +10720,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Ход событиями `text/event-stream`: `delta`, `tool`, `done`, `error`. Событие `done` несёт эту форму — чат целиком. */
+            /** @description Ход событиями `text/event-stream`: `delta`, `tool`, `material_changed`, `done`, `error`. Событие `done` несёт эту форму — чат целиком. */
             200: {
                 headers: {
                     [name: string]: unknown;
