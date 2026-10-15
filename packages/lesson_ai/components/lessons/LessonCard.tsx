@@ -8,7 +8,6 @@
  * разметка, и читалка экрана озвучивает её как часть ссылки.
  */
 
-import Link from "next/link";
 import { useState } from "react";
 import type { LessonKitStatus, LessonMaterialStatus } from "@lms/api";
 import { Badge, Button, LinkButton, Skeleton, type BadgeKind } from "@lms/ui";
@@ -18,6 +17,7 @@ import { useLang } from "@lms/ui/lang";
 import type { LessonKitListItem } from "@lms/api";
 import { useRoutes } from "../../host";
 import { KIND_ORDER, contentLang, kindTitle } from "../../labels";
+import { OpenChatArea } from "../OpenChat";
 import { PreviewSheet } from "../PreviewSheet";
 
 const KIT_BADGE: Record<LessonKitStatus, BadgeKind> = {
@@ -47,7 +47,7 @@ export function LessonCard({ item }: { item: LessonKitListItem }) {
 
   return (
     <article className="card card-link" style={{ overflow: "hidden" }}>
-      <Link href={routes.kit(item.id)} className="stack g10 card-pad">
+      <OpenChatArea kitId={item.id} chatId={item.chat_id} className="stack g10 card-pad">
         <div className="row wrap g6">
           <Badge kind={KIT_BADGE[item.status]}>{t.laKitStatus[item.status]}</Badge>
           {/* Язык документов заметнее остального: учитель с русским интерфейсом
@@ -96,7 +96,7 @@ export function LessonCard({ item }: { item: LessonKitListItem }) {
             </ul>
           </div>
         )}
-      </Link>
+      </OpenChatArea>
 
       <div
         className="row between wrap g8"
@@ -111,6 +111,9 @@ export function LessonCard({ item }: { item: LessonKitListItem }) {
               {t.laPreview}
             </Button>
           )}
+          <LinkButton href={routes.kit(item.id)} variant="ghost" size="sm">
+            {t.laLessonsOpenMaterials}
+          </LinkButton>
           <LinkButton
             href={routes.newFrom(item.id)}
             variant="secondary"

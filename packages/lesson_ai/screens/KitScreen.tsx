@@ -23,6 +23,7 @@ import { contentLang } from "../labels";
 import { KitMaterials } from "../components/kit/KitMaterials";
 import { ObjectiveList } from "../components/chat/ObjectiveCards";
 import { useKit } from "../components/kit/useKit";
+import { OpenInChatButton } from "../components/OpenChat";
 
 const KIT_BADGE: Record<LessonKitStatus, BadgeKind> = {
   generating: "progress",
@@ -115,6 +116,9 @@ function KitHeader({ kit }: { kit: LessonKit }) {
 
   return (
     <header className="card card-pad stack g14">
+      <div>
+        <OpenInChatButton kitId={kit.id} chatId={kit.chat_id} />
+      </div>
       <div className="row wrap g6">
         <Badge kind={KIT_BADGE[kit.status]}>{t.laKitStatus[kit.status]}</Badge>
         <Badge kind="neutral">{t.laGrade(kit.grade)}</Badge>

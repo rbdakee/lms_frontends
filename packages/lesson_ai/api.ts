@@ -26,6 +26,10 @@ import {
   type LessonChatConfirmIn,
   type LessonChatEvent,
   type LessonChatFeed,
+  type LessonChatGroup,
+  type LessonChatListItem,
+  type LessonChatPatch,
+  type LessonChatReorder,
   type LessonChatObjective,
   type LessonChatOrderPatch,
   type LessonChatsPage,
@@ -232,13 +236,54 @@ export function getChat(id: number | string): Promise<LessonChat> {
    (у пути есть только POST) — `listChats` возвращает `null`, и экран просто
    не показывает историю. */
 
-export async function listChats(params: { page?: number; per_page?: number }): Promise<LessonChatsPage | null> {
+export async function listChats(params: {
+  page?: number;
+  per_page?: number;
+  archived?: boolean;
+}): Promise<LessonChatsPage | null> {
   try {
     return await api<LessonChatsPage>(`/lesson_ai/chats${qs(params)}`);
   } catch (e) {
     if (e instanceof ApiError && (e.status === 405 || e.status === 404)) return null;
     throw e;
   }
+}
+
+/* Сайдбар как рабочий инструмент: закрепление, группы, порядок, архив.
+   Все ручки личные; порядок секции уходит целиком одним запросом. */
+
+export function patchChat(id: number, body: LessonChatPatch): Promise<LessonChatListItem> {
+  return api<LessonChatListItem>(`/lesson_ai/chats/${id}`, { method: "PATCH", json: body });
+}
+
+/** Новый порядок секции целиком; чаты из списка при этом переезжают в неё. */
+export function reorderChats(body: LessonChatReorder): Promise<void> {
+  return api<void>("/lesson_ai/chats/reorder", { method: "POST", json: body });
+}
+
+export async function listChatGroups(): Promise<LessonChatGroup[]> {
+  return (await api<{ items: LessonChatGroup[] }>("/lesson_ai/chat_groups")).items;
+}
+
+export function createChatGroup(name: string): Promise<LessonChatGroup> {
+  return api<LessonChatGroup>("/lesson_ai/chat_groups", { method: "POST", json: { name } });
+}
+
+export function renameChatGroup(id: number, name: string): Promise<LessonChatGroup> {
+  return api<LessonChatGroup>(`/lesson_ai/chat_groups/${id}`, { method: "PATCH", json: { name } });
+}
+
+export function deleteChatGroup(id: number): Promise<void> {
+  return api<void>(`/lesson_ai/chat_groups/${id}`, { method: "DELETE" });
+}
+
+export function reorderChatGroups(groupIds: number[]): Promise<void> {
+  return api<void>("/lesson_ai/chat_groups/reorder", { method: "POST", json: { group_ids: groupIds } });
+}
+
+/** Чат этого урока: есть — вернётся (из архива тоже), нет — заводится в режиме правки. */
+export function openKitChat(kitId: number | string): Promise<LessonChat> {
+  return api<LessonChat>(`/lesson_ai/kits/${kitId}/chat`, { method: "POST" });
 }
 
 /**

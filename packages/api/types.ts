@@ -374,6 +374,11 @@ export type LessonChatTurn = S["LessonChatTurnOut"];
 /* Рабочее место: строка сайдбара, комплект чата без содержимого, хвост ленты и событие ленты */
 export type LessonChatListItem = S["LessonChatListItemOut"];
 export type LessonChatsPage = S["LessonChatsPageOut"];
+/* Сайдбар: группы, правка строки (закрепить / в группу / в архив) и порядок секции */
+export type LessonChatGroup = S["LessonChatGroupOut"];
+export type LessonChatPatch = S["LessonChatPatchIn"];
+export type LessonChatReorder = S["LessonChatReorderIn"];
+export type LessonChatSection = LessonChatReorder["section"];
 export type LessonChatKit = S["LessonChatKitOut"];
 export type LessonChatFeed = S["LessonChatFeedOut"];
 export type LessonChatEvent = S["LessonChatEventOut"];

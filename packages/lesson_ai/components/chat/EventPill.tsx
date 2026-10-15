@@ -31,6 +31,7 @@ function eventText(t: T, ev: LessonChatEvent, fallback: string): string {
     }
     return fallback;
   }
+  if (ev.type === "kit_opened") return t.laEvKitOpened;
   if (ev.type === "objectives_changed") {
     return t.laEvObjectives((ev.objectives ?? []).map((o) => o.code).join(", "));
   }
