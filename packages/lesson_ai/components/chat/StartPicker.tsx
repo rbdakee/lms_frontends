@@ -15,8 +15,9 @@ import { SubjectIcon } from "./SubjectIcon";
 const LANGS: LessonLang[] = ["ru", "kz"];
 /* Иностранные языки: цели одни и те же на любом языке обучения, язык учителя не спрашиваем */
 const FOREIGN = new Set(["english", "german", "french"]);
-/* Две строки чипов: 2 × 36px + зазор 6px */
-const TWO_ROWS = 78;
+/* Две строки чипов: 2 × 36px + зазор 6px, плюс 6px внутреннего отступа
+   .chip-scroll — иначе рамка и обводка фокуса нижнего ряда срезаются клипом */
+const TWO_ROWS = 84;
 
 export interface StartChoice {
   subject_code: string;
@@ -97,7 +98,7 @@ export function StartPicker({
         <span className="label">{t.laChatSheetSubject}</span>
         <div
           ref={box}
-          className="row g6 wrap"
+          className="row g6 wrap chip-scroll"
           style={all ? { maxHeight: 160, overflowY: "auto" } : { maxHeight: TWO_ROWS, overflow: "clip" }}
         >
           {subjects.map((s) => (
