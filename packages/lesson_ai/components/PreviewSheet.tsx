@@ -194,6 +194,9 @@ function PreviewFrame({ materialId }: { materialId: number }) {
       title={t.laPreview}
       srcDoc={html}
       sandbox="allow-same-origin"
+      /* Своей прокрутки у фрейма нет вовсе: высоту ему даёт документ, а до первого
+         замера (400px) и при дробной высоте иначе мелькала бы вторая полоса */
+      scrolling="no"
       onLoad={measure}
       /* Во всю ширину шторки: поля у страницы свои */
       style={{
