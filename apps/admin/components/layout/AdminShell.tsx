@@ -36,13 +36,10 @@ import {
   IconMessage,
   IconSettings,
   IconShield,
-  IconSparkle,
   IconStar,
   IconUser,
   IconUsers,
 } from "@lms/ui/icons";
-import { useLang } from "@lms/ui/lang";
-import { useAssistantEnabled } from "@/components/admin/assistantApi";
 import logo from "@lms/ui/logo.png";
 
 interface NavItem {
@@ -53,11 +50,9 @@ interface NavItem {
   badge?: "leads" | "queue" | "questions" | "certs";
 }
 
-/** Группа целиком исчезает, если ключ модели не задан. */
 interface NavGroup {
   group: string;
   items: NavItem[];
-  assistant?: true;
 }
 
 const NAV: NavGroup[] = [
@@ -68,17 +63,6 @@ const NAV: NavGroup[] = [
       /* Отчёт считается по версии курса, поэтому без курса в адресе экран
          открывается со списком версий — отсюда ссылка без id */
       { href: "/reports", label: "Отчёты", icon: IconChart },
-    ],
-  },
-  /* Пункты ассистента: `exact` у чата — иначе память подсвечивала бы оба,
-     она лежит внутри `/assistant`. Группы нет вовсе, пока не задан ключ
-     модели: «страницы нет» — это решение брифа, а не отключённая кнопка. */
-  {
-    group: "Ассистент",
-    assistant: true,
-    items: [
-      { href: "/assistant", label: "Ассистент", icon: IconSparkle, exact: true },
-      { href: "/assistant/memory", label: "Память", icon: IconBook },
     ],
   },
   {
@@ -150,21 +134,9 @@ function useBadgeValue() {
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const badgeValue = useBadgeValue();
-  const { t } = useLang();
-  const assistantOn = useAssistantEnabled();
-  /* Ключа модели нет — группы ассистента в меню нет вовсе (раздел 11 брифа):
-     пункт, который отвечает 503, хуже отсутствующего пункта. */
-  const groups = NAV.filter((g) => !g.assistant || assistantOn);
-  /* Имя ассистента живёт в словаре одной строкой — там же, где казахское */
-  const label = (item: NavItem) =>
-    item.href === "/assistant"
-      ? t.asName
-      : item.href === "/assistant/memory"
-        ? t.asMemoryName
-        : item.label;
   return (
     <>
-      {groups.map((group) => (
+      {NAV.map((group) => (
         <div key={group.group}>
           <div className="admin-nav-group">{group.group}</div>
           {group.items.map((item) => {
@@ -182,7 +154,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 data-active={active || undefined}
               >
                 <Icon size={19} />
-                <span className="grow">{label(item)}</span>
+                <span className="grow">{item.label}</span>
                 {n > 0 && <span className="admin-nav-badge">{n}</span>}
               </Link>
             );

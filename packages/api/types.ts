@@ -310,53 +310,6 @@ export type RegistrationNumberWarning = S["RegistrationNumberWarningOut"];
 /** Язык документа. У сертификата он свой — снимок языка курса. */
 export type CertificateLang = NonNullable<CertificatePatchIn["lang"]>;
 
-/* ============ Ассистент в админке (сессия «Ассистент A») ============
-
-   Чат админа с моделью, которая делает работу админа через закрытый список
-   действий (`ASSISTANT_BRIEF`, решение владельца 09.09.2026). Формы здесь
-   только админские: у учителя ассистента нет и не появляется.
-
-   Ловушка в именах: `AssistantMessage` — строка ленты в трёх ролях сразу.
-   У роли `tool` заполнены `tool_name`, `tool_args` и `tool_result`, у роли
-   `assistant` — `tokens_in` и `tokens_out`, у роли `user` не заполнено
-   ничего сверх текста. Одна форма на три вида строк — так отдаёт сервер. */
-
-export type AssistantThread = S["AssistantThreadOut"];
-export type AssistantThreads = S["AssistantThreadsOut"];
-export type AssistantThreadCreate = S["AssistantThreadCreateIn"];
-export type AssistantThreadPatch = S["AssistantThreadPatchIn"];
-export type AssistantMessage = S["AssistantMessageOut"];
-export type AssistantMessages = S["AssistantMessagesOut"];
-export type AssistantRole = AssistantMessage["role"];
-/** Ход целиком: лента и признак, что ход упёрся в потолок вызовов. */
-export type AssistantTurn = S["AssistantTurnOut"];
-export type AssistantSay = S["AssistantSayIn"];
-
-/* Предложение опасного действия. Аргументов здесь нет вовсе — кнопка
-   «Выполнить» посылает только `id`, а исполнение берёт аргументы из строки
-   в базе: иначе подтверждение подтверждало бы не то, что было показано. */
-export type AssistantProposal = S["AssistantProposalOut"];
-export type AssistantProposalStatus = AssistantProposal["status"];
-export type AssistantExecute = S["AssistantExecuteOut"];
-
-/* Допуск к персданным одного человека в одном чате. Имени в ответе нет
-   и не будет: чип подписывает браузер обычной ручкой `/admin/teachers`. */
-export type AssistantGrant = S["AssistantGrantOut"];
-export type AssistantGrants = S["AssistantGrantsOut"];
-export type AssistantGrantIn = S["AssistantGrantIn"];
-export type AssistantGrantLevel = AssistantGrantIn["level"];
-
-/** Индекс памяти. Тела записи здесь нет — оно грузится по одной. */
-export type AssistantMemoryItem = S["AssistantMemoryItemOut"];
-export type AssistantMemory = S["AssistantMemoryOut"];
-export type AssistantMemoryScope = AssistantMemoryItem["scope"];
-
-/** Черновик ответа на вопрос или отзыв: текст и строка «из чего собрано». */
-export type AssistantDraftReply = S["AssistantDraftReplyOut"];
-
-/** Признак «ассистент настроен» из `GET /admin/settings`. Только на чтение. */
-export type AssistantSettings = S["AdminSettingsAssistantOut"];
-
 /* ============ Справочник учебной программы (сессия L2) ============
 
    Экран сверки в админке: владелец вычитывает импортированный справочник

@@ -22,7 +22,6 @@ import { api, isApiError, useLoad, type AdminLead, type LeadStatus } from "@lms/
 import { dayTime, phoneFmt, price as fmtPrice } from "@lms/ui/i18n";
 import { useLang } from "@lms/ui/lang";
 import { useToast } from "@lms/ui/toast";
-import { useAssistantEnabled } from "@/components/admin/assistantApi";
 import { findLead, isOpenLead, LEAD_STATUS_LABEL } from "@/components/admin/leadsApi";
 import { usePlatformName } from "@/components/admin/platforms";
 import { LeadStatusPicker, PhoneActions } from "@/components/admin/LeadStatus";
@@ -38,7 +37,7 @@ import {
   LinkButton,
   Note,
 } from "@lms/ui";
-import { IconCheck, IconSparkle } from "@lms/ui/icons";
+import { IconCheck } from "@lms/ui/icons";
 
 export default function LeadCardPage() {
   const { id } = useParams<{ id: string }>();
@@ -49,8 +48,6 @@ export default function LeadCardPage() {
   /* Хук зовётся до ранних выходов: ниже по файлу есть загрузка, ошибка
      и «заявка не найдена», и порядок хуков должен быть один на все ветки */
   const platformName = usePlatformName();
-  /* Ключа модели нет — кнопки нет вовсе, а не отказ по нажатию */
-  const assistantOn = useAssistantEnabled();
 
   const [granting, setGranting] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -260,24 +257,6 @@ export default function LeadCardPage() {
                 >
                   Открыть доступ
                 </Button>
-              )}
-
-              {/* Допуск «чтение и правка»: самая частая рутина с заявки —
-                  выдать по ней доступ, а с «чтением» она из чата не пройдёт.
-                  Курс закрепляется тем же адресом, чтобы не называть его
-                  словами (ASSISTANT_BRIEF, раздел 5) */}
-              {assistantOn && (
-                <div className="row wrap g10">
-                  <LinkButton
-                    href={`/assistant?ask=${l.teacher.id}&level=write&course=${l.course.id}`}
-                    variant="secondary"
-                    size="sm"
-                    icon={<IconSparkle size={15} />}
-                  >
-                    {t.asAskAssistant}
-                  </LinkButton>
-                  <span className="caption muted-3 pretty">{t.asAskAssistantHint}</span>
-                </div>
               )}
             </div>
 
