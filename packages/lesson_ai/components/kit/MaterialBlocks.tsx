@@ -22,7 +22,7 @@ import { hasAnswers } from "./shape";
 
 /** Блок, который помощник поправил из чата; `nonce` отличает вторую правку того же блока. */
 export interface BlockFlash {
-  block: string;
+  block: string | null;
   nonce: number;
 }
 
@@ -33,6 +33,7 @@ export function MaterialBlocks({
   kit,
   flash,
   onChanged,
+  onEditGoals,
 }: {
   material: LessonMaterial;
   kit: LessonKit;
@@ -44,6 +45,8 @@ export function MaterialBlocks({
    * сменилось содержимое и `updated_at`.
    */
   onChanged?: () => void;
+  /** «Изменить цели» у блока целей обучения — только там, где есть чат с шторкой выбора */
+  onEditGoals?: () => void;
 }) {
   const { t } = useLang();
   const toast = useToast();
@@ -170,6 +173,7 @@ export function MaterialBlocks({
             contentLang={lang}
             onReplace={replace}
             onStale={blocks.reload}
+            onEditGoals={b.kind === "learning_objectives" ? onEditGoals : undefined}
           />
         </div>
       ))}

@@ -27,14 +27,24 @@ const KIT_BADGE: Record<LessonKitStatus, BadgeKind> = {
   failed: "rework",
 };
 
-export function MaterialsPanel({ kit, flash }: { kit: LessonChatKit; flash: MaterialFlash | null }) {
+export function MaterialsPanel({
+  kit,
+  flash,
+  onEditGoals,
+}: {
+  kit: LessonChatKit;
+  flash: MaterialFlash | null;
+  /** «Изменить цели» — шторка выбора целей живёт в чате, рабочее место её открывает */
+  onEditGoals: () => void;
+}) {
   const { t } = useLang();
   const routes = useRoutes();
   const state = useKit(String(kit.id), { poll: false });
   const { refresh } = state;
 
-  /* Подпись статусов: любая смена статуса комплекта или материала — повод перечитать */
-  const signature = `${kit.status}|${kit.materials.map((m) => `${m.id}:${m.status}`).join(",")}`;
+  /* Подпись статусов: любая смена статуса комплекта или материала, а также набора
+     целей — повод перечитать */
+  const signature = `${kit.status}|${kit.materials.map((m) => `${m.id}:${m.status}`).join(",")}|${kit.objectives.map((o) => o.id).join(",")}`;
   const seen = useRef(signature);
   useEffect(() => {
     if (seen.current === signature) return;
@@ -108,7 +118,14 @@ export function MaterialsPanel({ kit, flash }: { kit: LessonChatKit; flash: Mate
         </Note>
       )}
 
-      <KitMaterials kit={full} onChanged={refresh} flash={flash} />
+      {/* Пока комплект собирается, цели менять рано: недописанные материалы возьмут новые сами,
+          но учителю незачем гадать, какие */}
+      <KitMaterials
+        kit={full}
+        onChanged={refresh}
+        flash={flash}
+        onEditGoals={kit.status === "generating" ? undefined : onEditGoals}
+      />
     </div>
   );
 }

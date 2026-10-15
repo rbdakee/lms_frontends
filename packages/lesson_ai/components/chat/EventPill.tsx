@@ -31,6 +31,9 @@ function eventText(t: T, ev: LessonChatEvent, fallback: string): string {
     }
     return fallback;
   }
+  if (ev.type === "objectives_changed") {
+    return t.laEvObjectives((ev.objectives ?? []).map((o) => o.code).join(", "));
+  }
   if (ev.type === "block_changed" && ev.kind && ev.action) {
     if (ev.action === "rewritten") {
       return t.laEvRewritten(kindTitle(t, ev.kind), ev.block ? blockTitle(t, ev.kind, ev.block) : "");
@@ -42,7 +45,7 @@ function eventText(t: T, ev: LessonChatEvent, fallback: string): string {
 }
 
 function icon(ev: LessonChatEvent) {
-  if (ev.type === "block_changed") return <IconEdit size={13} />;
+  if (ev.type === "block_changed" || ev.type === "objectives_changed") return <IconEdit size={13} />;
   if (ev.status === "ready") return <IconCheck size={13} />;
   if (ev.status === "partial" || ev.status === "failed") return <IconAlert size={13} />;
   return <IconClock size={13} />;

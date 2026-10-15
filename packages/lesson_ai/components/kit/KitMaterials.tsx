@@ -28,10 +28,11 @@ const STATUS_COLOR: Record<LessonMaterial["status"], string> = {
   failed: "var(--danger)",
 };
 
-/** Что поправил помощник: материал, блок и номер правки. */
+/** Что поправил помощник: материал, блок и номер правки. Без материала и блока —
+    сменились цели урока: перечитать комплект целиком, подсвечивать нечего. */
 export interface MaterialFlash {
-  material_id: number;
-  block: string;
+  material_id: number | null;
+  block: string | null;
   nonce: number;
 }
 
@@ -49,10 +50,13 @@ export function KitMaterials({
   kit,
   onChanged,
   flash,
+  onEditGoals,
 }: {
   kit: LessonKit;
   onChanged: () => void;
   flash?: MaterialFlash | null;
+  /** Есть только в рабочем месте: шторка выбора целей живёт в чате */
+  onEditGoals?: () => void;
 }) {
   const { t } = useLang();
   const materials = [...kit.materials].sort(
@@ -122,6 +126,7 @@ export function KitMaterials({
             kit={kit}
             flash={flash && flash.material_id === current.id ? flash : null}
             onChanged={onChanged}
+            onEditGoals={onEditGoals}
           />
         ) : (
           <MaterialPending material={current} kitId={kit.id} planPending={planPending(kit, current)} />

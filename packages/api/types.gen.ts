@@ -1673,6 +1673,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lesson_ai/kits/{kit_id}/objectives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Kit Objectives
+         * @description Кнопка «Изменить цели» на экране; тот же сценарий, что у инструмента чата.
+         */
+        put: operations["set_kit_objectives_lesson_ai_kits__kit_id__objectives_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lesson_ai/materials/{material_id}/file": {
         parameters: {
             query?: never;
@@ -4549,13 +4569,18 @@ export interface components {
          *     `material_id`, `kind`, `block`, `index` (пункт блока с единицы, `null` —
          *     блок переписан целиком) и `slide` (сквозной номер слайда презентации,
          *     только у слайдов). По нему экран подсвечивает материал справа.
+         *     `type: "objectives_changed"` — набор целей урока изменён (из чата или кнопкой
+         *     «Изменить цели»): `objectives` — новый набор по порядку. Экран перечитывает
+         *     комплект: цели, шапка и серверные блоки материалов уже другие.
          */
         LessonChatEventOut: {
             /**
              * Type
              * @enum {string}
              */
-            type: "kit_status" | "block_changed";
+            type: "kit_status" | "block_changed" | "objectives_changed";
+            /** Objectives */
+            objectives?: components["schemas"]["LessonEventObjectiveOut"][] | null;
             /** Kit Id */
             kit_id?: number | null;
             /** Status */
@@ -4610,6 +4635,8 @@ export interface components {
             status: "generating" | "ready" | "partial" | "failed";
             /** Topic */
             topic: string;
+            /** Subject Code */
+            subject_code: string;
             /** Grade */
             grade: number;
             /**
@@ -4617,6 +4644,8 @@ export interface components {
              * @enum {string}
              */
             lang: "ru" | "kz";
+            /** Objectives */
+            objectives: components["schemas"]["LessonObjectiveOut"][];
             /**
              * Engagement Level
              * @enum {string}
@@ -4866,6 +4895,13 @@ export interface components {
             progress_percent: number;
             next_lesson: components["schemas"]["NextLessonOut"] | null;
         };
+        /** LessonEventObjectiveOut */
+        LessonEventObjectiveOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+        };
         /** LessonFileIn */
         LessonFileIn: {
             /** Key */
@@ -4989,6 +5025,15 @@ export interface components {
              * @enum {string}
              */
             status: "queued" | "generating" | "ready" | "failed";
+        };
+        /**
+         * LessonKitObjectivesIn
+         * @description Новый набор целей готового комплекта, в порядке учителя. Из той же
+         *     программы и класса, что у комплекта, иначе 422 `objectives_mixed`.
+         */
+        LessonKitObjectivesIn: {
+            /** Objective Ids */
+            objective_ids: number[];
         };
         /**
          * LessonKitOut
@@ -10385,6 +10430,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonKitOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_kit_objectives_lesson_ai_kits__kit_id__objectives_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LessonKitObjectivesIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -60,6 +60,7 @@ import {
   objectivesOf,
   patchOrder,
   say,
+  setKitObjectives,
 } from "../../api";
 import { useLessonAiAccess } from "../../access";
 import { useRoutes } from "../../host";
@@ -109,6 +110,7 @@ export function ChatPanel({
   fromKitId,
   onChat,
   onMaterial,
+  editGoalsRequest = 0,
   onNew,
 }: {
   chatId?: string;
@@ -116,6 +118,8 @@ export function ChatPanel({
   onChat: (chat: LessonChat) => void;
   /** Помощник поправил блок материала: подсветить справа и перечитать */
   onMaterial: (event: LessonChatEvent) => void;
+  /** Номер просьбы «Изменить цели» из панели материалов: растёт — шторка открывается */
+  editGoalsRequest?: number;
   onNew: () => void;
 }) {
   const { t } = useLang();
@@ -145,9 +149,9 @@ export function ChatPanel({
   const [picked, setPicked] = useState<LessonChatObjective[]>([]);
   /* Записанный сервером набор целей — правда: отметки подтягиваются к нему при
      каждой его смене (разговор, «Готово», смена языка заменили цели) */
-  const savedKey = (chat?.order.objectives ?? []).map((o) => o.id).join(",");
+  const savedKey = savedObjectives(chat).map((o) => o.id).join(",");
   useEffect(() => {
-    setPicked(chatRef.current?.order.objectives ?? []);
+    setPicked(savedObjectives(chatRef.current));
   }, [savedKey]);
 
   const idRef = useRef<number | null>(null);
@@ -169,6 +173,17 @@ export function ChatPanel({
     setChat(c);
     onChatRef.current(c);
   }, []);
+
+  /* «Изменить цели» из панели материалов — шторка с текущим набором отмеченным */
+  const goalsSeen = useRef(editGoalsRequest);
+  useEffect(() => {
+    if (goalsSeen.current === editGoalsRequest) return;
+    goalsSeen.current = editGoalsRequest;
+    const cur = chatRef.current;
+    if (cur?.mode !== "edit") return;
+    setPicked(savedObjectives(cur));
+    setSheet(sheetFor(cur));
+  }, [editGoalsRequest]);
 
   const moveTo = useCallback(
     (id: number) => window.history.replaceState(null, "", routes.chat(id)),
@@ -276,7 +291,9 @@ export function ChatPanel({
         items: [...cur.items, ...fresh],
         updated_at: fresh.length > 0 ? fresh[fresh.length - 1].created_at : cur.updated_at,
       });
-      for (const m of fresh) if (m.event?.type === "block_changed") onMaterialRef.current(m.event);
+      for (const m of fresh) {
+        if (m.event?.type === "block_changed" || m.event?.type === "objectives_changed") onMaterialRef.current(m.event);
+      }
     };
 
     const tick = async () => {
@@ -402,8 +419,37 @@ export function ChatPanel({
     if (err) toast(err, "error");
   };
 
+  /* Урок уже собран (`mode: "edit"`): набор целей меняет не заказ, а комплект —
+     той же ручкой, что и инструмент чата. Вернул текст — не прошло, показать у шторки */
+  const patchKitObjectives = async (): Promise<string | null> => {
+    const kitId = idRef.current !== null ? chatRef.current?.kit_id : null;
+    if (kitId == null) return null;
+    setPatching(true);
+    try {
+      await setKitObjectives(kitId, picked.map((o) => o.id));
+      /* Лента и комплект — с сервера: в ней событие, а в комплекте новый набор;
+         справа блоки перечитает панель материалов по смене набора */
+      await reloadChat();
+      return null;
+    } catch (e) {
+      if (handle(e)) return null;
+      if (isApiError(e) && e.status === 404) return t.laChatObjectiveGone;
+      if (isApiError(e, "validation_error")) return fieldMessage(e) ?? t.loadErrorText;
+      return isApiError(e) ? e.message : t.loadErrorText;
+    } finally {
+      setPatching(false);
+    }
+  };
+
+  const commitObjectives = () => (chat?.mode === "edit" ? patchKitObjectives() : patch({ objective_ids: picked.map((o) => o.id) }));
+
+  const commitOrToast = async () => {
+    const err = await commitObjectives();
+    if (err) toast(err, "error");
+  };
+
   const commitPicked = async () => {
-    const err = await patch({ objective_ids: picked.map((o) => o.id) });
+    const err = await commitObjectives();
     if (!err) setSheet(null);
     return err;
   };
@@ -510,17 +556,14 @@ export function ChatPanel({
   const confirmed = chat?.status === "confirmed";
   const edit = chat?.mode === "edit";
   /* Карточки заказа и кнопки под ним после «Готовить» только читаются */
-  const locked = sending || patching || confirmed;
-  const committedIds = order.objectives.map((o) => o.id);
+  const locked = sending || patching || (confirmed && !edit);
+  /* Записанный набор целей: до «Готовить» — заказ, после — комплект */
+  const saved = savedObjectives(chat);
+  const committedIds = saved.map((o) => o.id);
   const hasObjectives = order.objectives.length > 0;
 
   /* Класс и язык для «Показать другие»: из заказа, иначе из показанной карточки */
-  const openSheet = (from?: LessonChatObjective) =>
-    setSheet({
-      subject_code: order.subject_code ?? from?.subject_code ?? order.objectives[0]?.subject_code ?? null,
-      grade: order.grade ?? from?.grade ?? order.objectives[0]?.grade ?? lastShown(chat)?.grade ?? null,
-      lang: order.lang ?? from?.lang ?? order.objectives[0]?.lang ?? lastShown(chat)?.lang ?? null,
-    });
+  const openSheet = (from?: LessonChatObjective) => setSheet(sheetFor(chat, from));
 
   const cards = (items: LessonChatObjective[], key: string | number) => (
     <ObjectiveCards
@@ -530,7 +573,7 @@ export function ChatPanel({
       committedIds={committedIds}
       disabled={locked}
       onToggle={(o) => setPicked((p) => toggled(p, o))}
-      onDone={() => void patchOrToast({ objective_ids: picked.map((o) => o.id) })}
+      onDone={() => void commitOrToast()}
       onOthers={(o) => openSheet(o)}
     />
   );
@@ -667,6 +710,37 @@ export function ChatPanel({
       />
     </>
   );
+}
+
+/** Класс и язык для шторки целей: из заказа, иначе из записанных целей или показанной карточки. */
+function sheetFor(chat: LessonChat | null, from?: LessonChatObjective): SheetFor {
+  const order = chat?.order ?? NO_ORDER;
+  const first = savedObjectives(chat)[0];
+  return {
+    subject_code: order.subject_code ?? from?.subject_code ?? first?.subject_code ?? null,
+    grade: order.grade ?? from?.grade ?? first?.grade ?? lastShown(chat)?.grade ?? null,
+    lang: order.lang ?? from?.lang ?? first?.lang ?? lastShown(chat)?.lang ?? null,
+  };
+}
+
+/**
+ * Цели урока, записанные на сервере: до «Готовить» — заказ чата, после — комплект
+ * (он единственный знает набор, который сменили из чата или кнопкой).
+ */
+function savedObjectives(chat: LessonChat | null): LessonChatObjective[] {
+  if (!chat) return [];
+  const kit = chat.kit;
+  if (chat.mode === "edit" && kit) {
+    return kit.objectives.map((o) => ({
+      ...o,
+      grade: kit.grade,
+      lang: kit.lang,
+      subject_code: kit.subject_code,
+      section: "",
+      subsection: "",
+    }));
+  }
+  return chat.order.objectives;
 }
 
 /** Предвыбор формы по прошлому комплекту: виды — те, что в нём были. */

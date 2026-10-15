@@ -61,6 +61,15 @@ export function getKit(id: number | string): Promise<LessonKit> {
   return api<LessonKit>(`/lesson_ai/kits/${id}`);
 }
 
+/**
+ * «Изменить цели» готового комплекта: полный новый набор в порядке учителя.
+ * Сервер проверяет «одна программа и класс» и переписывает серверные блоки
+ * материалов; в ленту чата ложится событие `objectives_changed`.
+ */
+export function setKitObjectives(id: number, objectiveIds: number[]): Promise<LessonKit> {
+  return api<LessonKit>(`/lesson_ai/kits/${id}/objectives`, { method: "PUT", json: { objective_ids: objectiveIds } });
+}
+
 /* ============ Свои уроки ============ */
 
 /** Список без `content`, `notes` и `class_size`: тело комплекта открывается отдельно. */
