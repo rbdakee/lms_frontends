@@ -313,14 +313,23 @@ export type CertificateLang = NonNullable<CertificatePatchIn["lang"]>;
 /* ============ Справочник учебной программы (сессия L2) ============
 
    Экран сверки в админке: владелец вычитывает импортированный справочник
-   и открывает его генерации (`TEACHER_AI_BRIEF`, разделы 3 и 3.1).
+   и открывает его генерации (`TEACHER_AI_BRIEF`, разделы 3 и 3.1). */
 
-   Единственное место, где формы ответов описаны руками, а не взяты из схемы:
-   бэкенд справочника пишется параллельно, живого `/openapi.json` с ним ещё
-   нет. Почему так и что с этим делать, когда он появится, — в шапке
-   `types.curriculum.ts`. */
-
-export type * from "./types.curriculum";
+export type CurriculumProgram = S["CurriculumProgramOut"];
+export type CurriculumProgramsPage = S["CurriculumProgramsPageOut"];
+export type CurriculumProgramCard = S["CurriculumProgramCardOut"];
+export type CurriculumSection = S["CurriculumSectionOut"];
+export type CurriculumSubsection = S["CurriculumSubsectionOut"];
+/** Язык обучения программы. Не язык интерфейса: у справочника он свой. */
+export type CurriculumLang = CurriculumProgram["lang"];
+/** `loaded` — видна только в админке; `published` — открыта генерации. */
+export type CurriculumStatus = CurriculumProgram["status"];
+export type LearningObjective = S["CurriculumObjectiveOut"];
+export type LearningObjectivesPage = S["CurriculumObjectivesPageOut"];
+export type LearningObjectivePatch = S["CurriculumObjectivePatchIn"];
+export type CurriculumIssue = S["CurriculumIssueOut"];
+export type CurriculumIssuesPage = S["CurriculumIssuesPageOut"];
+export type CurriculumIssueSeverity = CurriculumIssue["severity"];
 
 /* ============ «Жоспар», помощник учителя (сессии L3–L7) ============
 

@@ -15,7 +15,7 @@
  * в `resolved_by`, и оно приходит с сервера готовой строкой.
  */
 
-import type { CurriculumIssueKind, CurriculumIssueSeverity, CurriculumStatus } from "@lms/api";
+import type { CurriculumIssueSeverity, CurriculumStatus } from "@lms/api";
 import { useLang } from "@lms/ui/lang";
 import { Badge, type BadgeKind } from "@lms/ui";
 import { IconAlert, IconInfo } from "@lms/ui/icons";
@@ -81,7 +81,9 @@ interface IssueHint {
   often_ok?: true;
 }
 
-const KIND: Record<CurriculumIssueKind, IssueHint> = {
+/* `kind` в схеме — просто строка: бэкенд может завести проверку раньше экрана,
+   поэтому таблица не полная и у неизвестного кода есть запасной путь. */
+const KIND: Record<string, IssueHint> = {
   missing_in_ru: { title: (t) => t.curKindMissingRu, hint: (t) => t.curHintMissingRu },
   missing_in_kz: { title: (t) => t.curKindMissingKz, hint: (t) => t.curHintMissingKz },
   subsection_mismatch: { title: (t) => t.curKindSubsection, hint: (t) => t.curHintSubsection },
@@ -111,9 +113,10 @@ const KIND: Record<CurriculumIssueKind, IssueHint> = {
   },
 };
 
-export function useIssueHint(kind: CurriculumIssueKind) {
+export function useIssueHint(kind: string) {
   const { t } = useLang();
   const cfg = KIND[kind];
+  if (!cfg) return { title: kind, hint: "", often_ok: false };
   return { title: cfg.title(t), hint: cfg.hint(t), often_ok: cfg.often_ok === true };
 }
 
