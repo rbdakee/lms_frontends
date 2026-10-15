@@ -741,7 +741,7 @@ export function ChatPanel({
       <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
         {/* Нижний отступ держит последнее сообщение и чипы на виду у поля ввода;
             он внутри прокрутки, поэтому автопрокрутка докручивает ленту до конца */}
-        <div ref={scroller} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 16px 20px" }}>
+        <div ref={scroller} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 16px 56px" }}>
           <div className="stack g12" style={{ maxWidth: 760, margin: "0 auto" }}>
             {!edit && orderCard}
             {noticeNote}
