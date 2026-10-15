@@ -13,19 +13,14 @@
  * не мешает читать и править соседние (`CONTRACT.md`, L5).
  */
 
-import { useState } from "react";
-import type { LessonKit, LessonKitStatus, LessonMaterial, LessonMaterialKind } from "@lms/api";
+import type { LessonKit, LessonKitStatus } from "@lms/api";
 import { Badge, Button, Empty, LinkButton, Note, Skeleton, type BadgeKind } from "@lms/ui";
-import { IconArrowLeft, IconCopy, IconEye, IconGlobe } from "@lms/ui/icons";
+import { IconArrowLeft, IconCopy, IconGlobe } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { AccessUntil } from "../access";
 import { useChrome, useRoutes } from "../host";
-import { KIND_ORDER, contentLang, kindTitle } from "../labels";
-import { MaterialBlocks } from "../components/kit/MaterialBlocks";
-import { MaterialHeader, MaterialStatusIcon } from "../components/kit/MaterialHeader";
-import { MaterialPending } from "../components/kit/MaterialPending";
-import { DownloadButton } from "../components/DownloadButton";
-import { PreviewSheet } from "../components/PreviewSheet";
+import { contentLang } from "../labels";
+import { KitMaterials } from "../components/kit/KitMaterials";
 import { useKit } from "../components/kit/useKit";
 
 const KIT_BADGE: Record<LessonKitStatus, BadgeKind> = {
@@ -33,13 +28,6 @@ const KIT_BADGE: Record<LessonKitStatus, BadgeKind> = {
   ready: "done",
   partial: "review",
   failed: "rework",
-};
-
-const STATUS_COLOR: Record<LessonMaterial["status"], string> = {
-  queued: "var(--text-3)",
-  generating: "var(--warning-text)",
-  ready: "var(--success)",
-  failed: "var(--danger)",
 };
 
 export function KitScreen({ kitId }: { kitId: string }) {
@@ -184,82 +172,4 @@ function KitHeader({ kit }: { kit: LessonKit }) {
 
 function readyCount(kit: LessonKit): number {
   return kit.materials.filter((m) => m.status === "ready").length;
-}
-
-/**
- * Материал ждёт плана урока: соседи строятся по нему (бриф, 4.2), ключи —
- * по заданиям. Учителю важно видеть, что «в очереди» — это не зависание.
- */
-function planPending(kit: LessonKit, m: LessonMaterial): boolean {
-  if (m.status !== "queued" || m.kind === "lesson_plan") return false;
-  const plan = kit.materials.find((x) => x.kind === "lesson_plan");
-  return plan !== undefined && (plan.status === "queued" || plan.status === "generating");
-}
-
-function KitMaterials({ kit, onChanged }: { kit: LessonKit; onChanged: () => void }) {
-  const { t } = useLang();
-  const materials = [...kit.materials].sort(
-    (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind),
-  );
-  const [selected, setSelected] = useState<LessonMaterialKind | null>(null);
-  const [previewing, setPreviewing] = useState(false);
-  const current = materials.find((m) => m.kind === selected) ?? materials[0];
-
-  if (!current) return null;
-
-  return (
-    <section className="stack g16">
-      {/* Вкладки прокручиваются вбок: семь видов на 390px в строку не встают */}
-      <div className="tabs" role="tablist" aria-label={t.laKitMaterials}>
-        {materials.map((m) => (
-          <button
-            key={m.id}
-            role="tab"
-            aria-selected={m.id === current.id}
-            data-active={m.id === current.id}
-            title={t.laMaterialStatus[m.status]}
-            onClick={() => setSelected(m.kind)}
-          >
-            <span className="row g6" style={{ alignItems: "center" }}>
-              <span style={{ color: STATUS_COLOR[m.status], display: "inline-flex" }} aria-hidden="true">
-                <MaterialStatusIcon status={m.status} />
-              </span>
-              {kindTitle(t, m.kind)}
-              <span className="sr-only">, {t.laMaterialStatus[m.status]}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="stack g14" role="tabpanel">
-        <MaterialHeader
-          material={current}
-          actions={
-            current.status === "ready" ? (
-              <>
-                {/* Посмотреть — первым: чаще всего учителю нужно прочитать,
-                    а не нести файл в Word */}
-                <Button variant="secondary" icon={<IconEye size={17} />} onClick={() => setPreviewing(true)}>
-                  {t.laPreview}
-                </Button>
-                <DownloadButton kit={kit} material={current} />
-              </>
-            ) : undefined
-          }
-        />
-        {current.status === "ready" ? (
-          <MaterialBlocks key={current.id} material={current} kit={kit} onChanged={onChanged} />
-        ) : (
-          <MaterialPending material={current} kitId={kit.id} planPending={planPending(kit, current)} />
-        )}
-      </div>
-      <PreviewSheet
-        open={previewing}
-        onClose={() => setPreviewing(false)}
-        kit={kit}
-        materials={kit.materials}
-        initialId={current.id}
-      />
-    </section>
-  );
 }
