@@ -1905,6 +1905,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lesson_ai/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Subjects */
+        get: operations["subjects_lesson_ai_subjects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/settings": {
         parameters: {
             query?: never;
@@ -5111,6 +5128,26 @@ export interface components {
             is_completed: boolean;
             /** Files */
             files: components["schemas"]["LessonFileOut"][];
+        };
+        /** LessonSubjectOut */
+        LessonSubjectOut: {
+            /** Code */
+            code: string;
+            /** Title Ru */
+            title_ru: string;
+            /** Title Kz */
+            title_kz: string;
+            /** Grade From */
+            grade_from: number;
+            /** Grade To */
+            grade_to: number;
+            /** Langs */
+            langs: ("ru" | "kz")[];
+        };
+        /** LessonSubjectsOut */
+        LessonSubjectsOut: {
+            /** Items */
+            items: components["schemas"]["LessonSubjectOut"][];
         };
         /** LogoutOthersOut */
         LogoutOthersOut: {
@@ -10817,6 +10854,7 @@ export interface operations {
                 q?: string;
                 grade?: number | null;
                 lang?: ("ru" | "kz") | null;
+                subject_code?: string | null;
             };
             header?: never;
             path?: never;
@@ -10840,6 +10878,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subjects_lesson_ai_subjects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LessonSubjectsOut"];
                 };
             };
         };
