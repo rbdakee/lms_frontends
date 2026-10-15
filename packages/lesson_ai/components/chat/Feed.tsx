@@ -69,6 +69,39 @@ export function BotBubble({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Быстрые ответы под последним сообщением помощника: клик отправляет `text` как
+ * реплику учителя. Список приходит с сервера (`suggestions`), экран его не придумывает;
+ * исчезают они, как только учитель ответил — отрисовкой их занимается лента.
+ */
+export function SuggestionChips({
+  items,
+  disabled,
+  onPick,
+}: {
+  items: { label: string; text: string }[];
+  disabled?: boolean;
+  onPick: (text: string) => void;
+}) {
+  const { t } = useLang();
+  return (
+    <div className="row wrap g8" role="group" aria-label={t.laChatSuggestions} style={{ paddingLeft: 38 }}>
+      {items.map((s) => (
+        <button
+          key={s.label}
+          type="button"
+          className="chip"
+          disabled={disabled}
+          onClick={() => onPick(s.text)}
+          style={{ minHeight: 40, fontSize: 14, fontWeight: 600, color: "var(--primary)", borderColor: "var(--primary)" }}
+        >
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Жирное `**...**` внутри строки; остальное — обычный текст (React экранирует сам). */
 function inline(text: string): ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part));

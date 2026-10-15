@@ -33,7 +33,7 @@
  * обновляются, как только изменились, — без перечитывания списка.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   isApiError,
   type LessonChat,
@@ -67,7 +67,7 @@ import { useRoutes } from "../../host";
 import { KIND_ORDER, hoursFrom } from "../../labels";
 import { ConfirmForm, type ConfirmPreset } from "./ConfirmForm";
 import { EventPill } from "./EventPill";
-import { BotBubble, Composer, Markdown, Thinking, UserBubble } from "./Feed";
+import { BotBubble, Composer, Markdown, SuggestionChips, Thinking, UserBubble } from "./Feed";
 import { ObjectiveCards, toggled } from "./ObjectiveCards";
 import { ObjectiveSheet } from "./ObjectiveSheet";
 import { LangPicker, OrderCard, TopicField } from "./OrderCard";
@@ -111,6 +111,7 @@ export function ChatPanel({
   onChat,
   onMaterial,
   editGoalsRequest = 0,
+  reloadRequest = 0,
   onNew,
 }: {
   chatId?: string;
@@ -120,6 +121,8 @@ export function ChatPanel({
   onMaterial: (event: LessonChatEvent) => void;
   /** Номер просьбы «Изменить цели» из панели материалов: растёт — шторка открывается */
   editGoalsRequest?: number;
+  /** Номер просьбы «перечитать чат»: комплект поставили на пересборку снаружи, лента должна об этом узнать */
+  reloadRequest?: number;
   onNew: () => void;
 }) {
   const { t } = useLang();
@@ -184,6 +187,15 @@ export function ChatPanel({
     setPicked(savedObjectives(cur));
     setSheet(sheetFor(cur));
   }, [editGoalsRequest]);
+
+  const reloadSeen = useRef(reloadRequest);
+  useEffect(() => {
+    if (reloadSeen.current === reloadRequest) return;
+    reloadSeen.current = reloadRequest;
+    void reloadChat().catch((e) => handle(e));
+    // `reloadChat` и `handle` стабильны по смыслу: перечитывать надо только по номеру просьбы
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadRequest]);
 
   const moveTo = useCallback(
     (id: number) => window.history.replaceState(null, "", routes.chat(id)),
@@ -323,14 +335,15 @@ export function ChatPanel({
 
   /* ---------- Реплика ---------- */
 
-  const send = async () => {
-    const said = text.trim();
+  /* `quick` — текст кнопки-подсказки: уходит как реплика, а набранное в поле не трогаем */
+  const send = async (quick?: string) => {
+    const said = (quick ?? text).trim();
     if (!said || sending) return;
     setSending(true);
     setSayError(null);
     setNotice(null);
     setPending(said);
-    setText("");
+    if (quick === undefined) setText("");
     setDraft("");
     setLive([]);
     setEditing(false);
@@ -369,7 +382,7 @@ export function ChatPanel({
       }
       if (handle(e)) return;
       /* Хода не было — реплика возвращается в поле, если учитель не начал новую */
-      setText((cur) => cur || said);
+      if (quick === undefined) setText((cur) => cur || said);
       if (isApiError(e, RATE_LIMITED)) setSayError(t.laChatTooMany(minutesFrom(e.retryAfterSec)));
       else if (isApiError(e, "validation_error")) setSayError(fieldMessage(e) ?? t.laChatAiFailed);
       else setSayError(t.laChatAiFailed);
@@ -593,6 +606,10 @@ export function ChatPanel({
       <ConfirmForm order={order} preset={preset} disabled={sending || patching} onSubmit={confirm} />
     ) : null;
 
+  const lastUser = chat?.items.findLast((m) => m.role === "user")?.id ?? 0;
+  const lastBot = chat?.items.findLast((m) => m.role === "assistant");
+  const suggestFor = lastBot && lastBot.id > lastUser ? lastBot.id : null;
+
   const feed = (
     <div className="stack g12" aria-live="polite">
       {/* Первый заход: без этой строки учитель видит чат и не знает,
@@ -609,7 +626,17 @@ export function ChatPanel({
         m.role === "user" ? (
           <UserBubble key={m.id}>{m.content}</UserBubble>
         ) : m.role === "assistant" ? (
-          m.content ? <BotBubble key={m.id}><Markdown text={m.content} /></BotBubble> : null
+          m.content ? (
+            <Fragment key={m.id}>
+              <BotBubble>
+                <Markdown text={m.content} />
+              </BotBubble>
+              {/* Кнопки — только у последней реплики помощника и пока учитель не ответил */}
+              {m.id === suggestFor && m.suggestions && !sending && (
+                <SuggestionChips items={m.suggestions} onPick={(text) => void send(text)} />
+              )}
+            </Fragment>
+          ) : null
         ) : m.role === "event" ? (
           <EventPill key={m.id} message={m} />
         ) : (

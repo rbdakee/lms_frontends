@@ -11,8 +11,9 @@
  */
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import type { LessonChatKit, LessonKitStatus } from "@lms/api";
-import { Badge, Button, Empty, LinkButton, Note, Skeleton, type BadgeKind } from "@lms/ui";
+import { Badge, Button, Empty, Note, Skeleton, type BadgeKind } from "@lms/ui";
 import { IconExternal, IconGlobe } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import { useRoutes } from "../../host";
@@ -91,41 +92,52 @@ export function MaterialsPanel({
   const ready = kit.materials.filter((m) => m.status === "ready").length;
 
   return (
-    <div className="stack g14" style={{ padding: 16 }}>
-      <header className="stack g8">
-        <div className="row wrap g6">
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <header className="stack g8" style={{ padding: "12px 16px 0", flexShrink: 0 }}>
+        <div className="row wrap g6" style={{ alignItems: "center" }}>
           <Badge kind={KIT_BADGE[kit.status]}>{t.laKitStatus[kit.status]}</Badge>
           <Badge kind="neutral">{t.laGrade(kit.grade)}</Badge>
           <Badge kind="new" icon={<IconGlobe size={13} />}>
             {t.laDocsLang[kit.lang]}
           </Badge>
+          <Link
+            href={routes.kit(kit.id)}
+            className="btn btn-ghost btn-sm"
+            aria-label={t.laWsOpenPage}
+            title={t.laWsOpenPage}
+            style={{ marginLeft: "auto", minWidth: 36, padding: 0 }}
+          >
+            <IconExternal size={15} />
+          </Link>
         </div>
-        <h2 className="h3" lang={contentLang(kit.lang)} style={{ margin: 0, overflowWrap: "anywhere" }}>
+        <h2
+          className="h3"
+          lang={contentLang(kit.lang)}
+          style={{ margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          title={kit.topic}
+        >
           {kit.topic}
         </h2>
-        <div>
-          <LinkButton href={routes.kit(kit.id)} variant="ghost" size="sm" icon={<IconExternal size={15} />}>
-            {t.laWsOpenPage}
-          </LinkButton>
-        </div>
+        {kit.status === "generating" && (
+          <Note kind="info" icon={<span className="spinner" />}>
+            <span className="small">
+              {t.laKitWaiting} {t.laLessonsMaterialsReady(ready, kit.materials.length)}.
+            </span>
+          </Note>
+        )}
       </header>
-
-      {kit.status === "generating" && (
-        <Note kind="info" icon={<span className="spinner" />}>
-          <span className="small">
-            {t.laKitWaiting} {t.laLessonsMaterialsReady(ready, kit.materials.length)}.
-          </span>
-        </Note>
-      )}
 
       {/* Пока комплект собирается, цели менять рано: недописанные материалы возьмут новые сами,
           но учителю незачем гадать, какие */}
-      <KitMaterials
-        kit={full}
-        onChanged={refresh}
-        flash={flash}
-        onEditGoals={kit.status === "generating" ? undefined : onEditGoals}
-      />
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, paddingTop: 12 }}>
+        <KitMaterials
+          kit={full}
+          fill
+          onChanged={refresh}
+          flash={flash}
+          onEditGoals={kit.status === "generating" ? undefined : onEditGoals}
+        />
+      </div>
     </div>
   );
 }
