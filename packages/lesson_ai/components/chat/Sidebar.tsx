@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 import { Button, LinkButton, Sheet } from "@lms/ui";
-import { IconChevronDown, IconChevronRight, IconLayers, IconMessage, IconMore, IconPlus } from "@lms/ui/icons";
+import { IconChevronDown, IconChevronRight, IconFolderPlus, IconLayers, IconMessage, IconMessagePlus, IconMore } from "@lms/ui/icons";
 import { useLang } from "@lms/ui/lang";
 import type { LessonChatListItem } from "@lms/api";
 import { AccessUntil } from "../../access";
@@ -350,31 +350,36 @@ export function Sidebar({
           flexShrink: 0,
         }}
       >
-        <strong className="h3" style={{ margin: 0 }}>
+        <strong className="h3" style={{ margin: 0, flex: 1 }}>
           {t.laSbTitle}
         </strong>
+        {/* Действия — значками в шапке, как в чат-приложениях: «новый разговор»
+            и «новая папка» узнаются без подписи, а список получает всю высоту.
+            Подпись — во всплывающей подсказке и для экранного диктора */}
+        {!showArchive && (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={t.laSbAddGroup}
+            title={t.laSbAddGroup}
+            onClick={() => setDialog({ mode: "create" })}
+            style={{ flexShrink: 0, paddingInline: 8 }}
+          >
+            <IconFolderPlus size={19} />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={t.laNewLesson}
+          title={t.laNewLesson}
+          onClick={onNew}
+          style={{ flexShrink: 0, paddingInline: 8 }}
+        >
+          <IconMessagePlus size={19} />
+        </Button>
       </div>
       <div className="stack g12" style={{ flex: 1, minHeight: 0, padding: 12 }}>
-      <div className="stack g10">
-        <div className="row g8">
-          <Button variant="secondary" block icon={<IconPlus size={17} />} onClick={onNew}>
-            {t.laNewLesson}
-          </Button>
-          {!showArchive && (
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={t.laSbAddGroup}
-              title={t.laSbAddGroup}
-              onClick={() => setDialog({ mode: "create" })}
-              style={{ flexShrink: 0 }}
-            >
-              <IconPlus size={15} />
-              {t.laSbGroup}
-            </Button>
-          )}
-        </div>
-      </div>
 
       <nav
         aria-label={t.laChatsHistory}

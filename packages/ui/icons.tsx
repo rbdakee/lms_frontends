@@ -367,6 +367,23 @@ export const IconDrag = (p: P) => (
   </Svg>
 );
 
+/* «Новый разговор» и «новая папка» — плюс в углу фигуры, как в чат-приложениях:
+   действие понятно без подписи. Рисунок — Tabler Icons (MIT) */
+export const IconMessagePlus = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 18.6 8 21v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v5.5" />
+    <path d="M8 9h8M8 13h5" />
+    <path d="M16 19h6M19 16v6" />
+  </Svg>
+);
+
+export const IconFolderPlus = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 19H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4l3 3h7a2 2 0 0 1 2 2v3.5" />
+    <path d="M16 19h6M19 16v6" />
+  </Svg>
+);
+
 export const IconPlus = (p: P) => (
   <Svg strokeWidth={2.1} {...p}>
     <path d="M12 5v14M5 12h14" />
