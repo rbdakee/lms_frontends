@@ -45,6 +45,7 @@ import {
   type LessonChatOrderPatch,
   type LessonKit,
   type LessonLang,
+  type LessonSubject,
 } from "@lms/api";
 import { Button, Empty, Note, Skeleton } from "@lms/ui";
 import { IconMessage } from "@lms/ui/icons";
@@ -61,6 +62,7 @@ import {
   patchOrder,
   say,
   setKitObjectives,
+  listSubjects,
 } from "../../api";
 import { useLessonAiAccess } from "../../access";
 import { useRoutes } from "../../host";
@@ -70,6 +72,7 @@ import { EventPill } from "./EventPill";
 import { BotBubble, Composer, Markdown, Thinking, UserBubble } from "./Feed";
 import { ObjectiveCards, toggled } from "./ObjectiveCards";
 import { ObjectiveSheet } from "./ObjectiveSheet";
+import { StartPicker } from "./StartPicker";
 import { LangPicker, OrderCard, TopicField } from "./OrderCard";
 import { fieldMessage, minutesFrom } from "./util";
 
@@ -144,6 +147,20 @@ export function ChatPanel({
   const [sayError, setSayError] = useState<string | null>(null);
   const [patching, setPatching] = useState(false);
   const [sheet, setSheet] = useState<SheetFor | null>(null);
+  /* Предметы для стартового блока; не загрузились — блока просто нет, чат работает и без него */
+  const [startSubjects, setStartSubjects] = useState<LessonSubject[]>([]);
+  /* Язык, выбранный на старте: уходит в заказ вместе с целями */
+  const [startLang, setStartLang] = useState<LessonLang | null>(null);
+  useEffect(() => {
+    let alive = true;
+    listSubjects().then(
+      (res) => alive && setStartSubjects(res.items),
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
   /* Отмеченные цели в порядке отметок. Записываются в урок кнопкой «Готово»;
      пока не записаны, живут здесь, чтобы карточки в ленте и шторка видели одно и то же */
   const [picked, setPicked] = useState<LessonChatObjective[]>([]);
@@ -323,8 +340,8 @@ export function ChatPanel({
 
   /* ---------- Реплика ---------- */
 
-  const send = async () => {
-    const said = text.trim();
+  const send = async (override?: string) => {
+    const said = (override ?? text).trim();
     if (!said || sending) return;
     setSending(true);
     setSayError(null);
@@ -449,8 +466,13 @@ export function ChatPanel({
   };
 
   const commitPicked = async () => {
-    const err = await commitObjectives();
-    if (!err) setSheet(null);
+    const err = await (startLang && chat?.mode !== "edit"
+      ? patch({ objective_ids: picked.map((o) => o.id), lang: startLang })
+      : commitObjectives());
+    if (!err) {
+      setSheet(null);
+      setStartLang(null);
+    }
     return err;
   };
 
@@ -665,6 +687,8 @@ export function ChatPanel({
     </div>
   );
 
+  const showStart = !edit && !pending && !sending && !hasObjectives && (chat?.items.length ?? 0) === 0;
+
   const noticeNote = notice && <Note kind="info">{notice}</Note>;
 
   /* Карточка заказа сверху ленты и свёрнута до строки; галочки и «Готовить» —
@@ -678,6 +702,17 @@ export function ChatPanel({
             {!edit && orderCard}
             {noticeNote}
             {feed}
+            {showStart && (
+              <StartPicker
+                subjects={startSubjects}
+                disabled={patching}
+                onGoals={(c) => {
+                  setStartLang(c.lang);
+                  setSheet({ subject_code: c.subject_code, grade: c.grade, lang: c.lang });
+                }}
+                onChat={(summary) => void send(summary)}
+              />
+            )}
             {confirmForm}
           </div>
         </div>
@@ -704,7 +739,10 @@ export function ChatPanel({
         lang={sheet?.lang ?? null}
         picked={picked}
         committedIds={committedIds}
-        onClose={() => setSheet(null)}
+        onClose={() => {
+          setSheet(null);
+          setStartLang(null);
+        }}
         onToggle={(o) => setPicked((p) => toggled(p, o))}
         onDone={commitPicked}
       />
