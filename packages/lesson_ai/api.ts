@@ -371,10 +371,25 @@ function parseEvent(block: string): { name: string; data: Record<string, unknown
   }
 }
 
-/** Цели из `tool_result` строки ленты или события `tool`. Отказ инструмента — пусто. */
-export function objectivesOf(toolResult: Record<string, unknown> | null): LessonChatObjective[] {
+/* Инструменты, чей ответ — цели для карточек. Остальные (list_subjects,
+   browse_objectives) тоже могут вернуть списки, но это не цели учителя */
+const OBJECTIVE_TOOLS = new Set(["find_objectives", "get_objective", "show_objectives"]);
+
+function isObjective(x: unknown): x is LessonChatObjective {
+  if (typeof x !== "object" || x === null) return false;
+  const o = x as Record<string, unknown>;
+  return typeof o.code === "string" && typeof o.text === "string";
+}
+
+/** Цели из `tool_result` строки ленты или события `tool`: только от инструментов целей
+ *  и только элементы формы цели. Отказ инструмента — пусто. */
+export function objectivesOf(
+  toolName: string | null | undefined,
+  toolResult: Record<string, unknown> | null,
+): LessonChatObjective[] {
+  if (!toolName || !OBJECTIVE_TOOLS.has(toolName)) return [];
   const items = toolResult?.items;
-  return Array.isArray(items) ? (items as LessonChatObjective[]) : [];
+  return Array.isArray(items) ? items.filter(isObjective) : [];
 }
 
 /* ============ Уровни и виды ============ */

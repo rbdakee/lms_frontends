@@ -69,6 +69,70 @@ export function BotBubble({ children }: { children: ReactNode }) {
   );
 }
 
+/** Жирное `**...**` внутри строки; остальное — обычный текст (React экранирует сам). */
+function inline(text: string): ReactNode[] {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part));
+}
+
+/**
+ * Минимальный маркдаун ответа помощника: абзацы, переносы, списки «- »/«1. », жирный.
+ * Разбор в элементы React, а не в HTML-строку: сырой текст модели в разметку не попадает.
+ */
+export function Markdown({ text }: { text: string }) {
+  const blocks: ReactNode[] = [];
+  let para: string[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+  const flushPara = () => {
+    if (para.length === 0) return;
+    const lines = para;
+    para = [];
+    blocks.push(
+      <p key={blocks.length} style={{ margin: 0 }}>
+        {lines.map((l, i) => (
+          <span key={i}>
+            {i > 0 && <br />}
+            {inline(l)}
+          </span>
+        ))}
+      </p>,
+    );
+  };
+  const flushList = () => {
+    if (!list) return;
+    const { ordered, items } = list;
+    list = null;
+    const Tag = ordered ? "ol" : "ul";
+    blocks.push(
+      <Tag key={blocks.length} style={{ margin: 0, paddingLeft: 22 }}>
+        {items.map((it, i) => (
+          <li key={i}>{inline(it)}</li>
+        ))}
+      </Tag>,
+    );
+  };
+  for (const line of text.split("\n")) {
+    const item = /^\s*(?:([-*•])|(\d+)[.)])\s+(.*)$/.exec(line);
+    if (item) {
+      flushPara();
+      const ordered = item[2] !== undefined;
+      if (list && list.ordered !== ordered) flushList();
+      if (!list) list = { ordered, items: [] };
+      list.items.push(item[3]);
+    } else if (line.trim() === "") {
+      flushPara();
+      flushList();
+    } else {
+      flushList();
+      para.push(line);
+    }
+  }
+  flushPara();
+  flushList();
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, whiteSpace: "normal" }}>{blocks}</div>
+  );
+}
+
 /** Помощник работает: три точки и подпись, что именно он делает. */
 export function Thinking({ text }: { text: string }) {
   return (
